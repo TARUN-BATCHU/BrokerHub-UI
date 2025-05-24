@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,6 +11,7 @@ import {
   LineElement,
 } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import useResponsive from '../hooks/useResponsive';
 
 ChartJS.register(
   CategoryScale,
@@ -27,6 +27,7 @@ ChartJS.register(
 
 // Sales Chart Component
 export const SalesChart = ({ data }) => {
+  const { isMobile } = useResponsive();
   const chartData = {
     labels: data.map(item => item.month),
     datasets: [
@@ -42,21 +43,41 @@ export const SalesChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
+        position: isMobile ? 'bottom' : 'top',
+        labels: {
+          padding: isMobile ? 10 : 20,
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       },
       title: {
         display: true,
         text: 'Monthly Sales Performance',
+        font: {
+          size: isMobile ? 12 : 14
+        }
       },
     },
     scales: {
       y: {
         beginAtZero: true,
         ticks: {
+          font: {
+            size: isMobile ? 10 : 12
+          },
           callback: function(value) {
             return '₹' + (value / 1000) + 'K';
+          }
+        }
+      },
+      x: {
+        ticks: {
+          font: {
+            size: isMobile ? 10 : 12
           }
         }
       }
@@ -68,6 +89,7 @@ export const SalesChart = ({ data }) => {
 
 // Quantity Chart Component
 export const QuantityChart = ({ data }) => {
+  const { isMobile } = useResponsive();
   const chartData = {
     labels: data.map(item => item.month),
     datasets: [
@@ -83,18 +105,40 @@ export const QuantityChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
+        position: isMobile ? 'bottom' : 'top',
+        labels: {
+          padding: isMobile ? 10 : 20,
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       },
       title: {
         display: true,
         text: 'Monthly Quantity Sold',
+        font: {
+          size: isMobile ? 12 : 14
+        }
       },
     },
     scales: {
       y: {
         beginAtZero: true,
+        ticks: {
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
+      },
+      x: {
+        ticks: {
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       }
     }
   };
@@ -104,6 +148,7 @@ export const QuantityChart = ({ data }) => {
 
 // Product Distribution Pie Chart
 export const ProductPieChart = ({ data }) => {
+  const { isMobile } = useResponsive();
   const chartData = {
     labels: data.map(item => item.product),
     datasets: [
@@ -134,13 +179,23 @@ export const ProductPieChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'right',
+        position: isMobile ? 'bottom' : 'right',
+        labels: {
+          padding: isMobile ? 10 : 20,
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       },
       title: {
         display: true,
         text: 'Product Distribution',
+        font: {
+          size: isMobile ? 12 : 14
+        }
       },
     },
   };
@@ -150,6 +205,7 @@ export const ProductPieChart = ({ data }) => {
 
 // City Analytics Bar Chart
 export const CityChart = ({ data }) => {
+  const { isMobile } = useResponsive();
   const chartData = {
     labels: data.map(item => item.city),
     datasets: [
@@ -168,18 +224,40 @@ export const CityChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
+        position: isMobile ? 'bottom' : 'top',
+        labels: {
+          padding: isMobile ? 10 : 20,
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       },
       title: {
         display: true,
         text: 'City-wise Buyers vs Sellers',
+        font: {
+          size: isMobile ? 12 : 14
+        }
       },
     },
     scales: {
       y: {
         beginAtZero: true,
+        ticks: {
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
+      },
+      x: {
+        ticks: {
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       }
     }
   };
@@ -189,6 +267,7 @@ export const CityChart = ({ data }) => {
 
 // Top Performers Chart
 export const TopPerformersChart = ({ buyers, sellers }) => {
+  const { isMobile } = useResponsive();
   const chartData = {
     labels: buyers.slice(0, 5).map(item => item.name),
     datasets: [
@@ -202,21 +281,41 @@ export const TopPerformersChart = ({ buyers, sellers }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
+        position: isMobile ? 'bottom' : 'top',
+        labels: {
+          padding: isMobile ? 10 : 20,
+          font: {
+            size: isMobile ? 10 : 12
+          }
+        }
       },
       title: {
         display: true,
         text: 'Top 5 Buyers by Purchase Amount',
+        font: {
+          size: isMobile ? 12 : 14
+        }
       },
     },
     scales: {
       y: {
         beginAtZero: true,
         ticks: {
+          font: {
+            size: isMobile ? 10 : 12
+          },
           callback: function(value) {
             return '₹' + (value / 1000) + 'K';
+          }
+        }
+      },
+      x: {
+        ticks: {
+          font: {
+            size: isMobile ? 10 : 12
           }
         }
       }
