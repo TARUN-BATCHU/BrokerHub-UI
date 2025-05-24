@@ -14,9 +14,31 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
-    if (token) {
+
+    // For specific endpoints that require Basic Auth, use hardcoded credentials
+    const basicAuthEndpoints = [
+      '/Broker/getBroker/',
+      '/user/allUsers',
+      '/user/updateUser',
+      '/user/bulkUpload',
+      '/user/downloadTemplate'
+    ];
+
+    const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
+      config.url.includes(endpoint)
+    );
+
+    if (needsBasicAuth) {
+      // Use Basic Authentication with hardcoded credentials
+      const username = 'tarun';
+      const password = 'securePassword123';
+      const basicAuth = btoa(`${username}:${password}`);
+      config.headers.Authorization = `Basic ${basicAuth}`;
+      console.log('Using Basic Auth for:', config.url);
+    } else if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => {
@@ -54,13 +76,80 @@ export const authAPI = {
   loginBroker: async (credentials) => {
     try {
       const response = await api.post('/Broker/login', credentials);
-      if (response.data.token) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem('brokerData', JSON.stringify(response.data.broker));
+
+      console.log('Login API Response:', response);
+      console.log('Response Status:', response.status);
+      console.log('Response Data:', response.data);
+
+      // If response is successful (200)
+      if (response.status === 200) {
+        console.log('Login successful, processing response...');
+
+        // Extract broker ID from response message
+        let brokerId = null;
+
+        // Check if response has a message like "Login successful 8"
+        if (response.data && typeof response.data === 'string') {
+          const match = response.data.match(/Login successful\s+(\d+)/i);
+          if (match) {
+            brokerId = match[1];
+            console.log('Extracted broker ID from message:', brokerId);
+          }
+        }
+
+        // Check if response has message property
+        if (!brokerId && response.data && response.data.message) {
+          const match = response.data.message.match(/Login successful\s+(\d+)/i);
+          if (match) {
+            brokerId = match[1];
+            console.log('Extracted broker ID from message property:', brokerId);
+          }
+        }
+
+        // Check if broker ID is directly in response
+        if (!brokerId && response.data && response.data.brokerId) {
+          brokerId = response.data.brokerId.toString();
+          console.log('Found broker ID in response data:', brokerId);
+        }
+
+        // Handle different token scenarios
+        if (response.data.token) {
+          // If token is directly in response.data
+          localStorage.setItem('authToken', response.data.token);
+          localStorage.setItem('brokerData', JSON.stringify(response.data.broker || response.data));
+        } else if (response.data.data && response.data.data.token) {
+          // If token is nested in response.data.data
+          localStorage.setItem('authToken', response.data.data.token);
+          localStorage.setItem('brokerData', JSON.stringify(response.data.data.broker || response.data.data));
+        } else {
+          // If no token but successful response, create a temporary token
+          const tempToken = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          localStorage.setItem('authToken', tempToken);
+          console.log('Created temporary token for session');
+        }
+
+        // Store broker ID if found
+        if (brokerId) {
+          localStorage.setItem('brokerId', brokerId);
+          console.log('Stored broker ID:', brokerId);
+        } else {
+          console.warn('No broker ID found in response, using default for testing');
+          localStorage.setItem('brokerId', '8'); // Default for testing
+        }
+
+        console.log('Token stored:', localStorage.getItem('authToken'));
+        console.log('Broker ID stored:', localStorage.getItem('brokerId'));
       }
+
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Login API Error:', error);
+      console.error('Error Response:', error.response);
+
+      // Add status code to the error object for better error handling
+      const errorToThrow = error.response?.data || { message: error.message };
+      errorToThrow.status = error.response?.status;
+      throw errorToThrow;
     }
   },
 
@@ -126,10 +215,25 @@ export const authAPI = {
     }
   },
 
-  // Get broker profile
-  getBrokerProfile: async () => {
+  // Get broker profile by ID
+  getBrokerProfile: async (brokerId) => {
     try {
-      const response = await api.get('/Broker/profile');
+      console.log('Fetching broker profile for ID:', brokerId);
+      const response = await api.get(`/Broker/getBroker/${brokerId}`);
+      console.log('Broker profile response:', response);
+      console.log('Broker profile data:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching broker profile:', error);
+      console.error('Error response:', error.response);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update broker profile
+  updateBrokerProfile: async (brokerData) => {
+    try {
+      const response = await api.put('/Broker/updateBroker', brokerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -140,6 +244,7 @@ export const authAPI = {
   logout: () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('brokerData');
+    localStorage.removeItem('brokerId');
   }
 };
 
@@ -155,12 +260,20 @@ export const merchantAPI = {
     }
   },
 
-  // Get all merchants
+  // Get all merchants/users
   getAllMerchants: async () => {
     try {
-      const response = await api.get('/user/merchants');
+      console.log('Fetching all merchants/users...');
+      const response = await api.get('/user/allUsers');
+      console.log('All merchants response:', response);
+      console.log('All merchants data:', response.data);
+      console.log('Response status:', response.status);
       return response.data;
     } catch (error) {
+      console.error('Error fetching all merchants:', error);
+      console.error('Error response:', error.response);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
       throw error.response?.data || error.message;
     }
   },
@@ -175,12 +288,52 @@ export const merchantAPI = {
     }
   },
 
-  // Update merchant
-  updateMerchant: async (id, userData) => {
+  // Update merchant/user
+  updateMerchant: async (userData) => {
     try {
-      const response = await api.put(`/user/merchant/${id}`, userData);
+      const response = await api.put('/user/updateUser', userData);
       return response.data;
     } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download Excel template for bulk upload
+  downloadTemplate: async () => {
+    try {
+      console.log('Downloading Excel template...');
+      const response = await api.get('/user/downloadTemplate', {
+        responseType: 'blob',
+      });
+
+      console.log('Template download response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error downloading template:', error);
+      console.error('Error response:', error.response);
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Bulk upload merchants via Excel
+  bulkUploadMerchants: async (file) => {
+    try {
+      console.log('Uploading bulk merchants file:', file.name);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await api.post('/user/bulkUpload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('Bulk upload response:', response);
+      console.log('Upload result:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading bulk merchants:', error);
+      console.error('Error response:', error.response);
       throw error.response?.data || error.message;
     }
   },
@@ -250,3 +403,5 @@ export const analyticsAPI = {
 };
 
 export default api;
+
+

@@ -8,7 +8,7 @@ import ChangePassword from './pages/ChangePassword';
 import VerifyAccount from './pages/VerifyAccount';
 import Dashboard from './pages/Dashboard';
 import CreateMerchant from './pages/CreateMerchant';
-import TestNavigation from './components/TestNavigation';
+import SettingsDropdown from './components/SettingsDropdown';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -26,7 +26,7 @@ function App() {
   return (
     <Router>
       <div className="App">
-        <TestNavigation />
+        <SettingsDropdown />
         <Routes>
           {/* Public routes */}
           <Route
