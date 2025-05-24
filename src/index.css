@@ -150,13 +150,176 @@ code {
 }
 
 /* Responsive design */
+/* Mobile First Approach */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  .btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-height: 40px;
+  }
+
+  .form-input {
+    padding: 10px 14px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  .auth-card {
+    padding: 20px !important;
+    margin: 10px !important;
+  }
+
+  .auth-header h1 {
+    font-size: 22px !important;
+  }
+
+  .auth-header p {
+    font-size: 14px !important;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 16px;
   }
-  
+
   .btn {
     padding: 10px 20px;
     font-size: 14px;
+  }
+
+  /* Dashboard responsive utilities */
+  .dashboard-header {
+    flex-direction: column !important;
+    gap: 16px !important;
+    text-align: center;
+  }
+
+  .dashboard-header-actions {
+    flex-direction: column !important;
+    width: 100%;
+    gap: 12px !important;
+  }
+
+  .dashboard-header-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .dashboard-analytics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .dashboard-tabs {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .dashboard-tab {
+    flex: 1 !important;
+    min-width: 120px !important;
+    text-align: center !important;
+  }
+
+  .merchant-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .merchant-table {
+    min-width: 800px !important;
+  }
+
+  .merchant-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .merchant-search-container {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .merchant-search-input {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-analytics-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Form responsive utilities */
+@media (max-width: 768px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .form-actions {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .form-actions .btn {
+    width: 100% !important;
+  }
+}
+
+/* Utility classes for responsive design */
+.mobile-hidden {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block !important;
+  }
+
+  .mobile-flex {
+    display: flex !important;
+  }
+}
+
+/* Text responsive utilities */
+@media (max-width: 768px) {
+  .responsive-text-lg {
+    font-size: 20px !important;
+  }
+
+  .responsive-text-xl {
+    font-size: 24px !important;
+  }
+
+  .responsive-text-2xl {
+    font-size: 28px !important;
   }
 }

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { authAPI, merchantAPI } from '../services/api';
 import { SalesChart, QuantityChart, ProductPieChart, CityChart, TopPerformersChart } from '../components/Charts';
+import useResponsive from '../hooks/useResponsive';
 import {
   mockSalesData,
   mockTopBuyers,
@@ -13,6 +14,7 @@ import {
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isMobile, isTablet } = useResponsive();
   const [brokerData, setBrokerData] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -372,27 +374,44 @@ const Dashboard = () => {
   }
 
   return (
-    <div style={{ padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{
+      padding: isMobile ? '12px' : '20px',
+      backgroundColor: '#f8fafc',
+      minHeight: '100vh'
+    }}>
       {/* Header */}
-      <header style={{
+      <header className="dashboard-header" style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '30px',
-        padding: '20px',
+        padding: isMobile ? '16px' : '20px',
         backgroundColor: 'white',
         borderRadius: '12px',
         boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
       }}>
         <div>
-          <h1 style={{ margin: 0, color: '#1e293b', fontSize: '28px', fontWeight: '700' }}>
+          <h1 className="responsive-text-2xl" style={{
+            margin: 0,
+            color: '#1e293b',
+            fontSize: '28px',
+            fontWeight: '700'
+          }}>
             BrokerHub Dashboard
           </h1>
-          <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '16px' }}>
+          <p style={{
+            margin: '4px 0 0 0',
+            color: '#64748b',
+            fontSize: isMobile ? '14px' : '16px'
+          }}>
             Welcome back, {brokerData?.brokerName || 'Broker User'}!
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div className="dashboard-header-actions" style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center'
+        }}>
           <Link
             to="/create-merchant"
             className="btn btn-primary"
@@ -432,9 +451,11 @@ const Dashboard = () => {
         marginBottom: '20px',
         boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
       }}>
-        <div style={{
+        <div className="dashboard-tabs" style={{
           display: 'flex',
-          borderBottom: '1px solid #e5e7eb'
+          borderBottom: '1px solid #e5e7eb',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch'
         }}>
           {[
             { id: 'overview', label: 'Overview' },
@@ -445,15 +466,18 @@ const Dashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              className="dashboard-tab"
               style={{
-                padding: '16px 24px',
+                padding: isMobile ? '12px 16px' : '16px 24px',
                 border: 'none',
                 backgroundColor: 'transparent',
                 color: activeTab === tab.id ? '#3b82f6' : '#64748b',
                 fontWeight: activeTab === tab.id ? '600' : '400',
                 borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
                 cursor: 'pointer',
-                fontSize: '14px'
+                fontSize: '14px',
+                whiteSpace: 'nowrap',
+                minWidth: 'fit-content'
               }}
             >
               {tab.label}
@@ -466,10 +490,10 @@ const Dashboard = () => {
       {activeTab === 'overview' && (
         <div>
           {/* Key Metrics Cards */}
-          <div style={{
+          <div className="dashboard-stats-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '20px',
+            gap: isMobile ? '16px' : '20px',
             marginBottom: '30px'
           }}>
             <div style={{
@@ -581,10 +605,10 @@ const Dashboard = () => {
           </div>
 
           {/* Charts Row */}
-          <div style={{
+          <div className="dashboard-charts-grid" style={{
             display: 'grid',
-            gridTemplateColumns: '2fr 1fr',
-            gap: '20px',
+            gridTemplateColumns: (isMobile || isTablet) ? '1fr' : '2fr 1fr',
+            gap: isMobile ? '16px' : '20px',
             marginBottom: '30px'
           }}>
             <div style={{
@@ -592,7 +616,8 @@ const Dashboard = () => {
               padding: '24px',
               borderRadius: '12px',
               boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb',
+              height: isMobile ? '300px' : '400px'
             }}>
               <SalesChart data={analyticsData.sales.monthlySales} />
             </div>
@@ -602,17 +627,18 @@ const Dashboard = () => {
               padding: '24px',
               borderRadius: '12px',
               boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb',
+              height: isMobile ? '300px' : '400px'
             }}>
               <ProductPieChart data={analyticsData.productAnalytics} />
             </div>
           </div>
 
           {/* Top Performers */}
-          <div style={{
+          <div className="dashboard-analytics-grid" style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '20px'
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: isMobile ? '16px' : '20px'
           }}>
             <div style={{
               backgroundColor: 'white',
@@ -688,10 +714,10 @@ const Dashboard = () => {
       {/* Analytics Tab */}
       {activeTab === 'analytics' && (
         <div>
-          <div style={{
+          <div className="dashboard-analytics-grid" style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '20px',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: isMobile ? '16px' : '20px',
             marginBottom: '30px'
           }}>
             <div style={{
@@ -699,7 +725,8 @@ const Dashboard = () => {
               padding: '24px',
               borderRadius: '12px',
               boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb',
+              height: isMobile ? '300px' : '400px'
             }}>
               <QuantityChart data={analyticsData.sales.monthlySales} />
             </div>
@@ -709,7 +736,8 @@ const Dashboard = () => {
               padding: '24px',
               borderRadius: '12px',
               boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              border: '1px solid #e5e7eb',
+              height: isMobile ? '300px' : '400px'
             }}>
               <CityChart data={analyticsData.cityAnalytics} />
             </div>
@@ -775,9 +803,21 @@ const Dashboard = () => {
             boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
             border: '1px solid #e5e7eb'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div className="merchant-search-container" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              marginBottom: '20px',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '16px' : '0'
+            }}>
               <h3 style={{ margin: 0, color: '#1e293b' }}>Merchant Directory ({Array.isArray(merchants) ? merchants.length : 0})</h3>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div className="merchant-actions" style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                flexWrap: 'wrap'
+              }}>
                 <button
                   onClick={loadMerchantsData}
                   disabled={loading}
@@ -825,12 +865,13 @@ const Dashboard = () => {
                 placeholder="Search merchants by name, firm, email, or city..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="merchant-search-input"
                 style={{
                   width: '100%',
                   padding: '12px 16px',
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
-                  fontSize: '14px',
+                  fontSize: isMobile ? '16px' : '14px', // Prevents zoom on iOS
                   outline: 'none'
                 }}
                 onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
@@ -892,8 +933,15 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="merchant-table-container" style={{
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch'
+            }}>
+              <table className="merchant-table" style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                minWidth: isMobile ? '800px' : 'auto'
+              }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f8fafc' }}>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Firm Name</th>
@@ -1110,10 +1158,10 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div style={{
+          <div className="dashboard-stats-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: '20px'
+            gap: isMobile ? '16px' : '20px'
           }}>
           <div style={{
             backgroundColor: 'white',

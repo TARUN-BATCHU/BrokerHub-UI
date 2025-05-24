@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
 import { merchantAPI } from '../services/api';
+import useResponsive from '../hooks/useResponsive';
 import './Auth.css';
 
 const CreateMerchant = () => {
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const [formData, setFormData] = useState({
     userType: 'TRADER',
     gstNumber: '',
@@ -35,7 +37,7 @@ const CreateMerchant = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -43,7 +45,7 @@ const CreateMerchant = () => {
         [name]: ''
       }));
     }
-    
+
     if (apiError) {
       setApiError('');
     }
@@ -130,7 +132,7 @@ const CreateMerchant = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -143,7 +145,7 @@ const CreateMerchant = () => {
     try {
       // Filter out empty phone numbers
       const phoneNumbers = formData.phoneNumbers.filter(phone => phone.trim() !== '');
-      
+
       const merchantData = {
         ...formData,
         phoneNumbers,
@@ -151,10 +153,10 @@ const CreateMerchant = () => {
       };
 
       await merchantAPI.createUser(merchantData);
-      
-      navigate('/dashboard', { 
-        state: { 
-          message: 'Merchant created successfully!' 
+
+      navigate('/dashboard', {
+        state: {
+          message: 'Merchant created successfully!'
         }
       });
     } catch (error) {
@@ -197,7 +199,11 @@ const CreateMerchant = () => {
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="GST Number"
               name="gstNumber"
@@ -219,7 +225,11 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="Owner Name"
               name="ownerName"
@@ -242,7 +252,11 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="City"
               name="city"
@@ -274,7 +288,11 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="Primary Phone"
               name="phoneNumber1"
@@ -294,7 +312,11 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="Shop Number"
               name="shopNumber"
@@ -325,7 +347,11 @@ const CreateMerchant = () => {
             required
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="Bank Name"
               name="bankName"
@@ -347,7 +373,11 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
             <FormInput
               label="Account Number"
               name="accountNumber"
@@ -369,7 +399,7 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div className="auth-actions step-actions">
+          <div className="auth-actions step-actions form-actions">
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
@@ -377,7 +407,7 @@ const CreateMerchant = () => {
             >
               Cancel
             </button>
-            
+
             <LoadingButton
               type="submit"
               loading={loading}
