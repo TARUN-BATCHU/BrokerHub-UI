@@ -22,7 +22,7 @@ export const validatePassword = (password) => {
 };
 
 export const validateIFSC = (ifsc) => {
-  const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+  const ifscRegex = /^[A-Z]{4}[0-9]{7}$/;
   return ifscRegex.test(ifsc);
 };
 
@@ -148,3 +148,4 @@ export const validateLoginForm = (formData) => {
     errors
   };
 };
+

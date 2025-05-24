@@ -7,6 +7,7 @@ import CreatePassword from './pages/CreatePassword';
 import ChangePassword from './pages/ChangePassword';
 import VerifyAccount from './pages/VerifyAccount';
 import Dashboard from './pages/Dashboard';
+import CreateMerchant from './pages/CreateMerchant';
 import TestNavigation from './components/TestNavigation';
 
 // Protected Route component
@@ -83,6 +84,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-merchant"
+            element={
+              <ProtectedRoute>
+                <CreateMerchant />
               </ProtectedRoute>
             }
           />
