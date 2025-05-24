@@ -65,13 +65,67 @@ const Login = () => {
     setApiError('');
 
     try {
+      console.log('Attempting login with:', formData);
       const response = await authAPI.loginBroker(formData);
 
-      // Success - redirect to dashboard
-      navigate('/dashboard');
+      console.log('Login successful, response:', response);
+
+      // Check if token and broker ID were stored
+      const storedToken = localStorage.getItem('authToken');
+      const storedBrokerId = localStorage.getItem('brokerId');
+
+      console.log('Stored token:', storedToken);
+      console.log('Stored broker ID:', storedBrokerId);
+
+      // Fetch broker details using the extracted broker ID
+      if (storedBrokerId) {
+        try {
+          console.log('Fetching broker details for ID:', storedBrokerId);
+          const brokerDetails = await authAPI.getBrokerProfile(storedBrokerId);
+          console.log('Broker details fetched:', brokerDetails);
+
+          // Store the detailed broker data
+          localStorage.setItem('brokerData', JSON.stringify(brokerDetails));
+          console.log('Broker details stored in localStorage');
+
+          // Success - redirect to dashboard with success message including broker name
+          navigate('/dashboard', {
+            state: {
+              message: `Login successful! Welcome ${brokerDetails.brokerName || 'to BrokerHub Dashboard'}.`
+            }
+          });
+        } catch (brokerError) {
+          console.error('Error fetching broker details:', brokerError);
+          // Still redirect to dashboard even if broker details fetch fails
+          navigate('/dashboard', {
+            state: {
+              message: 'Login successful! Welcome to BrokerHub Dashboard.'
+            }
+          });
+        }
+      } else {
+        // No broker ID found, redirect anyway
+        navigate('/dashboard', {
+          state: {
+            message: 'Login successful! Welcome to BrokerHub Dashboard.'
+          }
+        });
+      }
+
+      console.log('Navigation to dashboard initiated');
     } catch (error) {
       console.error('Login error:', error);
-      setApiError(error.message || 'Login failed. Please check your credentials.');
+
+      // Handle different error scenarios
+      if (error.status === 401) {
+        setApiError('Invalid username or password. Please try again.');
+      } else if (error.status === 403) {
+        setApiError('Account access denied. Please contact support.');
+      } else if (error.status === 404) {
+        setApiError('User not found. Please check your username.');
+      } else {
+        setApiError(error.message || 'Login failed. Please check your credentials and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -155,3 +209,5 @@ const Login = () => {
 };
 
 export default Login;
+
+
