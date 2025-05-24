@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -8,6 +9,7 @@ import ChangePassword from './pages/ChangePassword';
 import VerifyAccount from './pages/VerifyAccount';
 import Dashboard from './pages/Dashboard';
 import CreateMerchant from './pages/CreateMerchant';
+import FinancialYears from './pages/FinancialYears';
 import SettingsDropdown from './components/SettingsDropdown';
 
 // Protected Route component
@@ -24,10 +26,12 @@ const PublicRoute = ({ children }) => {
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <SettingsDropdown />
-        <Routes>
+    <ThemeProvider>
+      <Router>
+        <div className="App">
+          {/* Show settings dropdown on all pages */}
+          <SettingsDropdown isDashboard={window.location.pathname === '/dashboard'} />
+          <Routes>
           {/* Public routes */}
           <Route
             path="/login"
@@ -95,6 +99,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/financial-years"
+            element={
+              <ProtectedRoute>
+                <FinancialYears />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/login" replace />} />
@@ -104,6 +116,7 @@ function App() {
         </Routes>
       </div>
     </Router>
+    </ThemeProvider>
   );
 }
 

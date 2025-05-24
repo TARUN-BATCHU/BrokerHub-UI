@@ -4,11 +4,14 @@ import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
 import { authAPI } from '../services/api';
 import { validateLoginForm } from '../utils/validation';
+import { useTheme } from '../contexts/ThemeContext';
+
 import './Auth.css';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme } = useTheme();
   const [formData, setFormData] = useState({
     userName: '',
     password: ''
@@ -132,11 +135,25 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
+    <div
+      className="auth-container"
+      style={{
+        backgroundColor: theme.background,
+        transition: 'background-color 0.3s ease'
+      }}
+      data-theme={theme.isDarkMode ? 'dark' : 'light'}
+    >
+
+
+      <div className="auth-card" style={{
+        backgroundColor: theme.cardBackground,
+        border: `1px solid ${theme.border}`,
+        boxShadow: theme.shadowModal,
+        transition: 'all 0.3s ease'
+      }}>
         <div className="auth-header">
-          <h1>Welcome to BrokerHub</h1>
-          <p>Sign in to your account to continue</p>
+          <h1 style={{ color: theme.textPrimary }}>Welcome to BrokerHub</h1>
+          <p style={{ color: theme.textSecondary }}>Sign in to your account to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">

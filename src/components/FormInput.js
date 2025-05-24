@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const FormInput = ({
   label,
@@ -12,10 +13,16 @@ const FormInput = ({
   disabled = false,
   ...props
 }) => {
+  const { theme } = useTheme();
+
   return (
     <div className="form-group">
       {label && (
-        <label htmlFor={name} className="form-label">
+        <label
+          htmlFor={name}
+          className="form-label"
+          style={{ color: theme.textPrimary }}
+        >
           {label}
           {required && <span style={{ color: '#ef4444' }}>*</span>}
         </label>
@@ -29,6 +36,11 @@ const FormInput = ({
         placeholder={placeholder}
         disabled={disabled}
         className={`form-input ${error ? 'error' : ''}`}
+        style={{
+          backgroundColor: theme.cardBackground,
+          borderColor: error ? '#ef4444' : theme.border,
+          color: theme.textPrimary
+        }}
         {...props}
       />
       {error && <div className="form-error">{error}</div>}

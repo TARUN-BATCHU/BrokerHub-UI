@@ -21,7 +21,13 @@ api.interceptors.request.use(
       '/user/allUsers',
       '/user/updateUser',
       '/user/bulkUpload',
-      '/user/downloadTemplate'
+      '/user/downloadTemplate',
+      '/FinancialYear/create',
+      '/FinancialYear/getAllFinancialYears',
+      '/Product/createProduct',
+      '/Product/allProducts',
+      '/Product/updateProduct',
+      '/Product/deleteProduct'
     ];
 
     const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
@@ -395,6 +401,72 @@ export const analyticsAPI = {
   getProductAnalytics: async () => {
     try {
       const response = await api.get('/analytics/products');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Financial Year API functions
+export const financialYearAPI = {
+  // Create financial year
+  createFinancialYear: async (financialYearData) => {
+    try {
+      const response = await api.post('/FinancialYear/create', financialYearData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all financial years
+  getAllFinancialYears: async () => {
+    try {
+      const response = await api.get('/FinancialYear/getAllFinancialYears');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Product API functions
+export const productAPI = {
+  // Create product
+  createProduct: async (productData) => {
+    try {
+      const response = await api.post('/Product/createProduct', productData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all products
+  getAllProducts: async (page = 0, size = 10) => {
+    try {
+      const response = await api.get(`/Product/allProducts?page=${page}&size=${size}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update product
+  updateProduct: async (productData) => {
+    try {
+      const response = await api.put('/Product/updateProduct', productData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete product
+  deleteProduct: async (productId) => {
+    try {
+      const response = await api.delete(`/Product/deleteProduct?productId=${productId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
