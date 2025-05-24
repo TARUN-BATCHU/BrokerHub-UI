@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI } from '../services/api';
+import { authAPI, merchantAPI, productAPI } from '../services/api';
 import { SalesChart, QuantityChart, ProductPieChart, CityChart, TopPerformersChart } from '../components/Charts';
 import useResponsive from '../hooks/useResponsive';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   mockSalesData,
   mockTopBuyers,
@@ -15,6 +16,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile, isTablet } = useResponsive();
+  const { theme } = useTheme();
   const [brokerData, setBrokerData] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -34,6 +36,11 @@ const Dashboard = () => {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  const [products, setProducts] = useState([]);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [expandedProducts, setExpandedProducts] = useState({});
 
   useEffect(() => {
     // Check if user is authenticated
@@ -109,6 +116,9 @@ const Dashboard = () => {
 
     // Load merchants data
     loadMerchantsData();
+
+    // Load products data
+    loadProductsData();
   }, [navigate, location]);
 
   const loadAnalyticsData = async () => {
@@ -179,10 +189,26 @@ const Dashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    authAPI.logout();
-    navigate('/login');
+  const loadProductsData = async () => {
+    try {
+      console.log('Loading products data...');
+      const productsData = await productAPI.getAllProducts(0, 100); // Load first 100 products
+      console.log('Loaded products data:', productsData);
+
+      // Ensure we always set an array
+      if (Array.isArray(productsData)) {
+        setProducts(productsData);
+      } else {
+        console.warn('Products data is not an array:', productsData);
+        setProducts([]);
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+      setProducts([]);
+    }
   };
+
+
 
   const handleViewMerchant = (merchant) => {
     setSelectedMerchant(merchant);
@@ -200,6 +226,13 @@ const Dashboard = () => {
   const closeMerchantModal = () => {
     setShowMerchantModal(false);
     setSelectedMerchant(null);
+  };
+
+
+
+  const closeProductModal = () => {
+    setShowProductModal(false);
+    setSelectedProduct(null);
   };
 
   const handleUploadClick = () => {
@@ -359,6 +392,61 @@ const Dashboard = () => {
     return new Intl.NumberFormat('en-IN').format(num);
   };
 
+  const toggleProductExpansion = (productName) => {
+    setExpandedProducts(prev => ({
+      ...prev,
+      [productName]: !prev[productName]
+    }));
+  };
+
+  const getProductIcon = (productName) => {
+    const name = productName.toLowerCase();
+    if (name.includes('rice') || name.includes('chawal')) return '🍚';
+    if (name.includes('dal') || name.includes('lentil')) return '🫘';
+    if (name.includes('wheat') || name.includes('gehun')) return '🌾';
+    if (name.includes('channa') || name.includes('chickpea')) return '🫛';
+    if (name.includes('moong') || name.includes('mung')) return '🫛';
+    if (name.includes('corn') || name.includes('maize')) return '🌽';
+    if (name.includes('bajra') || name.includes('millet')) return '🌾';
+    return '🌾'; // Default grain icon
+  };
+
+
+
+  // Group products by name for card display
+  const groupProductsForCards = (products) => {
+    const grouped = {};
+
+    products.forEach(product => {
+      const productName = product.productName || 'Unknown Product';
+
+      if (!grouped[productName]) {
+        grouped[productName] = {
+          name: productName,
+          products: [],
+          totalQuantity: 0,
+          avgPrice: 0,
+          qualityCount: 0,
+          imgLink: product.imgLink || null
+        };
+      }
+
+      grouped[productName].products.push(product);
+      grouped[productName].totalQuantity += product.quantity || 0;
+    });
+
+    // Calculate averages and counts
+    Object.values(grouped).forEach(group => {
+      const totalPrice = group.products.reduce((sum, p) => sum + (p.price || 0), 0);
+      group.avgPrice = group.products.length > 0 ? totalPrice / group.products.length : 0;
+
+      const uniqueQualities = [...new Set(group.products.map(p => p.quality || 'Standard'))];
+      group.qualityCount = uniqueQualities.length;
+    });
+
+    return grouped;
+  };
+
   // Show loading only briefly, then show dashboard with default data
   if (!brokerData) {
     return (
@@ -376,8 +464,9 @@ const Dashboard = () => {
   return (
     <div style={{
       padding: isMobile ? '12px' : '20px',
-      backgroundColor: '#f8fafc',
-      minHeight: '100vh'
+      backgroundColor: theme.background,
+      minHeight: '100vh',
+      transition: 'background-color 0.3s ease'
     }}>
       {/* Header */}
       <header className="dashboard-header" style={{
@@ -386,14 +475,16 @@ const Dashboard = () => {
         alignItems: 'center',
         marginBottom: '30px',
         padding: isMobile ? '16px' : '20px',
-        backgroundColor: 'white',
+        backgroundColor: theme.headerBackground,
         borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+        boxShadow: theme.shadow,
+        border: `1px solid ${theme.border}`,
+        transition: 'all 0.3s ease'
       }}>
         <div>
           <h1 className="responsive-text-2xl" style={{
             margin: 0,
-            color: '#1e293b',
+            color: theme.textPrimary,
             fontSize: '28px',
             fontWeight: '700'
           }}>
@@ -401,43 +492,26 @@ const Dashboard = () => {
           </h1>
           <p style={{
             margin: '4px 0 0 0',
-            color: '#64748b',
+            color: theme.textSecondary,
             fontSize: isMobile ? '14px' : '16px'
           }}>
             Welcome back, {brokerData?.brokerName || 'Broker User'}!
           </p>
         </div>
-        <div className="dashboard-header-actions" style={{
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center'
-        }}>
-          <Link
-            to="/create-merchant"
-            className="btn btn-primary"
-            style={{ textDecoration: 'none' }}
-          >
-            + Add Merchant
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="btn btn-outline"
-          >
-            Logout
-          </button>
-        </div>
+        {/* Settings dropdown will be positioned here by App.js */}
       </header>
 
       {/* Success Message */}
       {successMessage && (
         <div style={{
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          color: '#166534',
+          backgroundColor: theme.successBg,
+          border: `1px solid ${theme.successBorder}`,
+          color: theme.success,
           padding: '12px 16px',
           borderRadius: '8px',
           marginBottom: '20px',
-          fontSize: '14px'
+          fontSize: '14px',
+          transition: 'all 0.3s ease'
         }}>
           {successMessage}
         </div>
@@ -445,15 +519,17 @@ const Dashboard = () => {
 
       {/* Navigation Tabs */}
       <div style={{
-        backgroundColor: 'white',
+        backgroundColor: theme.cardBackground,
         borderRadius: '12px',
         padding: '0',
         marginBottom: '20px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+        boxShadow: theme.shadow,
+        border: `1px solid ${theme.border}`,
+        transition: 'all 0.3s ease'
       }}>
         <div className="dashboard-tabs" style={{
           display: 'flex',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: `1px solid ${theme.borderLight}`,
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch'
         }}>
@@ -461,6 +537,7 @@ const Dashboard = () => {
             { id: 'overview', label: 'Overview' },
             { id: 'analytics', label: 'Analytics' },
             { id: 'merchants', label: 'Merchants' },
+            { id: 'products', label: 'Products' },
             { id: 'profile', label: 'Profile' }
           ].map(tab => (
             <button
@@ -471,13 +548,26 @@ const Dashboard = () => {
                 padding: isMobile ? '12px 16px' : '16px 24px',
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: activeTab === tab.id ? '#3b82f6' : '#64748b',
+                color: activeTab === tab.id ? theme.buttonPrimary : theme.textSecondary,
                 fontWeight: activeTab === tab.id ? '600' : '400',
-                borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
+                borderBottom: activeTab === tab.id ? `2px solid ${theme.buttonPrimary}` : '2px solid transparent',
                 cursor: 'pointer',
                 fontSize: '14px',
                 whiteSpace: 'nowrap',
-                minWidth: 'fit-content'
+                minWidth: 'fit-content',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== tab.id) {
+                  e.currentTarget.style.color = theme.textPrimary;
+                  e.currentTarget.style.backgroundColor = theme.hoverBgLight;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== tab.id) {
+                  e.currentTarget.style.color = theme.textSecondary;
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
               {tab.label}
@@ -489,6 +579,133 @@ const Dashboard = () => {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div>
+          {/* Audit Ledger - Main Feature Highlight */}
+          <div style={{
+            background: `linear-gradient(135deg, ${theme.buttonPrimary} 0%, #8b5cf6 100%)`,
+            padding: '32px',
+            borderRadius: '16px',
+            marginBottom: '30px',
+            boxShadow: theme.shadowHover,
+            border: `1px solid ${theme.border}`,
+            position: 'relative',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease'
+          }}>
+            {/* Background Pattern */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '200px',
+              height: '200px',
+              background: 'rgba(255,255,255,0.1)',
+              borderRadius: '50%',
+              transform: 'translate(50%, -50%)'
+            }}></div>
+
+            <div style={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '20px' : '0'
+            }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '32px' }}>📊</span>
+                  <h2 style={{
+                    margin: 0,
+                    color: 'white',
+                    fontSize: '24px',
+                    fontWeight: '700'
+                  }}>
+                    Audit Ledger Management
+                  </h2>
+                </div>
+                <p style={{
+                  margin: '0 0 16px 0',
+                  color: 'rgba(255,255,255,0.9)',
+                  fontSize: '16px',
+                  maxWidth: '500px'
+                }}>
+                  Manage financial years, track transactions, and audit your business records with our comprehensive ledger system.
+                </p>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{
+                    color: 'rgba(255,255,255,0.8)',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    ✅ Financial Year Management
+                  </span>
+                  <span style={{
+                    color: 'rgba(255,255,255,0.8)',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    ✅ Transaction Tracking
+                  </span>
+                  <span style={{
+                    color: 'rgba(255,255,255,0.8)',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    ✅ Audit Reports
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
+                <Link
+                  to="/financial-years"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '16px 24px',
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    transition: 'all 0.3s ease',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <span style={{ fontSize: '18px' }}>🚀</span>
+                  Open Audit Ledger
+                </Link>
+                <p style={{
+                  margin: '8px 0 0 0',
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: '12px'
+                }}>
+                  Start managing your financial records
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Key Metrics Cards */}
           <div className="dashboard-stats-grid" style={{
             display: 'grid',
@@ -497,53 +714,55 @@ const Dashboard = () => {
             marginBottom: '30px'
           }}>
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: theme.cardBackground,
               padding: '24px',
               borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Total Sales</p>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#1e293b', fontSize: '24px', fontWeight: '700' }}>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Sales</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
                     {formatCurrency(analyticsData.sales.totalSales)}
                   </h3>
                 </div>
                 <div style={{
-                  backgroundColor: '#dbeafe',
+                  backgroundColor: theme.infoBg,
                   padding: '12px',
                   borderRadius: '8px',
-                  color: '#3b82f6',
+                  color: theme.info,
                   fontSize: '24px'
                 }}>
                   💰
                 </div>
               </div>
-              <p style={{ margin: '8px 0 0 0', color: '#10b981', fontSize: '12px' }}>
+              <p style={{ margin: '8px 0 0 0', color: theme.success, fontSize: '12px' }}>
                 +{analyticsData.sales.monthlyGrowth}% from last month
               </p>
             </div>
 
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: theme.cardBackground,
               padding: '24px',
               borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Total Quantity</p>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#1e293b', fontSize: '24px', fontWeight: '700' }}>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Quantity</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
                     {formatNumber(analyticsData.sales.totalQuantity)} Tons
                   </h3>
                 </div>
                 <div style={{
-                  backgroundColor: '#dcfce7',
+                  backgroundColor: theme.successBg,
                   padding: '12px',
                   borderRadius: '8px',
-                  color: '#22c55e',
+                  color: theme.success,
                   fontSize: '24px'
                 }}>
                   📦
@@ -552,24 +771,25 @@ const Dashboard = () => {
             </div>
 
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: theme.cardBackground,
               padding: '24px',
               borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Total Transactions</p>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#1e293b', fontSize: '24px', fontWeight: '700' }}>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Transactions</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
                     {formatNumber(analyticsData.sales.totalTransactions)}
                   </h3>
                 </div>
                 <div style={{
-                  backgroundColor: '#fef3c7',
+                  backgroundColor: theme.warningBg,
                   padding: '12px',
                   borderRadius: '8px',
-                  color: '#f59e0b',
+                  color: theme.warning,
                   fontSize: '24px'
                 }}>
                   📊
@@ -578,16 +798,17 @@ const Dashboard = () => {
             </div>
 
             <div style={{
-              backgroundColor: 'white',
+              backgroundColor: theme.cardBackground,
               padding: '24px',
               borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb'
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Active Merchants</p>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#1e293b', fontSize: '24px', fontWeight: '700' }}>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Active Merchants</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
                     {merchants.length}
                   </h3>
                 </div>
@@ -797,11 +1018,12 @@ const Dashboard = () => {
       {activeTab === 'merchants' && (
         <div>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: theme.cardBackground,
             padding: '24px',
             borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: '1px solid #e5e7eb'
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
           }}>
             <div className="merchant-search-container" style={{
               display: 'flex',
@@ -811,7 +1033,7 @@ const Dashboard = () => {
               flexDirection: isMobile ? 'column' : 'row',
               gap: isMobile ? '16px' : '0'
             }}>
-              <h3 style={{ margin: 0, color: '#1e293b' }}>Merchant Directory ({Array.isArray(merchants) ? merchants.length : 0})</h3>
+              <h3 style={{ margin: 0, color: theme.textPrimary }}>Merchant Directory ({Array.isArray(merchants) ? merchants.length : 0})</h3>
               <div className="merchant-actions" style={{
                 display: 'flex',
                 gap: '12px',
@@ -823,13 +1045,22 @@ const Dashboard = () => {
                   disabled={loading}
                   style={{
                     padding: '8px 16px',
-                    border: '1px solid #e5e7eb',
+                    border: `1px solid ${theme.border}`,
                     borderRadius: '6px',
-                    backgroundColor: 'white',
-                    color: '#374151',
+                    backgroundColor: theme.cardBackground,
+                    color: theme.textPrimary,
                     fontSize: '14px',
                     cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.6 : 1
+                    opacity: loading ? 0.6 : 1,
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading) {
+                      e.currentTarget.style.backgroundColor = theme.hoverBg;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.cardBackground;
                   }}
                 >
                   {loading ? '🔄 Loading...' : '🔄 Refresh'}
@@ -838,12 +1069,21 @@ const Dashboard = () => {
                   onClick={handleUploadClick}
                   style={{
                     padding: '8px 16px',
-                    border: '1px solid #10b981',
+                    border: `1px solid ${theme.success}`,
                     borderRadius: '6px',
-                    backgroundColor: '#ecfdf5',
-                    color: '#10b981',
+                    backgroundColor: theme.successBg,
+                    color: theme.success,
                     fontSize: '14px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.success;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.successBg;
+                    e.currentTarget.style.color = theme.success;
                   }}
                 >
                   📊 Bulk Upload
@@ -869,69 +1109,20 @@ const Dashboard = () => {
                 style={{
                   width: '100%',
                   padding: '12px 16px',
-                  border: '1px solid #e5e7eb',
+                  border: `1px solid ${theme.border}`,
                   borderRadius: '8px',
                   fontSize: isMobile ? '16px' : '14px', // Prevents zoom on iOS
-                  outline: 'none'
+                  outline: 'none',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  transition: 'border-color 0.2s ease'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                onFocus={(e) => e.target.style.borderColor = theme.primary}
+                onBlur={(e) => e.target.style.borderColor = theme.border}
               />
             </div>
 
-            {/* Debug Info - Remove this after testing */}
-            <div style={{
-              marginBottom: '20px',
-              padding: '12px',
-              backgroundColor: '#f8fafc',
-              borderRadius: '6px',
-              fontSize: '12px',
-              color: '#64748b'
-            }}>
-              <strong>Debug Info:</strong>
-              Merchants type: {typeof merchants},
-              Is Array: {Array.isArray(merchants) ? 'Yes' : 'No'},
-              Length: {Array.isArray(merchants) ? merchants.length : 'N/A'},
-              Loading: {loading ? 'Yes' : 'No'}
-              <br />
-              <button
-                onClick={() => {
-                  console.log('=== Manual API Test ===');
-                  loadMerchantsData();
-                }}
-                style={{
-                  marginTop: '8px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  border: '1px solid #3b82f6',
-                  borderRadius: '4px',
-                  backgroundColor: '#eff6ff',
-                  color: '#3b82f6',
-                  cursor: 'pointer'
-                }}
-              >
-                Test API Call
-              </button>
-              <button
-                onClick={() => {
-                  console.log('=== Manual Broker API Test ===');
-                  loadBrokerData();
-                }}
-                style={{
-                  marginTop: '8px',
-                  marginLeft: '8px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  border: '1px solid #10b981',
-                  borderRadius: '4px',
-                  backgroundColor: '#ecfdf5',
-                  color: '#10b981',
-                  cursor: 'pointer'
-                }}
-              >
-                Test Broker API
-              </button>
-            </div>
+
 
             <div className="merchant-table-container" style={{
               overflowX: 'auto',
@@ -943,15 +1134,15 @@ const Dashboard = () => {
                 minWidth: isMobile ? '800px' : 'auto'
               }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#f8fafc' }}>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Firm Name</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Owner</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Type</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>City</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Brokerage</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Bags Sold</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #e5e7eb' }}>Bags Bought</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Actions</th>
+                  <tr style={{ backgroundColor: theme.background }}>
+                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Firm Name</th>
+                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Owner</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Type</th>
+                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>City</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Brokerage</th>
+                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Sold</th>
+                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Bought</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -969,62 +1160,71 @@ const Dashboard = () => {
                     })
                     .map((merchant) => (
                     <tr key={merchant.userId}>
-                      <td style={{ padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                         <div>
-                          <p style={{ margin: 0, fontWeight: '500' }}>{merchant.firmName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{merchant.gstNumber || 'N/A'}</p>
+                          <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName || 'N/A'}</p>
+                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.gstNumber || 'N/A'}</p>
                         </div>
                       </td>
-                      <td style={{ padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                         <div>
-                          <p style={{ margin: 0 }}>{merchant.ownerName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{merchant.email || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.ownerName || 'N/A'}</p>
+                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.email || 'N/A'}</p>
+                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
                             {merchant.phoneNumbers && merchant.phoneNumbers.length > 0 ? merchant.phoneNumbers[0] : 'N/A'}
                           </p>
                         </div>
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
                         <span style={{
                           padding: '4px 8px',
                           borderRadius: '4px',
                           fontSize: '12px',
                           fontWeight: '500',
-                          backgroundColor: merchant.userType === 'Miller' ? '#dbeafe' : '#dcfce7',
-                          color: merchant.userType === 'Miller' ? '#3b82f6' : '#22c55e'
+                          backgroundColor: merchant.userType === 'Miller' ? theme.infoBg : theme.successBg,
+                          color: merchant.userType === 'Miller' ? theme.info : theme.success
                         }}>
                           {merchant.userType || 'User'}
                         </span>
                       </td>
-                      <td style={{ padding: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                         <div>
-                          <p style={{ margin: 0 }}>{merchant.address?.city || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.address?.city || 'N/A'}</p>
+                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
                             {merchant.address?.area || ''} {merchant.address?.pincode || ''}
                           </p>
                         </div>
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                         {merchant.brokerageRate || 0}%
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                         {formatNumber(merchant.totalBagsSold || 0)}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                         {formatNumber(merchant.totalBagsBought || 0)}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                           <button
                             onClick={() => handleViewMerchant(merchant)}
                             style={{
                               padding: '4px 8px',
-                              border: '1px solid #3b82f6',
+                              border: `1px solid ${theme.info}`,
                               borderRadius: '4px',
-                              backgroundColor: '#eff6ff',
-                              color: '#3b82f6',
+                              backgroundColor: theme.infoBg,
+                              color: theme.info,
                               fontSize: '12px',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = theme.info;
+                              e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = theme.infoBg;
+                              e.currentTarget.style.color = theme.info;
                             }}
                           >
                             View
@@ -1033,12 +1233,21 @@ const Dashboard = () => {
                             onClick={() => handleEditMerchant(merchant)}
                             style={{
                               padding: '4px 8px',
-                              border: '1px solid #f59e0b',
+                              border: `1px solid ${theme.warning}`,
                               borderRadius: '4px',
-                              backgroundColor: '#fffbeb',
-                              color: '#f59e0b',
+                              backgroundColor: theme.warningBg,
+                              color: theme.warning,
                               fontSize: '12px',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = theme.warning;
+                              e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = theme.warningBg;
+                              e.currentTarget.style.color = theme.warning;
                             }}
                           >
                             Edit
@@ -1055,11 +1264,11 @@ const Dashboard = () => {
                 <div style={{
                   textAlign: 'center',
                   padding: '40px 20px',
-                  color: '#64748b'
+                  color: theme.textSecondary
                 }}>
                   <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
-                  <h4 style={{ margin: '0 0 8px 0', color: '#374151' }}>No Merchants Found</h4>
-                  <p style={{ margin: 0 }}>
+                  <h4 style={{ margin: '0 0 8px 0', color: theme.textPrimary }}>No Merchants Found</h4>
+                  <p style={{ margin: 0, color: theme.textSecondary }}>
                     {searchTerm ? 'No merchants match your search criteria.' : 'Start by adding your first merchant.'}
                   </p>
                   {!searchTerm && (
@@ -1083,10 +1292,10 @@ const Dashboard = () => {
                 <div style={{
                   textAlign: 'center',
                   padding: '40px 20px',
-                  color: '#64748b'
+                  color: theme.textSecondary
                 }}>
                   <div style={{ fontSize: '24px', marginBottom: '16px' }}>🔄</div>
-                  <p>Loading merchants...</p>
+                  <p style={{ color: theme.textPrimary }}>Loading merchants...</p>
                 </div>
               )}
             </div>
@@ -1097,64 +1306,118 @@ const Dashboard = () => {
       {/* Profile Tab */}
       {activeTab === 'profile' && (
         <div>
-          {/* Debug Info - Remove this after testing */}
+          {/* Profile Header */}
           <div style={{
-            marginBottom: '20px',
-            padding: '12px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '6px',
-            fontSize: '12px',
-            color: '#475569',
-            border: '1px solid #e2e8f0'
+            backgroundColor: theme.cardBackground,
+            padding: '32px',
+            borderRadius: '16px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            marginBottom: '24px',
+            transition: 'all 0.3s ease'
           }}>
-            <strong>Debug - Login & Broker Data:</strong>
-            <div style={{ marginTop: '8px' }}>
-              <p style={{ margin: '2px 0' }}><strong>Stored Broker ID:</strong> {localStorage.getItem('brokerId') || 'Not found'}</p>
-              <p style={{ margin: '2px 0' }}><strong>Auth Token:</strong> {localStorage.getItem('authToken') ? 'Present' : 'Missing'}</p>
-              <p style={{ margin: '2px 0' }}><strong>Broker Data:</strong> {brokerData ? 'Loaded' : 'Missing'}</p>
-            </div>
-            <pre style={{ margin: '8px 0 0 0', fontSize: '11px', overflow: 'auto', maxHeight: '200px' }}>
-              {JSON.stringify(brokerData, null, 2)}
-            </pre>
-            <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => {
-                  console.log('=== Manual Broker Data Load ===');
-                  loadBrokerData();
-                }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  border: '1px solid #10b981',
-                  borderRadius: '4px',
-                  backgroundColor: '#ecfdf5',
-                  color: '#10b981',
-                  cursor: 'pointer'
-                }}
-              >
-                Test Load Broker Data
-              </button>
-              <button
-                onClick={() => {
-                  console.log('=== Clear All Data ===');
-                  localStorage.removeItem('authToken');
-                  localStorage.removeItem('brokerData');
-                  localStorage.removeItem('brokerId');
-                  setBrokerData(null);
-                  console.log('All data cleared');
-                }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  border: '1px solid #ef4444',
-                  borderRadius: '4px',
-                  backgroundColor: '#fef2f2',
-                  color: '#ef4444',
-                  cursor: 'pointer'
-                }}
-              >
-                Clear All Data
-              </button>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '24px',
+              flexDirection: isMobile ? 'column' : 'row',
+              textAlign: isMobile ? 'center' : 'left'
+            }}>
+              {/* Profile Avatar */}
+              <div style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '50%',
+                background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '48px',
+                color: 'white',
+                fontWeight: 'bold',
+                boxShadow: theme.shadowHover,
+                flexShrink: 0
+              }}>
+                {(brokerData?.brokerName || 'B').charAt(0).toUpperCase()}
+              </div>
+
+              {/* Profile Info */}
+              <div style={{ flex: 1 }}>
+                <h2 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '32px',
+                  fontWeight: '700'
+                }}>
+                  {brokerData?.brokerName || 'Broker User'}
+                </h2>
+                <p style={{
+                  margin: '0 0 12px 0',
+                  color: theme.textSecondary,
+                  fontSize: '18px'
+                }}>
+                  {brokerData?.brokerageFirmName || 'BrokerHub'}
+                </p>
+                <div style={{
+                  display: 'flex',
+                  gap: '16px',
+                  flexWrap: 'wrap',
+                  justifyContent: isMobile ? 'center' : 'flex-start'
+                }}>
+                  <span style={{
+                    backgroundColor: theme.successBg,
+                    color: theme.success,
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}>
+                    ✅ Active Broker
+                  </span>
+                  <span style={{
+                    backgroundColor: theme.infoBg,
+                    color: theme.info,
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}>
+                    📧 {brokerData?.email || 'N/A'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                minWidth: '140px'
+              }}>
+                <button
+                  onClick={loadBrokerData}
+                  style={{
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    backgroundColor: theme.cardBackground,
+                    color: theme.textPrimary,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.hoverBg;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.cardBackground;
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  🔄 Refresh Profile
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1164,78 +1427,233 @@ const Dashboard = () => {
             gap: isMobile ? '16px' : '20px'
           }}>
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: theme.cardBackground,
             padding: '24px',
             borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: '1px solid #e5e7eb'
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, color: '#1e293b' }}>Broker Information</h3>
-              <button
-                onClick={loadBrokerData}
-                style={{
-                  padding: '6px 12px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔄 Refresh
-              </button>
+              <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>📊 Broker Information</h3>
             </div>
-            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-              <p><strong>Broker ID:</strong> {brokerData?.brokerId || 'N/A'}</p>
-              <p><strong>Name:</strong> {brokerData?.brokerName || 'N/A'}</p>
-              <p><strong>Username:</strong> {brokerData?.userName || 'N/A'}</p>
-              <p><strong>Firm Name:</strong> {brokerData?.brokerageFirmName || 'N/A'}</p>
-              <p><strong>Email:</strong> {brokerData?.email || 'N/A'}</p>
-              <p><strong>Phone:</strong> {brokerData?.phoneNumber || 'N/A'}</p>
-              <p><strong>Total Brokerage:</strong> {formatCurrency(brokerData?.totalBrokerage || 0)}</p>
+            <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Broker ID:</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerId || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Name:</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerName || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Username:</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.userName || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Firm Name:</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerageFirmName || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
+                  <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Phone:</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.phoneNumber || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
+                  <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Total Brokerage:</span>
+                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(brokerData?.totalBrokerage || 0)}</span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div style={{
-            backgroundColor: 'white',
+            backgroundColor: theme.cardBackground,
             padding: '24px',
             borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: '1px solid #e5e7eb'
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
           }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>Address & Banking</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>🏠 Address & Banking</h3>
             <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <p style={{ margin: '0 0 8px 0', fontWeight: '500', color: '#374151' }}>Address:</p>
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px',
+                  padding: '8px 12px',
+                  backgroundColor: theme.background,
+                  borderRadius: '8px'
+                }}>
+                  <span style={{ fontSize: '16px' }}>📍</span>
+                  <span style={{ fontWeight: '600', color: theme.textPrimary }}>Address Information</span>
+                </div>
                 {brokerData?.address ? (
-                  <div style={{ marginLeft: '12px', color: '#64748b' }}>
-                    <p style={{ margin: '2px 0' }}>City: {brokerData.address.city || 'N/A'}</p>
-                    <p style={{ margin: '2px 0' }}>Area: {brokerData.address.area || 'N/A'}</p>
-                    <p style={{ margin: '2px 0' }}>Pincode: {brokerData.address.pincode || 'N/A'}</p>
+                  <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>City:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.city || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>Area:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.area || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>Pincode:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.pincode || 'N/A'}</span>
+                    </div>
                   </div>
                 ) : (
-                  <p style={{ margin: '2px 0 0 12px', color: '#64748b', fontStyle: 'italic' }}>No address information</p>
+                  <p style={{ margin: '0 0 0 12px', color: theme.textMuted, fontStyle: 'italic' }}>No address information available</p>
                 )}
               </div>
 
               <div>
-                <p style={{ margin: '0 0 8px 0', fontWeight: '500', color: '#374151' }}>Banking Details:</p>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px',
+                  padding: '8px 12px',
+                  backgroundColor: theme.background,
+                  borderRadius: '8px'
+                }}>
+                  <span style={{ fontSize: '16px' }}>🏦</span>
+                  <span style={{ fontWeight: '600', color: theme.textPrimary }}>Banking Details</span>
+                </div>
                 {brokerData?.bankDetails ? (
-                  <div style={{ marginLeft: '12px', color: '#64748b' }}>
-                    <p style={{ margin: '2px 0' }}>Bank: {brokerData.bankDetails.bankName || 'N/A'}</p>
-                    <p style={{ margin: '2px 0' }}>Branch: {brokerData.bankDetails.branch || 'N/A'}</p>
-                    <p style={{ margin: '2px 0' }}>Account: {brokerData.bankDetails.accountNumber || 'N/A'}</p>
-                    <p style={{ margin: '2px 0' }}>IFSC: {brokerData.bankDetails.ifscCode || 'N/A'}</p>
+                  <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>Bank:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.bankName || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>Branch:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.branch || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>Account:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.accountNumber || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: theme.textSecondary }}>IFSC:</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.ifscCode || 'N/A'}</span>
+                    </div>
                   </div>
                 ) : (
-                  <p style={{ margin: '2px 0 0 12px', color: '#64748b', fontStyle: 'italic' }}>No banking details</p>
+                  <p style={{ margin: '0 0 0 12px', color: theme.textMuted, fontStyle: 'italic' }}>No banking details available</p>
                 )}
               </div>
             </div>
           </div>
 
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            padding: '24px',
+            borderRadius: '12px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚡ Quick Actions</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                onClick={() => alert('Update Profile functionality coming soon!')}
+                style={{
+                  padding: '12px 16px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.hoverBg;
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.cardBackground;
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }}
+              >
+                <span>✏️</span>
+                Update Profile
+              </button>
+              <Link
+                to="/change-password"
+                style={{
+                  textDecoration: 'none',
+                  padding: '12px 16px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.hoverBg;
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.cardBackground;
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }}
+              >
+                <span>🔐</span>
+                Change Password
+              </Link>
+              <Link
+                to="/verify-account"
+                style={{
+                  textDecoration: 'none',
+                  padding: '12px 16px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.hoverBg;
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.cardBackground;
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }}
+              >
+                <span>✅</span>
+                Verify Account
+              </Link>
+            </div>
+          </div>
+          </div>
+        </div>
+      )}
+
+      {/* Products Tab */}
+      {activeTab === 'products' && (
+        <div>
           <div style={{
             backgroundColor: 'white',
             padding: '24px',
@@ -1243,22 +1661,337 @@ const Dashboard = () => {
             boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
             border: '1px solid #e5e7eb'
           }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>Quick Actions</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button
-                className="btn btn-secondary"
-                onClick={() => alert('Update Profile functionality coming soon!')}
-              >
-                Update Profile
-              </button>
-              <Link to="/change-password" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                Change Password
-              </Link>
-              <Link to="/verify-account" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                Verify Account
-              </Link>
+            <div className="product-search-container" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              marginBottom: '20px',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '16px' : '0'
+            }}>
+              <h3 style={{ margin: 0, color: '#1e293b' }}>Product Catalog ({Array.isArray(products) ? products.length : 0})</h3>
+              <div className="product-actions" style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                flexWrap: 'wrap'
+              }}>
+                <button
+                  onClick={loadProductsData}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+                <button
+                  onClick={() => alert('Add Product functionality coming soon!')}
+                  className="btn btn-primary"
+                >
+                  + Add New Product
+                </button>
+              </div>
             </div>
-          </div>
+
+            {/* Search Bar */}
+            <div style={{ marginBottom: '20px' }}>
+              <input
+                type="text"
+                placeholder="Search products by name, quality, or price..."
+                value={productSearchTerm}
+                onChange={(e) => setProductSearchTerm(e.target.value)}
+                className="product-search-input"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: isMobile ? '16px' : '14px',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            {/* Products Grid Display */}
+            <div className="products-grid" style={{ marginBottom: '20px' }}>
+              {(() => {
+                const filteredProducts = (Array.isArray(products) ? products : [])
+                  .filter(product => {
+                    if (!productSearchTerm) return true;
+                    const search = productSearchTerm.toLowerCase();
+                    return (
+                      product.productName?.toLowerCase().includes(search) ||
+                      product.quality?.toLowerCase().includes(search) ||
+                      product.price?.toString().includes(search)
+                    );
+                  });
+
+                const groupedProducts = groupProductsForCards(filteredProducts);
+
+                return (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {Object.entries(groupedProducts).map(([productName, productGroup]) => {
+                      const isExpanded = expandedProducts[productName];
+                      const hasImage = productGroup.imgLink && productGroup.imgLink.trim() !== '';
+
+                      return (
+                        <div key={productName} style={{
+                          backgroundColor: theme.cardBackground,
+                          border: `1px solid ${theme.border}`,
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          boxShadow: theme.shadow,
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-4px)';
+                          e.currentTarget.style.boxShadow = theme.shadowHover;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = theme.shadow;
+                        }}
+                        onClick={() => toggleProductExpansion(productName)}
+                        >
+                          {/* Product Image/Icon */}
+                          <div style={{
+                            height: '180px',
+                            background: hasImage
+                              ? `linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.3)), url(${productGroup.imgLink})`
+                              : `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative'
+                          }}>
+                            {!hasImage && (
+                              <div style={{
+                                fontSize: '64px',
+                                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                              }}>
+                                {getProductIcon(productName)}
+                              </div>
+                            )}
+
+                            {/* Expand indicator */}
+                            <div style={{
+                              position: 'absolute',
+                              top: '12px',
+                              right: '12px',
+                              backgroundColor: 'rgba(255,255,255,0.9)',
+                              borderRadius: '50%',
+                              width: '32px',
+                              height: '32px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '16px',
+                              color: '#374151',
+                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.3s ease'
+                            }}>
+                              ▼
+                            </div>
+                          </div>
+
+                          {/* Product Info */}
+                          <div style={{ padding: '20px' }}>
+                            <h3 style={{
+                              margin: '0 0 8px 0',
+                              color: theme.textPrimary,
+                              fontSize: '18px',
+                              fontWeight: '600',
+                              lineHeight: '1.3'
+                            }}>
+                              {productName}
+                            </h3>
+
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '12px'
+                            }}>
+                              <span style={{
+                                fontSize: '14px',
+                                color: theme.textSecondary,
+                                backgroundColor: theme.background,
+                                padding: '4px 8px',
+                                borderRadius: '6px'
+                              }}>
+                                {productGroup.qualityCount} {productGroup.qualityCount === 1 ? 'Quality' : 'Qualities'}
+                              </span>
+                              <span style={{
+                                fontSize: '14px',
+                                color: theme.textSecondary,
+                                backgroundColor: theme.background,
+                                padding: '4px 8px',
+                                borderRadius: '6px'
+                              }}>
+                                {productGroup.products.length} {productGroup.products.length === 1 ? 'Variant' : 'Variants'}
+                              </span>
+                            </div>
+
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}>
+                              <div>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: theme.textMuted,
+                                  marginBottom: '2px'
+                                }}>
+                                  Total Quantity
+                                </div>
+                                <div style={{
+                                  fontSize: '16px',
+                                  fontWeight: '600',
+                                  color: theme.textPrimary
+                                }}>
+                                  {formatNumber(productGroup.totalQuantity)} kg
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: theme.textMuted,
+                                  marginBottom: '2px'
+                                }}>
+                                  Avg Price
+                                </div>
+                                <div style={{
+                                  fontSize: '16px',
+                                  fontWeight: '600',
+                                  color: '#059669'
+                                }}>
+                                  ₹{Math.round(productGroup.avgPrice)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expanded Content */}
+                          {isExpanded && (
+                            <div style={{
+                              borderTop: `1px solid ${theme.border}`,
+                              backgroundColor: theme.background,
+                              padding: '16px 20px'
+                            }}>
+                              <h4 style={{
+                                margin: '0 0 12px 0',
+                                color: theme.textPrimary,
+                                fontSize: '14px',
+                                fontWeight: '600'
+                              }}>
+                                Available Variants
+                              </h4>
+
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                gap: '8px',
+                                maxHeight: '200px',
+                                overflowY: 'auto'
+                              }}>
+                                {productGroup.products.map((variant, index) => (
+                                  <div
+                                    key={index}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedProduct(variant);
+                                      setShowProductModal(true);
+                                    }}
+                                    style={{
+                                      backgroundColor: theme.cardBackground,
+                                      border: `1px solid ${theme.borderLight}`,
+                                      borderRadius: '6px',
+                                      padding: '8px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease',
+                                      textAlign: 'center',
+                                      minHeight: '60px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      justifyContent: 'center'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = theme.hoverBgLight;
+                                      e.currentTarget.style.transform = 'scale(1.02)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = theme.cardBackground;
+                                      e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                  >
+                                    <div style={{
+                                      fontSize: '11px',
+                                      fontWeight: '600',
+                                      color: theme.textPrimary,
+                                      marginBottom: '2px'
+                                    }}>
+                                      {variant.quality}
+                                    </div>
+                                    <div style={{
+                                      fontSize: '10px',
+                                      color: theme.textSecondary
+                                    }}>
+                                      {variant.quantity} kg
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Empty State */}
+            {!loading && (!Array.isArray(products) || products.length === 0) && (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: '#64748b'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌾</div>
+                <h4 style={{ margin: '0 0 8px 0', color: '#374151' }}>No Products Found</h4>
+                <p style={{ margin: 0 }}>
+                  {productSearchTerm ? 'No products match your search criteria.' : 'Start by adding your first product.'}
+                </p>
+                {!productSearchTerm && (
+                  <button
+                    onClick={() => alert('Add Product functionality coming soon!')}
+                    className="btn btn-primary"
+                    style={{
+                      marginTop: '16px'
+                    }}
+                  >
+                    + Add First Product
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1460,131 +2193,572 @@ const Dashboard = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)'
         }}>
           <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '600px',
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '700px',
             width: '90%',
-            maxHeight: '80vh',
+            maxHeight: '85vh',
             overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            boxShadow: theme.shadowModal,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, color: '#1e293b' }}>Merchant Details</h3>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: `2px solid ${theme.border}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  {(selectedMerchant.firmName || 'M').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {selectedMerchant.firmName || 'Merchant Details'}
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', color: theme.textSecondary, fontSize: '14px' }}>
+                    {selectedMerchant.userType || 'Merchant'} • {selectedMerchant.address?.city || 'Unknown Location'}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={closeMerchantModal}
                 style={{
                   background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  fontSize: '20px',
                   cursor: 'pointer',
-                  color: '#64748b'
+                  color: theme.textSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.errorBg;
+                  e.currentTarget.style.color = theme.error;
+                  e.currentTarget.style.borderColor = theme.error;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = theme.textSecondary;
+                  e.currentTarget.style.borderColor = theme.border;
                 }}
               >
                 ×
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div>
-                <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>Basic Information</h4>
-                <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  <p><strong>Firm Name:</strong> {selectedMerchant.firmName || 'N/A'}</p>
-                  <p><strong>Owner Name:</strong> {selectedMerchant.ownerName || 'N/A'}</p>
-                  <p><strong>User Type:</strong> {selectedMerchant.userType || 'N/A'}</p>
-                  <p><strong>GST Number:</strong> {selectedMerchant.gstNumber || 'N/A'}</p>
-                  <p><strong>Email:</strong> {selectedMerchant.email || 'N/A'}</p>
-                  <p><strong>Shop Number:</strong> {selectedMerchant.shopNumber || 'N/A'}</p>
+            {/* Content Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+              gap: '24px'
+            }}>
+              {/* Basic Information Card */}
+              <div style={{
+                backgroundColor: theme.background,
+                padding: '20px',
+                borderRadius: '12px',
+                border: `1px solid ${theme.borderLight}`
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>📋</span>
+                  <h4 style={{ margin: 0, color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>
+                    Basic Information
+                  </h4>
+                </div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8', display: 'grid', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Firm Name:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.firmName || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Owner Name:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.ownerName || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>User Type:</span>
+                    <span style={{
+                      color: selectedMerchant.userType === 'Miller' ? theme.info : theme.success,
+                      fontWeight: '600',
+                      backgroundColor: selectedMerchant.userType === 'Miller' ? theme.infoBg : theme.successBg,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px'
+                    }}>
+                      {selectedMerchant.userType || 'N/A'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>GST Number:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.gstNumber || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Email:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.email || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Shop Number:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.shopNumber || 'N/A'}</span>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>Contact & Address</h4>
+              {/* Contact & Address Card */}
+              <div style={{
+                backgroundColor: theme.background,
+                padding: '20px',
+                borderRadius: '12px',
+                border: `1px solid ${theme.borderLight}`
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>📞</span>
+                  <h4 style={{ margin: 0, color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>
+                    Contact & Address
+                  </h4>
+                </div>
                 <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  <p><strong>Phone Numbers:</strong></p>
-                  {selectedMerchant.phoneNumbers && selectedMerchant.phoneNumbers.length > 0 ? (
-                    <ul style={{ margin: '4px 0 12px 20px', padding: 0 }}>
-                      {selectedMerchant.phoneNumbers.map((phone, index) => (
-                        <li key={index}>{phone}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p style={{ margin: '4px 0 12px 0', color: '#64748b' }}>No phone numbers</p>
-                  )}
-                  <p><strong>Address:</strong></p>
-                  {selectedMerchant.address ? (
-                    <div style={{ marginLeft: '16px' }}>
-                      <p>City: {selectedMerchant.address.city || 'N/A'}</p>
-                      <p>Area: {selectedMerchant.address.area || 'N/A'}</p>
-                      <p>Pincode: {selectedMerchant.address.pincode || 'N/A'}</p>
+                  <div style={{ marginBottom: '16px' }}>
+                    <p style={{ margin: '0 0 8px 0', color: theme.textSecondary, fontWeight: '500' }}>Phone Numbers:</p>
+                    {selectedMerchant.phoneNumbers && selectedMerchant.phoneNumbers.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {selectedMerchant.phoneNumbers.map((phone, index) => (
+                          <span key={index} style={{
+                            color: theme.textPrimary,
+                            backgroundColor: theme.cardBackground,
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: '500'
+                          }}>
+                            📱 {phone}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, color: theme.textMuted, fontStyle: 'italic' }}>No phone numbers</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p style={{ margin: '0 0 8px 0', color: theme.textSecondary, fontWeight: '500' }}>Address:</p>
+                    {selectedMerchant.address ? (
+                      <div style={{
+                        backgroundColor: theme.cardBackground,
+                        padding: '12px',
+                        borderRadius: '8px',
+                        display: 'grid',
+                        gap: '4px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: theme.textSecondary }}>City:</span>
+                          <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.address.city || 'N/A'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: theme.textSecondary }}>Area:</span>
+                          <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.address.area || 'N/A'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: theme.textSecondary }}>Pincode:</span>
+                          <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.address.pincode || 'N/A'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, color: theme.textMuted, fontStyle: 'italic' }}>No address information</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Banking Details Card */}
+              <div style={{
+                backgroundColor: theme.background,
+                padding: '20px',
+                borderRadius: '12px',
+                border: `1px solid ${theme.borderLight}`
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>🏦</span>
+                  <h4 style={{ margin: 0, color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>
+                    Banking Details
+                  </h4>
+                </div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+                  {selectedMerchant.bankDetails ? (
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: theme.textSecondary }}>Bank Name:</span>
+                        <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.bankDetails.bankName || 'N/A'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: theme.textSecondary }}>Account Number:</span>
+                        <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.bankDetails.accountNumber || 'N/A'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: theme.textSecondary }}>IFSC Code:</span>
+                        <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.bankDetails.ifscCode || 'N/A'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: theme.textSecondary }}>Branch:</span>
+                        <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{selectedMerchant.bankDetails.branch || 'N/A'}</span>
+                      </div>
                     </div>
                   ) : (
-                    <p style={{ color: '#64748b' }}>No address information</p>
+                    <p style={{ margin: 0, color: theme.textMuted, fontStyle: 'italic' }}>No banking details available</p>
                   )}
                 </div>
               </div>
 
-              <div>
-                <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>Banking Details</h4>
-                <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  {selectedMerchant.bankDetails ? (
-                    <>
-                      <p><strong>Bank Name:</strong> {selectedMerchant.bankDetails.bankName || 'N/A'}</p>
-                      <p><strong>Account Number:</strong> {selectedMerchant.bankDetails.accountNumber || 'N/A'}</p>
-                      <p><strong>IFSC Code:</strong> {selectedMerchant.bankDetails.ifscCode || 'N/A'}</p>
-                      <p><strong>Branch:</strong> {selectedMerchant.bankDetails.branch || 'N/A'}</p>
-                    </>
-                  ) : (
-                    <p style={{ color: '#64748b' }}>No banking details</p>
-                  )}
+              {/* Business Details Card */}
+              <div style={{
+                backgroundColor: theme.background,
+                padding: '20px',
+                borderRadius: '12px',
+                border: `1px solid ${theme.borderLight}`
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>💼</span>
+                  <h4 style={{ margin: 0, color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>
+                    Business Details
+                  </h4>
+                </div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8', display: 'grid', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Brokerage Rate:</span>
+                    <span style={{ color: theme.warning, fontWeight: '600' }}>{selectedMerchant.brokerageRate || 0}%</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Total Bags Sold:</span>
+                    <span style={{ color: theme.success, fontWeight: '600' }}>{formatNumber(selectedMerchant.totalBagsSold || 0)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Total Bags Bought:</span>
+                    <span style={{ color: theme.info, fontWeight: '600' }}>{formatNumber(selectedMerchant.totalBagsBought || 0)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Payable Amount:</span>
+                    <span style={{ color: theme.error, fontWeight: '600' }}>{formatCurrency(selectedMerchant.payableAmount || 0)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Receivable Amount:</span>
+                    <span style={{ color: theme.success, fontWeight: '600' }}>{formatCurrency(selectedMerchant.receivableAmount || 0)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary }}>Total Payable Brokerage:</span>
+                    <span style={{ color: theme.primary, fontWeight: '700', fontSize: '15px' }}>{formatCurrency(selectedMerchant.totalPayableBrokerage || 0)}</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>Business Details</h4>
-                <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  <p><strong>Brokerage Rate:</strong> {selectedMerchant.brokerageRate || 0}%</p>
-                  <p><strong>Total Bags Sold:</strong> {formatNumber(selectedMerchant.totalBagsSold || 0)}</p>
-                  <p><strong>Total Bags Bought:</strong> {formatNumber(selectedMerchant.totalBagsBought || 0)}</p>
-                  <p><strong>Payable Amount:</strong> {formatCurrency(selectedMerchant.payableAmount || 0)}</p>
-                  <p><strong>Receivable Amount:</strong> {formatCurrency(selectedMerchant.receivableAmount || 0)}</p>
-                  <p><strong>Total Payable Brokerage:</strong> {formatCurrency(selectedMerchant.totalPayableBrokerage || 0)}</p>
+            {/* Footer Actions */}
+            <div style={{
+              marginTop: '32px',
+              paddingTop: '20px',
+              borderTop: `1px solid ${theme.border}`,
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap'
+            }}>
+              <button
+                onClick={() => handleEditMerchant(selectedMerchant)}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${theme.warning}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.warningBg,
+                  color: theme.warning,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warning;
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warningBg;
+                  e.currentTarget.style.color = theme.warning;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span>✏️</span>
+                Edit Merchant
+              </button>
+              <button
+                onClick={closeMerchantModal}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.hoverBg;
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.cardBackground;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span>✖️</span>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product View Modal */}
+      {showProductModal && selectedProduct && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '600px',
+            width: '90%',
+            boxShadow: theme.shadowModal,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: `2px solid ${theme.border}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px'
+                }}>
+                  🌾
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {selectedProduct.productName || 'Product Details'}
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', color: theme.textSecondary, fontSize: '14px' }}>
+                    Quality: {selectedProduct.quality || 'N/A'} • Quantity: {selectedProduct.quantity || 0} kg
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeProductModal}
+                style={{
+                  background: 'none',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: theme.textSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.errorBg;
+                  e.currentTarget.style.color = theme.error;
+                  e.currentTarget.style.borderColor = theme.error;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = theme.textSecondary;
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Product Image */}
+            <div style={{
+              width: '100%',
+              height: '200px',
+              backgroundColor: theme.background,
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px',
+              fontSize: '64px',
+              backgroundImage: selectedProduct.imgLink ? `url(${selectedProduct.imgLink})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}>
+              {!selectedProduct.imgLink && getProductIcon(selectedProduct.productName)}
+            </div>
+
+            {/* Product Information */}
+            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#1e293b', fontSize: '20px' }}>
+                  {selectedProduct.productName}
+                </h4>
+                <span style={{
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  backgroundColor: '#dbeafe',
+                  color: '#3b82f6'
+                }}>
+                  {selectedProduct.quality}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <p style={{ margin: '8px 0' }}>
+                    <strong>Product ID:</strong> {selectedProduct.productId}
+                  </p>
+                  <p style={{ margin: '8px 0' }}>
+                    <strong>Quantity:</strong> {selectedProduct.quantity} kg
+                  </p>
+                  <p style={{ margin: '8px 0' }}>
+                    <strong>Price:</strong> ₹{selectedProduct.price}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ margin: '8px 0' }}>
+                    <strong>Brokerage:</strong> {selectedProduct.productBrokerage}%
+                  </p>
+                  <p style={{ margin: '8px 0' }}>
+                    <strong>Quality Grade:</strong> {selectedProduct.quality}
+                  </p>
                 </div>
               </div>
             </div>
 
             <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => handleEditMerchant(selectedMerchant)}
+                onClick={() => alert('Edit functionality coming soon!')}
                 style={{
                   padding: '8px 16px',
-                  border: '1px solid #f59e0b',
+                  border: `1px solid ${theme.warning}`,
                   borderRadius: '6px',
-                  backgroundColor: '#fffbeb',
-                  color: '#f59e0b',
+                  backgroundColor: theme.warningBg,
+                  color: theme.warning,
                   fontSize: '14px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warning;
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warningBg;
+                  e.currentTarget.style.color = theme.warning;
                 }}
               >
-                Edit Merchant
+                Edit Product
               </button>
               <button
-                onClick={closeMerchantModal}
+                onClick={closeProductModal}
                 style={{
                   padding: '8px 16px',
-                  border: '1px solid #e5e7eb',
+                  border: `1px solid ${theme.border}`,
                   borderRadius: '6px',
-                  backgroundColor: 'white',
-                  color: '#374151',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
                   fontSize: '14px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.hoverBg;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.cardBackground;
                 }}
               >
                 Close

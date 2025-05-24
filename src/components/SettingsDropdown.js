@@ -1,11 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
+import useResponsive from '../hooks/useResponsive';
 
-const SettingsDropdown = () => {
+const SettingsDropdown = ({ isDashboard = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { isMobile } = useResponsive();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -36,51 +40,84 @@ const SettingsDropdown = () => {
   };
 
   return (
-    <div 
+    <div
       ref={dropdownRef}
       style={{
         position: 'fixed',
-        top: '20px',
-        right: '20px',
-        zIndex: 1000,
+        top: isMobile ? '12px' : '16px',
+        right: isMobile ? '12px' : '16px',
+        zIndex: 1001,
+        display: 'flex',
+        gap: isMobile ? '6px' : '8px',
+        alignItems: 'center'
       }}
     >
+      {/* Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        style={{
+          background: theme.cardBackground,
+          border: `1px solid ${theme.border}`,
+          borderRadius: '8px',
+          padding: '10px',
+          cursor: 'pointer',
+          boxShadow: theme.shadow,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: isMobile ? '36px' : '40px',
+          height: isMobile ? '36px' : '40px',
+          fontSize: '16px',
+          color: theme.textPrimary,
+          transition: 'all 0.2s ease'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = theme.hoverBg;
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow = theme.shadowHover;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = theme.cardBackground;
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = theme.shadow;
+        }}
+        title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+      >
+        {isDarkMode ? '☀️' : '🌙'}
+      </button>
+
       {/* Settings Button */}
       <button
         onClick={toggleDropdown}
         style={{
-          background: 'white',
-          border: '1px solid #e5e7eb',
+          background: theme.cardBackground,
+          border: `1px solid ${theme.border}`,
           borderRadius: '8px',
-          padding: '12px',
+          padding: '10px',
           cursor: 'pointer',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          boxShadow: theme.shadow,
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          fontSize: '14px',
-          fontWeight: '500',
-          color: '#374151',
+          justifyContent: 'center',
+          width: isMobile ? '36px' : '40px',
+          height: isMobile ? '36px' : '40px',
+          fontSize: '16px',
+          color: theme.textPrimary,
           transition: 'all 0.2s ease'
         }}
         onMouseEnter={(e) => {
-          e.target.style.backgroundColor = '#f9fafb';
-          e.target.style.borderColor = '#d1d5db';
+          e.currentTarget.style.backgroundColor = theme.hoverBg;
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow = theme.shadowHover;
         }}
         onMouseLeave={(e) => {
-          e.target.style.backgroundColor = 'white';
-          e.target.style.borderColor = '#e5e7eb';
+          e.currentTarget.style.backgroundColor = theme.cardBackground;
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = theme.shadow;
         }}
+        title="Settings"
       >
-        <span style={{ fontSize: '16px' }}>⚙️</span>
-        Settings
-        <span style={{ 
-          fontSize: '12px', 
-          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.2s ease'
-        }}>
-          ▼
-        </span>
+        ⚙️
       </button>
 
       {/* Dropdown Menu */}
@@ -91,139 +128,145 @@ const SettingsDropdown = () => {
             top: '100%',
             right: '0',
             marginTop: '8px',
-            background: 'white',
-            border: '1px solid #e5e7eb',
+            background: theme.modalBackground,
+            border: `1px solid ${theme.border}`,
             borderRadius: '8px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-            minWidth: '200px',
-            overflow: 'hidden'
+            boxShadow: theme.shadowModal,
+            minWidth: '220px',
+            overflow: 'hidden',
+            transition: 'all 0.2s ease'
           }}
         >
-          {/* Navigation Links */}
+          {/* Settings Content */}
           <div style={{ padding: '8px 0' }}>
-            <Link
-              to="/login"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              🔑 Login
-            </Link>
-            
-            <Link
-              to="/signup"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              📝 Signup
-            </Link>
 
-            <Link
-              to="/forgot-password"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              🔒 Forgot Password
-            </Link>
+            {/* Conditional Navigation Links */}
+            {!isDashboard && (
+              <>
+                <Link
+                  to="/login"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  🔑 Login
+                </Link>
+                <Link
+                  to="/signup"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  📝 Signup
+                </Link>
 
-            <Link
-              to="/create-password"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              🆕 Create Password
-            </Link>
+                <Link
+                  to="/forgot-password"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  🔒 Forgot Password
+                </Link>
 
-            <Link
-              to="/verify-account"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              ✅ Verify Account
-            </Link>
+                <Link
+                  to="/create-password"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  🆕 Create Password
+                </Link>
 
-            <Link
-              to="/change-password"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              🔐 Change Password
-            </Link>
+                <Link
+                  to="/verify-account"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  ✅ Verify Account
+                </Link>
 
-            <Link
-              to="/dashboard"
-              onClick={closeDropdown}
-              style={{
-                display: 'block',
-                padding: '12px 16px',
-                color: '#374151',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              📊 Dashboard
-            </Link>
+                <Link
+                  to="/change-password"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  🔐 Change Password
+                </Link>
+
+                <Link
+                  to="/dashboard"
+                  onClick={closeDropdown}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: theme.textPrimary,
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBgLight}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  📊 Dashboard
+                </Link>
+              </>
+            )}
 
             {/* Divider */}
             <div style={{
               height: '1px',
-              backgroundColor: '#e5e7eb',
+              backgroundColor: theme.borderLight,
               margin: '8px 0'
             }} />
 
@@ -231,10 +274,12 @@ const SettingsDropdown = () => {
             <button
               onClick={handleLogout}
               style={{
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
                 width: '100%',
                 padding: '12px 16px',
-                color: '#dc2626',
+                color: theme.error,
                 backgroundColor: 'transparent',
                 border: 'none',
                 fontSize: '14px',
@@ -242,10 +287,11 @@ const SettingsDropdown = () => {
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease'
               }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#fef2f2'}
+              onMouseEnter={(e) => e.target.style.backgroundColor = theme.errorBg}
               onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
             >
-              🚪 Logout
+              <span style={{ fontSize: '16px' }}>🚪</span>
+              <span>Logout</span>
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  position: relative;
 }
 
 .auth-card {
@@ -88,6 +89,54 @@
   padding: 0 16px;
   color: #64748b;
   font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .auth-container {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+}
+
+[data-theme="dark"] .auth-card {
+  background: #1e293b;
+  border: 1px solid #374151;
+}
+
+[data-theme="dark"] .auth-header h1 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .auth-header p {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .auth-divider span {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .auth-divider::before {
+  background: #374151;
+}
+
+[data-theme="dark"] .auth-link {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .auth-link:hover {
+  color: #3b82f6;
+}
+
+/* Theme toggle positioning */
+.theme-toggle-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .error-message {
@@ -180,25 +229,25 @@
   .auth-container {
     padding: 16px;
   }
-  
+
   .auth-card {
     padding: 24px;
   }
-  
+
   .auth-header h1 {
     font-size: 24px;
   }
-  
+
   .step-indicator {
     gap: 12px;
   }
-  
+
   .step {
     width: 28px;
     height: 28px;
     font-size: 12px;
   }
-  
+
   .step:not(:last-child)::after {
     width: 12px;
   }
@@ -208,7 +257,7 @@
   .step-actions {
     flex-direction: column;
   }
-  
+
   .step-actions .btn {
     width: 100%;
   }
