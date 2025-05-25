@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
-import { merchantAPI } from '../services/api';
+import AddressModal from '../components/AddressModal';
+import { merchantAPI, addressAPI } from '../services/api';
 import useResponsive from '../hooks/useResponsive';
 import './Auth.css';
 
@@ -25,11 +26,70 @@ const CreateMerchant = () => {
     phoneNumbers: ['', ''],
     brokerageRate: '',
     shopNumber: '',
-    byProduct: ''
+    byProduct: '',
+    addressHint: '',
+    collectionRote: '',
+    selectedAddressId: ''
   });
+  const [addresses, setAddresses] = useState([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addressSearchTerm, setAddressSearchTerm] = useState('');
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+
+  useEffect(() => {
+    loadAddresses();
+  }, []);
+
+  const loadAddresses = async () => {
+    try {
+      const addressesData = await addressAPI.getAllAddresses();
+      if (Array.isArray(addressesData)) {
+        setAddresses(addressesData);
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+    }
+  };
+
+  const handleAddressSelect = (addressId) => {
+    if (!addressId) {
+      // Clear address fields when no address is selected
+      setFormData(prev => ({
+        ...prev,
+        selectedAddressId: '',
+        city: '',
+        area: '',
+        pincode: ''
+      }));
+      return;
+    }
+
+    const selectedAddress = addresses.find(addr => addr.addressId.toString() === addressId.toString());
+    if (selectedAddress) {
+      setFormData(prev => ({
+        ...prev,
+        selectedAddressId: addressId,
+        city: selectedAddress.city,
+        area: selectedAddress.area,
+        pincode: selectedAddress.pincode
+      }));
+    }
+  };
+
+  const getFilteredAddresses = () => {
+    if (!addressSearchTerm.trim()) {
+      return addresses;
+    }
+
+    const searchTerm = addressSearchTerm.toLowerCase();
+    return addresses.filter(address =>
+      address.city.toLowerCase().includes(searchTerm) ||
+      address.area.toLowerCase().includes(searchTerm) ||
+      address.pincode.includes(searchTerm)
+    );
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -127,6 +187,10 @@ const CreateMerchant = () => {
       newErrors.byProduct = 'Product is required';
     }
 
+    if (!formData.selectedAddressId) {
+      newErrors.address = 'Please select an address or create a new one';
+    }
+
     return newErrors;
   };
 
@@ -146,10 +210,16 @@ const CreateMerchant = () => {
       // Filter out empty phone numbers
       const phoneNumbers = formData.phoneNumbers.filter(phone => phone.trim() !== '');
 
+      // Remove selectedAddressId from the data sent to API
+      const { selectedAddressId, ...merchantFormData } = formData;
+
       const merchantData = {
-        ...formData,
+        ...merchantFormData,
+        userType: formData.userType, // Ensure userType is included
         phoneNumbers,
-        brokerageRate: parseFloat(formData.brokerageRate)
+        brokerageRate: parseFloat(formData.brokerageRate),
+        addressHint: formData.addressHint.trim(),
+        collectionRote: formData.collectionRote.trim()
       };
 
       await merchantAPI.createUser(merchantData);
@@ -252,41 +322,141 @@ const CreateMerchant = () => {
             />
           </div>
 
-          <div className="form-grid-2" style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
-            gap: '16px'
-          }}>
-            <FormInput
-              label="City"
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              error={errors.city}
-              placeholder="City"
-              required
-            />
+          {/* Address Selection */}
+          <div className="form-group">
+            <label className="form-label">
+              Address Selection *
+            </label>
+            <div style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              padding: '16px',
+              backgroundColor: '#f9fafb'
+            }}>
+              {/* Search Input */}
+              <div style={{ marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="Search addresses by city, area, or pincode..."
+                  value={addressSearchTerm}
+                  onChange={(e) => setAddressSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    marginBottom: '8px'
+                  }}
+                />
+              </div>
 
-            <FormInput
-              label="Area"
-              name="area"
-              value={formData.area}
-              onChange={handleChange}
-              error={errors.area}
-              placeholder="Area/Locality"
-              required
-            />
+              {/* Address Dropdown */}
+              <div style={{ marginBottom: '12px' }}>
+                <select
+                  value={formData.selectedAddressId}
+                  onChange={(e) => handleAddressSelect(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="">Select an existing address</option>
+                  {getFilteredAddresses().map(address => (
+                    <option key={address.addressId} value={address.addressId}>
+                      {address.city} - {address.area} ({address.pincode})
+                    </option>
+                  ))}
+                </select>
+                {addressSearchTerm && getFilteredAddresses().length === 0 && (
+                  <div style={{
+                    padding: '8px',
+                    fontSize: '12px',
+                    color: '#6b7280',
+                    fontStyle: 'italic'
+                  }}>
+                    No addresses found matching "{addressSearchTerm}"
+                  </div>
+                )}
+              </div>
 
-            <FormInput
-              label="Pincode"
-              name="pincode"
-              value={formData.pincode}
-              onChange={handleChange}
-              error={errors.pincode}
-              placeholder="123456"
-              required
-            />
+              <div style={{ textAlign: 'center', margin: '12px 0' }}>
+                <span style={{ color: '#6b7280', fontSize: '14px' }}>OR</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddressModal(true)}
+                style={{
+                  width: '100%',
+                  padding: '8px 16px',
+                  border: '1px solid #10b981',
+                  borderRadius: '6px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#059669';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#10b981';
+                }}
+              >
+                ➕ Create New Address
+              </button>
+            </div>
+            {errors.address && (
+              <div style={{
+                color: '#ef4444',
+                fontSize: '14px',
+                marginTop: '8px'
+              }}>
+                {errors.address}
+              </div>
+            )}
           </div>
+
+          {/* Address Display (Read-only) */}
+          {formData.selectedAddressId && (
+            <div className="form-grid-2" style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
+              gap: '16px'
+            }}>
+              <FormInput
+                label="City"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                placeholder="City"
+                disabled
+              />
+
+              <FormInput
+                label="Area"
+                name="area"
+                value={formData.area}
+                onChange={handleChange}
+                placeholder="Area/Locality"
+                disabled
+              />
+
+              <FormInput
+                label="Pincode"
+                name="pincode"
+                value={formData.pincode}
+                onChange={handleChange}
+                placeholder="123456"
+                disabled
+              />
+            </div>
+          )}
 
           <div className="form-grid-2" style={{
             display: 'grid',
@@ -346,6 +516,28 @@ const CreateMerchant = () => {
             placeholder="e.g., Basmati Rice, Channa Dal"
             required
           />
+
+          <div className="form-grid-2" style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+            gap: '16px'
+          }}>
+            <FormInput
+              label="Address Hint"
+              name="addressHint"
+              value={formData.addressHint}
+              onChange={handleChange}
+              placeholder="e.g., Near Main Market, Behind Temple"
+            />
+
+            <FormInput
+              label="Collection Route"
+              name="collectionRote"
+              value={formData.collectionRote}
+              onChange={handleChange}
+              placeholder="e.g., Route A, Main Highway"
+            />
+          </div>
 
           <div className="form-grid-2" style={{
             display: 'grid',
@@ -418,6 +610,16 @@ const CreateMerchant = () => {
           </div>
         </form>
       </div>
+
+      {/* Address Modal */}
+      <AddressModal
+        isOpen={showAddressModal}
+        onClose={() => setShowAddressModal(false)}
+        onSuccess={() => {
+          loadAddresses();
+          setShowAddressModal(false);
+        }}
+      />
     </div>
   );
 };

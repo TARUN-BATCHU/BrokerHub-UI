@@ -27,7 +27,10 @@ api.interceptors.request.use(
       '/Product/createProduct',
       '/Product/allProducts',
       '/Product/updateProduct',
-      '/Product/deleteProduct'
+      '/Product/deleteProduct',
+      '/Address/getAllAddresses',
+      '/Address/createAddress',
+      '/Address/updateAddress'
     ];
 
     const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
@@ -262,7 +265,13 @@ export const merchantAPI = {
       const response = await api.post('/user/createUser', userData);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Create user API Error:', error);
+      console.error('Error Response:', error.response);
+
+      // Add status code to the error object for better error handling
+      const errorToThrow = error.response?.data || { message: error.message };
+      errorToThrow.status = error.response?.status;
+      throw errorToThrow;
     }
   },
 
@@ -467,6 +476,39 @@ export const productAPI = {
   deleteProduct: async (productId) => {
     try {
       const response = await api.delete(`/Product/deleteProduct?productId=${productId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Address API functions
+export const addressAPI = {
+  // Get all addresses
+  getAllAddresses: async () => {
+    try {
+      const response = await api.get('/Address/getAllAddresses');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Create address
+  createAddress: async (addressData) => {
+    try {
+      const response = await api.post('/Address/createAddress', addressData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update address
+  updateAddress: async (addressData) => {
+    try {
+      const response = await api.put('/Address/updateAddress', addressData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
