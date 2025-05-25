@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI, productAPI } from '../services/api';
+import { authAPI, merchantAPI, productAPI, addressAPI } from '../services/api';
 import { SalesChart, QuantityChart, ProductPieChart, CityChart, TopPerformersChart } from '../components/Charts';
+import AddressModal from '../components/AddressModal';
+import ProductEditModal from '../components/ProductEditModal';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import {
@@ -41,6 +43,12 @@ const Dashboard = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [expandedProducts, setExpandedProducts] = useState({});
+  const [addresses, setAddresses] = useState([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [expandedCities, setExpandedCities] = useState({});
+  const [showProductEditModal, setShowProductEditModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -119,6 +127,9 @@ const Dashboard = () => {
 
     // Load products data
     loadProductsData();
+
+    // Load addresses data
+    loadAddressesData();
   }, [navigate, location]);
 
   const loadAnalyticsData = async () => {
@@ -208,6 +219,25 @@ const Dashboard = () => {
     }
   };
 
+  const loadAddressesData = async () => {
+    try {
+      console.log('Loading addresses data...');
+      const addressesData = await addressAPI.getAllAddresses();
+      console.log('Loaded addresses data:', addressesData);
+
+      // Ensure we always set an array
+      if (Array.isArray(addressesData)) {
+        setAddresses(addressesData);
+      } else {
+        console.warn('Addresses data is not an array:', addressesData);
+        setAddresses([]);
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error);
+      setAddresses([]);
+    }
+  };
+
 
 
   const handleViewMerchant = (merchant) => {
@@ -233,6 +263,33 @@ const Dashboard = () => {
   const closeProductModal = () => {
     setShowProductModal(false);
     setSelectedProduct(null);
+  };
+
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setShowProductEditModal(true);
+  };
+
+  const closeProductEditModal = () => {
+    setShowProductEditModal(false);
+    setEditingProduct(null);
+  };
+
+  const handleViewAddress = (address) => {
+    setSelectedAddress(address);
+    setShowAddressModal(true);
+  };
+
+  const closeAddressModal = () => {
+    setShowAddressModal(false);
+    setSelectedAddress(null);
+  };
+
+  const toggleCityExpansion = (cityName) => {
+    setExpandedCities(prev => ({
+      ...prev,
+      [cityName]: !prev[cityName]
+    }));
   };
 
   const handleUploadClick = () => {
@@ -538,6 +595,7 @@ const Dashboard = () => {
             { id: 'analytics', label: 'Analytics' },
             { id: 'merchants', label: 'Merchants' },
             { id: 'products', label: 'Products' },
+            { id: 'addresses', label: 'Addresses' },
             { id: 'profile', label: 'Profile' }
           ].map(tab => (
             <button
@@ -1298,6 +1356,202 @@ const Dashboard = () => {
                   <p style={{ color: theme.textPrimary }}>Loading merchants...</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Addresses Tab */}
+      {activeTab === 'addresses' && (
+        <div>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div className="address-search-container" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              marginBottom: '20px',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '16px' : '0'
+            }}>
+              <h3 style={{ margin: 0, color: '#1e293b' }}>Address Management ({Array.isArray(addresses) ? addresses.length : 0})</h3>
+              <div className="address-actions" style={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                flexWrap: 'wrap'
+              }}>
+                <button
+                  onClick={loadAddressesData}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f9fafb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'white';
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+                <button
+                  onClick={() => setShowAddressModal(true)}
+                  style={{
+                    padding: '8px 16px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#059669';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#10b981';
+                  }}
+                >
+                  ➕ Add Address
+                </button>
+              </div>
+            </div>
+
+            {/* Addresses Display */}
+            <div className="addresses-grid" style={{ marginBottom: '20px' }}>
+              {(() => {
+                // Group addresses by city
+                const groupedAddresses = {};
+                (Array.isArray(addresses) ? addresses : []).forEach(address => {
+                  const city = address.city || 'Unknown City';
+                  if (!groupedAddresses[city]) {
+                    groupedAddresses[city] = [];
+                  }
+                  groupedAddresses[city].push(address);
+                });
+
+                return Object.keys(groupedAddresses).length > 0 ? (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {Object.entries(groupedAddresses).map(([cityName, cityAddresses]) => (
+                      <div
+                        key={cityName}
+                        style={{
+                          backgroundColor: theme.cardBackground,
+                          border: `1px solid ${theme.border}`,
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => toggleCityExpansion(cityName)}
+                      >
+                        {/* City Header */}
+                        <div style={{
+                          padding: '16px',
+                          background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                          color: 'white',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                              🏙️ {cityName}
+                            </h4>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
+                              {cityAddresses.length} address{cityAddresses.length !== 1 ? 'es' : ''}
+                            </p>
+                          </div>
+                          <span style={{ fontSize: '20px', transition: 'transform 0.3s ease', transform: expandedCities[cityName] ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                            ▼
+                          </span>
+                        </div>
+
+                        {/* City Areas - Expandable */}
+                        {expandedCities[cityName] && (
+                          <div style={{ padding: '16px' }}>
+                            <div style={{
+                              display: 'grid',
+                              gap: '8px',
+                              maxHeight: '300px',
+                              overflowY: 'auto'
+                            }}>
+                              {cityAddresses.map((address, index) => (
+                                <div
+                                  key={address.addressId || index}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewAddress(address);
+                                  }}
+                                  style={{
+                                    backgroundColor: theme.background,
+                                    border: `1px solid ${theme.borderLight}`,
+                                    borderRadius: '8px',
+                                    padding: '12px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = theme.hoverBgLight;
+                                    e.currentTarget.style.transform = 'scale(1.02)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = theme.background;
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                  }}
+                                >
+                                  <div>
+                                    <p style={{ margin: '0 0 4px 0', fontWeight: '600', color: theme.textPrimary }}>
+                                      📍 {address.area || 'Unknown Area'}
+                                    </p>
+                                    <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
+                                      PIN: {address.pincode || 'N/A'}
+                                    </p>
+                                  </div>
+                                  <span style={{ fontSize: '16px', color: theme.textSecondary }}>→</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '60px 20px',
+                    color: theme.textSecondary
+                  }}>
+                    <div style={{ fontSize: '64px', marginBottom: '16px' }}>🏠</div>
+                    <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary }}>No Addresses Found</h3>
+                    <p style={{ margin: 0, fontSize: '14px' }}>
+                      Start by adding your first address to manage locations.
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -2720,7 +2974,7 @@ const Dashboard = () => {
 
             <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => alert('Edit functionality coming soon!')}
+                onClick={() => handleEditProduct(selectedProduct)}
                 style={{
                   padding: '8px 16px',
                   border: `1px solid ${theme.warning}`,
@@ -2767,6 +3021,192 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Address Modal */}
+      <AddressModal
+        isOpen={showAddressModal}
+        onClose={closeAddressModal}
+        address={selectedAddress}
+        onSuccess={loadAddressesData}
+      />
+
+      {/* Address Detail Modal */}
+      {selectedAddress && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: theme.shadowModal,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: `2px solid ${theme.border}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px'
+                }}>
+                  🏠
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    Address Details
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', color: theme.textSecondary, fontSize: '14px' }}>
+                    View address information
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeAddressModal}
+                style={{
+                  background: 'none',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: theme.textSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.errorBg;
+                  e.currentTarget.style.color = theme.error;
+                  e.currentTarget.style.borderColor = theme.error;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = theme.textSecondary;
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Address Information */}
+            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+              <div style={{
+                backgroundColor: theme.background,
+                padding: '20px',
+                borderRadius: '12px',
+                border: `1px solid ${theme.borderLight}`,
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Address ID:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{selectedAddress.addressId}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary, fontWeight: '500' }}>City:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{selectedAddress.city}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Area:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{selectedAddress.area}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Pincode:</span>
+                    <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{selectedAddress.pincode}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => {
+                  setShowAddressModal(true);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${theme.warning}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.warningBg,
+                  color: theme.warning,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warning;
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warningBg;
+                  e.currentTarget.style.color = theme.warning;
+                }}
+              >
+                Edit Address
+              </button>
+              <button
+                onClick={closeAddressModal}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Edit Modal */}
+      <ProductEditModal
+        isOpen={showProductEditModal}
+        onClose={closeProductEditModal}
+        product={editingProduct}
+        onSuccess={loadProductsData}
+      />
     </div>
   );
 };
