@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI, productAPI, addressAPI } from '../services/api';
-import { SalesChart, QuantityChart, ProductPieChart, CityChart, TopPerformersChart } from '../components/Charts';
+import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI } from '../services/api';
+import {
+  SalesChart,
+  QuantityChart,
+  ProductPieChart,
+  CityChart,
+  TopPerformersChart,
+  MerchantTypeChart,
+  BrokerageChart,
+  TopBuyersByQuantityChart,
+  TopSellersByQuantityChart,
+  TopMerchantsByBrokerageChart,
+  BrokerageDistributionPieChart
+} from '../components/Charts';
 import AddressModal from '../components/AddressModal';
 import ProductEditModal from '../components/ProductEditModal';
+import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
+import AnalyticsControls from '../components/AnalyticsControls';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
+import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
 import {
   mockSalesData,
   mockTopBuyers,
@@ -13,6 +28,11 @@ import {
   mockCityAnalytics,
   mockProductAnalytics
 } from '../utils/mockData';
+import {
+  mockBrokeragePayments,
+  mockPendingPayments,
+  mockReceivablePayments
+} from '../utils/mockPaymentData';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -29,8 +49,36 @@ const Dashboard = () => {
     cityAnalytics: mockCityAnalytics,
     productAnalytics: mockProductAnalytics
   });
+
+  // New analytics state
+  const [selectedFinancialYear, setSelectedFinancialYear] = useState(null);
+  const [compareFinancialYear, setCompareFinancialYear] = useState(null);
+  const [useRealData, setUseRealData] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [realAnalyticsData, setRealAnalyticsData] = useState(null);
+  const [compareAnalyticsData, setCompareAnalyticsData] = useState(null);
+  const [comparisonMetrics, setComparisonMetrics] = useState(null);
   const [merchants, setMerchants] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Top performers data state
+  const [topPerformersData, setTopPerformersData] = useState(null);
+  const [topBuyersByQuantity, setTopBuyersByQuantity] = useState([]);
+  const [topMerchantsByBrokerage, setTopMerchantsByBrokerage] = useState([]);
+  const [topPerformersLoading, setTopPerformersLoading] = useState(false);
+
+  // Payments state
+  const [activePaymentTab, setActivePaymentTab] = useState('brokerage');
+  const [brokeragePayments, setBrokeragePayments] = useState([]);
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [receivablePayments, setReceivablePayments] = useState([]);
+  const [selectedPaymentDetail, setSelectedPaymentDetail] = useState(null);
+  const [showPaymentDetailModal, setShowPaymentDetailModal] = useState(false);
+  const [showPartPaymentModal, setShowPartPaymentModal] = useState(false);
+  const [partPaymentAmount, setPartPaymentAmount] = useState('');
+  const [partPaymentMethod, setPartPaymentMethod] = useState('CASH');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState(null);
   const [showMerchantModal, setShowMerchantModal] = useState(false);
@@ -130,11 +178,119 @@ const Dashboard = () => {
 
     // Load addresses data
     loadAddressesData();
+
+    // Load payment data
+    loadPaymentData();
   }, [navigate, location]);
 
   const loadAnalyticsData = async () => {
     try {
-      // For now, using mock data
+      if (useRealData && selectedFinancialYear) {
+        await loadRealAnalyticsData();
+      } else {
+        // Using mock data
+        setAnalyticsData({
+          sales: mockSalesData,
+          topBuyers: mockTopBuyers,
+          topSellers: mockTopSellers,
+          cityAnalytics: mockCityAnalytics,
+          productAnalytics: mockProductAnalytics
+        });
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+    }
+  };
+
+  const loadRealAnalyticsData = async () => {
+    if (!selectedFinancialYear) return;
+
+    setAnalyticsLoading(true);
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        console.error('No broker ID found');
+        return;
+      }
+
+      console.log('Loading analytics for broker:', brokerId, 'financial year:', selectedFinancialYear.yearId);
+
+      const apiData = await analyticsAPI.getFinancialYearAnalytics(brokerId, selectedFinancialYear.yearId);
+      console.log('Raw analytics API response:', apiData);
+
+      const transformedData = transformFinancialYearAnalytics(apiData);
+      console.log('Transformed analytics data:', transformedData);
+
+      if (transformedData) {
+        setRealAnalyticsData(transformedData);
+        setAnalyticsData(transformedData);
+      }
+
+      // Load top performers data
+      await loadTopPerformersData();
+
+      // Load comparison data if needed
+      if (showComparison && compareFinancialYear) {
+        await loadComparisonData();
+      }
+    } catch (error) {
+      console.error('Error loading real analytics data:', error);
+      // Don't fall back to mock data when real data is selected
+      // Show error state instead
+      setRealAnalyticsData(null);
+      setAnalyticsData(null);
+      alert(`Failed to fetch real analytics data: ${error.message || 'Server error occurred'}`);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  const loadComparisonData = async () => {
+    if (!compareFinancialYear || !selectedFinancialYear) return;
+
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) return;
+
+      const compareApiData = await analyticsAPI.getFinancialYearAnalytics(brokerId, compareFinancialYear.yearId);
+      const compareTransformedData = transformFinancialYearAnalytics(compareApiData);
+
+      if (compareTransformedData && realAnalyticsData) {
+        setCompareAnalyticsData(compareTransformedData);
+        const comparison = compareFinancialYears(realAnalyticsData, compareTransformedData);
+        setComparisonMetrics(comparison);
+      }
+    } catch (error) {
+      console.error('Error loading comparison data:', error);
+      alert(`Failed to fetch comparison data: ${error.message || 'Server error occurred'}`);
+      setCompareAnalyticsData(null);
+      setComparisonMetrics(null);
+    }
+  };
+
+  // Handler functions for analytics controls
+  const handleFinancialYearChange = (financialYear) => {
+    setSelectedFinancialYear(financialYear);
+    if (useRealData && financialYear) {
+      loadRealAnalyticsData();
+      loadTopPerformersData();
+    }
+  };
+
+  const handleCompareFinancialYearChange = (financialYear) => {
+    setCompareFinancialYear(financialYear);
+    if (useRealData && financialYear && selectedFinancialYear) {
+      loadComparisonData();
+    }
+  };
+
+  const handleDataSourceToggle = (useReal) => {
+    setUseRealData(useReal);
+    if (useReal && selectedFinancialYear) {
+      loadRealAnalyticsData();
+      loadTopPerformersData();
+    } else {
+      // Switch back to mock data
       setAnalyticsData({
         sales: mockSalesData,
         topBuyers: mockTopBuyers,
@@ -142,8 +298,22 @@ const Dashboard = () => {
         cityAnalytics: mockCityAnalytics,
         productAnalytics: mockProductAnalytics
       });
-    } catch (error) {
-      console.error('Error loading analytics:', error);
+      setRealAnalyticsData(null);
+      setCompareAnalyticsData(null);
+      setComparisonMetrics(null);
+      // Reset top performers data
+      setTopPerformersData(null);
+      setTopBuyersByQuantity([]);
+      setTopMerchantsByBrokerage([]);
+    }
+  };
+
+  const handleToggleComparison = (show) => {
+    setShowComparison(show);
+    if (!show) {
+      setCompareFinancialYear(null);
+      setCompareAnalyticsData(null);
+      setComparisonMetrics(null);
     }
   };
 
@@ -160,7 +330,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error loading broker data:', error);
-      // Keep using the existing broker data or default
+      alert(`Failed to fetch broker profile: ${error.message || 'Server error occurred'}`);
     }
   };
 
@@ -194,6 +364,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error loading merchants:', error);
+      alert(`Failed to fetch merchants data: ${error.message || 'Server error occurred'}`);
       setMerchants([]);
     } finally {
       setLoading(false);
@@ -215,6 +386,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error loading products:', error);
+      alert(`Failed to fetch products data: ${error.message || 'Server error occurred'}`);
       setProducts([]);
     }
   };
@@ -234,11 +406,167 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
+      alert(`Failed to fetch addresses data: ${error.message || 'Server error occurred'}`);
       setAddresses([]);
     }
   };
 
+  // Load top performers data
+  const loadTopPerformersData = async () => {
+    if (!useRealData || !selectedFinancialYear) return;
 
+    setTopPerformersLoading(true);
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        console.error('No broker ID found');
+        return;
+      }
+
+      console.log('Loading top performers data for broker:', brokerId, 'financial year:', selectedFinancialYear.yearId);
+
+      // Load all top performers data in parallel
+      const [topPerformersResponse, topBuyersResponse, topMerchantsResponse] = await Promise.all([
+        analyticsAPI.getTopPerformers(brokerId, selectedFinancialYear.yearId),
+        analyticsAPI.getTop5BuyersByQuantity(brokerId, selectedFinancialYear.yearId),
+        analyticsAPI.getTop5MerchantsByBrokerage(brokerId, selectedFinancialYear.yearId)
+      ]);
+
+      console.log('Top performers response:', topPerformersResponse);
+      console.log('Top buyers response:', topBuyersResponse);
+      console.log('Top merchants response:', topMerchantsResponse);
+
+      setTopPerformersData(topPerformersResponse);
+      setTopBuyersByQuantity(topBuyersResponse);
+      setTopMerchantsByBrokerage(topMerchantsResponse);
+
+    } catch (error) {
+      console.error('Error loading top performers data:', error);
+      alert(`Failed to fetch top performers data: ${error.message || 'Server error occurred'}`);
+      // Reset to empty arrays on error
+      setTopPerformersData(null);
+      setTopBuyersByQuantity([]);
+      setTopMerchantsByBrokerage([]);
+    } finally {
+      setTopPerformersLoading(false);
+    }
+  };
+
+  // Load payment data
+  const loadPaymentData = () => {
+    try {
+      console.log('Loading payment data...');
+      setBrokeragePayments(mockBrokeragePayments);
+      setPendingPayments(mockPendingPayments);
+      setReceivablePayments(mockReceivablePayments);
+      console.log('Payment data loaded successfully');
+    } catch (error) {
+      console.error('Error loading payment data:', error);
+    }
+  };
+
+  // Payment handler functions
+  const handleViewPaymentDetail = (payment, type) => {
+    setSelectedPaymentDetail({ ...payment, type });
+    setShowPaymentDetailModal(true);
+  };
+
+  const handleAddPartPayment = (payment) => {
+    setSelectedPaymentDetail(payment);
+    setShowPartPaymentModal(true);
+    setPartPaymentAmount('');
+  };
+
+  const handlePartPaymentSubmit = async () => {
+    if (!partPaymentAmount || !selectedPaymentDetail) return;
+
+    try {
+      const amount = parseFloat(partPaymentAmount);
+      if (amount <= 0 || amount > selectedPaymentDetail.pendingAmount) {
+        alert('Invalid payment amount');
+        return;
+      }
+
+      // Simulate API call to update payment
+      console.log('Adding part payment:', {
+        merchantId: selectedPaymentDetail.merchantId,
+        amount: amount,
+        method: partPaymentMethod,
+        date: new Date().toISOString().split('T')[0]
+      });
+
+      // Update local state
+      setBrokeragePayments(prev => prev.map(payment => {
+        if (payment.id === selectedPaymentDetail.id) {
+          const newPaidAmount = payment.paidAmount + amount;
+          const newPendingAmount = payment.pendingAmount - amount;
+          const newStatus = newPendingAmount === 0 ? 'PAID' : 'PARTIAL_PAID';
+
+          return {
+            ...payment,
+            paidAmount: newPaidAmount,
+            pendingAmount: newPendingAmount,
+            status: newStatus,
+            lastPaymentDate: new Date().toISOString().split('T')[0],
+            partPayments: [
+              ...payment.partPayments,
+              {
+                id: `PP${Date.now()}`,
+                amount: amount,
+                date: new Date().toISOString().split('T')[0],
+                method: partPaymentMethod,
+                notes: 'Part payment added'
+              }
+            ]
+          };
+        }
+        return payment;
+      }));
+
+      setShowPartPaymentModal(false);
+      setPartPaymentAmount('');
+      setPartPaymentMethod('CASH');
+      setSelectedPaymentDetail(null);
+      alert('Part payment added successfully!');
+    } catch (error) {
+      console.error('Error adding part payment:', error);
+      alert('Failed to add part payment');
+    }
+  };
+
+  const closePaymentDetailModal = () => {
+    setShowPaymentDetailModal(false);
+    setSelectedPaymentDetail(null);
+  };
+
+  const closePartPaymentModal = () => {
+    setShowPartPaymentModal(false);
+    setSelectedPaymentDetail(null);
+    setPartPaymentAmount('');
+    setPartPaymentMethod('CASH');
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'PAID': return theme.success;
+      case 'PARTIAL_PAID': return theme.warning;
+      case 'PENDING': return theme.info;
+      case 'OVERDUE': return theme.error;
+      case 'DUE_SOON': return theme.warning;
+      default: return theme.textSecondary;
+    }
+  };
+
+  const getStatusBgColor = (status) => {
+    switch (status) {
+      case 'PAID': return theme.successBg;
+      case 'PARTIAL_PAID': return theme.warningBg;
+      case 'PENDING': return theme.infoBg;
+      case 'OVERDUE': return theme.errorBg;
+      case 'DUE_SOON': return theme.warningBg;
+      default: return theme.background;
+    }
+  };
 
   const handleViewMerchant = (merchant) => {
     setSelectedMerchant(merchant);
@@ -593,6 +921,7 @@ const Dashboard = () => {
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'analytics', label: 'Analytics' },
+            { id: 'payments', label: 'Payments' },
             { id: 'merchants', label: 'Merchants' },
             { id: 'products', label: 'Products' },
             { id: 'addresses', label: 'Addresses' },
@@ -633,6 +962,21 @@ const Dashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* Analytics Controls - Show only for overview and analytics tabs */}
+      {(activeTab === 'overview' || activeTab === 'analytics') && (
+        <AnalyticsControls
+          selectedFinancialYear={selectedFinancialYear}
+          onFinancialYearChange={handleFinancialYearChange}
+          compareFinancialYear={compareFinancialYear}
+          onCompareFinancialYearChange={handleCompareFinancialYearChange}
+          useRealData={useRealData}
+          onDataSourceToggle={handleDataSourceToggle}
+          showComparison={showComparison}
+          onToggleComparison={handleToggleComparison}
+          loading={analyticsLoading}
+        />
+      )}
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
@@ -765,6 +1109,8 @@ const Dashboard = () => {
           </div>
 
           {/* Key Metrics Cards */}
+          {analyticsData ? (
+          <>
           <div className="dashboard-stats-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -865,21 +1211,31 @@ const Dashboard = () => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Active Merchants</p>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>
+                    {useRealData && analyticsData.sales.totalBrokerage ? 'Total Brokerage' : 'Active Merchants'}
+                  </p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {merchants.length}
+                    {useRealData && analyticsData.sales.totalBrokerage
+                      ? formatCurrency(analyticsData.sales.totalBrokerage)
+                      : merchants.length
+                    }
                   </h3>
                 </div>
                 <div style={{
-                  backgroundColor: '#ede9fe',
+                  backgroundColor: useRealData && analyticsData.sales.totalBrokerage ? '#fef3c7' : '#ede9fe',
                   padding: '12px',
                   borderRadius: '8px',
-                  color: '#8b5cf6',
+                  color: useRealData && analyticsData.sales.totalBrokerage ? '#f59e0b' : '#8b5cf6',
                   fontSize: '24px'
                 }}>
-                  👥
+                  {useRealData && analyticsData.sales.totalBrokerage ? '💸' : '👥'}
                 </div>
               </div>
+              {useRealData && analyticsData.sales.totalBrokerage && (
+                <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '12px' }}>
+                  Earned from {analyticsData.sales.totalTransactions} transactions
+                </p>
+              )}
             </div>
           </div>
 
@@ -890,27 +1246,19 @@ const Dashboard = () => {
             gap: isMobile ? '16px' : '20px',
             marginBottom: '30px'
           }}>
-            <div style={{
-              backgroundColor: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb',
-              height: isMobile ? '300px' : '400px'
-            }}>
-              <SalesChart data={analyticsData.sales.monthlySales} />
-            </div>
+            <AnimatedChartWrapper
+              title="Monthly Sales Performance"
+              height={isMobile ? '300px' : '400px'}
+            >
+              <SalesChart data={analyticsData.sales.monthlySales} animated={true} />
+            </AnimatedChartWrapper>
 
-            <div style={{
-              backgroundColor: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb',
-              height: isMobile ? '300px' : '400px'
-            }}>
-              <ProductPieChart data={analyticsData.productAnalytics} />
-            </div>
+            <AnimatedChartWrapper
+              title="Product Distribution"
+              height={isMobile ? '300px' : '400px'}
+            >
+              <ProductPieChart data={analyticsData.productAnalytics} animated={true} />
+            </AnimatedChartWrapper>
           </div>
 
           {/* Top Performers */}
@@ -987,51 +1335,265 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+          </>
+        ) : useRealData ? (
+            /* Error State for Real Data */
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '40px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              textAlign: 'center',
+              marginBottom: '30px'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+              <h3 style={{ margin: '0 0 8px 0', color: theme.error }}>Failed to Load Analytics Data</h3>
+              <p style={{ margin: '0 0 16px 0', color: theme.textSecondary }}>
+                Unable to fetch real analytics data from the server. Please check your connection and try again.
+              </p>
+              <button
+                onClick={() => selectedFinancialYear && loadRealAnalyticsData()}
+                style={{
+                  padding: '8px 16px',
+                  border: `1px solid ${theme.primary}`,
+                  borderRadius: '6px',
+                  backgroundColor: theme.primary,
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 
       {/* Analytics Tab */}
       {activeTab === 'analytics' && (
         <div>
+          {analyticsData ? (
+          <div>
           <div className="dashboard-analytics-grid" style={{
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
             gap: isMobile ? '16px' : '20px',
             marginBottom: '30px'
           }}>
-            <div style={{
-              backgroundColor: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb',
-              height: isMobile ? '300px' : '400px'
-            }}>
-              <QuantityChart data={analyticsData.sales.monthlySales} />
-            </div>
+            <AnimatedChartWrapper
+              title="Monthly Quantity Sold"
+              height={isMobile ? '300px' : '400px'}
+            >
+              <QuantityChart data={analyticsData.sales.monthlySales} animated={true} />
+            </AnimatedChartWrapper>
 
-            <div style={{
-              backgroundColor: 'white',
-              padding: '24px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-              border: '1px solid #e5e7eb',
-              height: isMobile ? '300px' : '400px'
-            }}>
-              <CityChart data={analyticsData.cityAnalytics} />
-            </div>
+            <AnimatedChartWrapper
+              title="City-wise Buyers vs Sellers"
+              height={isMobile ? '300px' : '400px'}
+            >
+              <CityChart data={analyticsData.cityAnalytics} animated={true} />
+            </AnimatedChartWrapper>
           </div>
 
-          <div style={{
-            backgroundColor: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-            border: '1px solid #e5e7eb',
-            marginBottom: '20px'
-          }}>
-            <TopPerformersChart buyers={analyticsData.topBuyers} sellers={analyticsData.topSellers} />
-          </div>
+          <AnimatedChartWrapper
+            title="Top 5 Buyers by Purchase Amount"
+            height="400px"
+            style={{ marginBottom: '20px' }}
+          >
+            <TopPerformersChart buyers={analyticsData.topBuyers} sellers={analyticsData.topSellers} animated={true} />
+          </AnimatedChartWrapper>
+
+          {/* New Analytics Charts - Show only with real data */}
+          {useRealData && analyticsData.merchantTypeAnalytics && analyticsData.merchantTypeAnalytics.length > 0 && (
+            <div className="dashboard-analytics-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+              gap: isMobile ? '16px' : '20px',
+              marginBottom: '30px'
+            }}>
+              <AnimatedChartWrapper
+                title="Merchant Type Analytics"
+                height={isMobile ? '300px' : '400px'}
+              >
+                <MerchantTypeChart data={analyticsData.merchantTypeAnalytics} animated={true} />
+              </AnimatedChartWrapper>
+
+              <AnimatedChartWrapper
+                title="Monthly Brokerage Earnings"
+                height={isMobile ? '300px' : '400px'}
+              >
+                <BrokerageChart data={analyticsData.sales.monthlySales} animated={true} />
+              </AnimatedChartWrapper>
+            </div>
+          )}
+
+          {/* Top Performers Charts - Show only with real data */}
+          {useRealData && (topBuyersByQuantity.length > 0 || topMerchantsByBrokerage.length > 0 || (topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0)) && (
+            <div>
+              <h3 style={{
+                margin: '30px 0 20px 0',
+                color: theme.textPrimary,
+                fontSize: '20px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                🏆 Top Performers Analysis
+              </h3>
+
+              {/* Top Buyers and Sellers by Quantity */}
+              {(topBuyersByQuantity.length > 0 || (topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0)) && (
+                <div className="dashboard-analytics-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                  gap: isMobile ? '16px' : '20px',
+                  marginBottom: '30px'
+                }}>
+                  {topBuyersByQuantity.length > 0 && (
+                    <AnimatedChartWrapper
+                      title="Top 5 Buyers by Quantity"
+                      height={isMobile ? '300px' : '400px'}
+                    >
+                      <TopBuyersByQuantityChart data={topBuyersByQuantity} animated={true} />
+                    </AnimatedChartWrapper>
+                  )}
+
+                  {topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0 && (
+                    <AnimatedChartWrapper
+                      title="Top Sellers by Quantity"
+                      height={isMobile ? '300px' : '400px'}
+                    >
+                      <TopSellersByQuantityChart data={topPerformersData.topSellersByQuantity} animated={true} />
+                    </AnimatedChartWrapper>
+                  )}
+                </div>
+              )}
+
+              {/* Top Merchants by Brokerage and Distribution */}
+              {topMerchantsByBrokerage.length > 0 && (
+                <div className="dashboard-analytics-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
+                  gap: isMobile ? '16px' : '20px',
+                  marginBottom: '30px'
+                }}>
+                  <AnimatedChartWrapper
+                    title="Top 5 Merchants by Brokerage"
+                    height={isMobile ? '300px' : '400px'}
+                  >
+                    <TopMerchantsByBrokerageChart data={topMerchantsByBrokerage} animated={true} />
+                  </AnimatedChartWrapper>
+
+                  <AnimatedChartWrapper
+                    title="Brokerage Distribution"
+                    height={isMobile ? '300px' : '400px'}
+                  >
+                    <BrokerageDistributionPieChart data={topMerchantsByBrokerage} animated={true} />
+                  </AnimatedChartWrapper>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Comparison Metrics - Show only when comparison is enabled */}
+          {showComparison && comparisonMetrics && (
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              marginBottom: '30px',
+              transition: 'all 0.3s ease'
+            }}>
+              <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📊 Financial Year Comparison
+                {selectedFinancialYear && compareFinancialYear && (
+                  <span style={{ fontSize: '14px', fontWeight: 'normal', color: theme.textSecondary }}>
+                    ({selectedFinancialYear.financialYearName} vs {compareFinancialYear.financialYearName})
+                  </span>
+                )}
+              </h3>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px'
+              }}>
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: theme.background,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`
+                }}>
+                  <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Sales Change</p>
+                  <p style={{
+                    margin: 0,
+                    color: comparisonMetrics.salesChange >= 0 ? theme.success : theme.error,
+                    fontSize: '18px',
+                    fontWeight: '600'
+                  }}>
+                    {comparisonMetrics.salesChange >= 0 ? '+' : ''}{comparisonMetrics.salesChange}%
+                  </p>
+                </div>
+
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: theme.background,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`
+                }}>
+                  <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Quantity Change</p>
+                  <p style={{
+                    margin: 0,
+                    color: comparisonMetrics.quantityChange >= 0 ? theme.success : theme.error,
+                    fontSize: '18px',
+                    fontWeight: '600'
+                  }}>
+                    {comparisonMetrics.quantityChange >= 0 ? '+' : ''}{comparisonMetrics.quantityChange}%
+                  </p>
+                </div>
+
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: theme.background,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`
+                }}>
+                  <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Transactions Change</p>
+                  <p style={{
+                    margin: 0,
+                    color: comparisonMetrics.transactionsChange >= 0 ? theme.success : theme.error,
+                    fontSize: '18px',
+                    fontWeight: '600'
+                  }}>
+                    {comparisonMetrics.transactionsChange >= 0 ? '+' : ''}{comparisonMetrics.transactionsChange}%
+                  </p>
+                </div>
+
+                <div style={{
+                  padding: '16px',
+                  backgroundColor: theme.background,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`
+                }}>
+                  <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Brokerage Change</p>
+                  <p style={{
+                    margin: 0,
+                    color: comparisonMetrics.brokerageChange >= 0 ? theme.success : theme.error,
+                    fontSize: '18px',
+                    fontWeight: '600'
+                  }}>
+                    {comparisonMetrics.brokerageChange >= 0 ? '+' : ''}{comparisonMetrics.brokerageChange}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* City Analytics Table */}
           <div style={{
@@ -1069,6 +1631,452 @@ const Dashboard = () => {
               </table>
             </div>
           </div>
+          </div>
+          ) : useRealData ? (
+            /* Error State for Real Data */
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '40px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              textAlign: 'center',
+              marginBottom: '30px'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+              <h3 style={{ margin: '0 0 8px 0', color: theme.error }}>Failed to Load Analytics Data</h3>
+              <p style={{ margin: '0 0 16px 0', color: theme.textSecondary }}>
+                Unable to fetch real analytics data from the server. Please check your connection and try again.
+              </p>
+              <button
+                onClick={() => selectedFinancialYear && loadRealAnalyticsData()}
+                style={{
+                  padding: '8px 16px',
+                  border: `1px solid ${theme.primary}`,
+                  borderRadius: '6px',
+                  backgroundColor: theme.primary,
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Payments Tab */}
+      {activeTab === 'payments' && (
+        <div>
+          {/* Payment Tab Navigation */}
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '12px',
+            padding: '0',
+            marginBottom: '20px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div className="payment-tabs" style={{
+              display: 'flex',
+              borderBottom: `1px solid ${theme.borderLight}`,
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch'
+            }}>
+              {[
+                { id: 'brokerage', label: 'Brokerage Payments', icon: '💰' },
+                { id: 'pending', label: 'Pending Payments', icon: '⏳' },
+                { id: 'receivable', label: 'Receivable Payments', icon: '💸' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActivePaymentTab(tab.id)}
+                  className="payment-tab"
+                  style={{
+                    padding: isMobile ? '12px 16px' : '16px 24px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: activePaymentTab === tab.id ? theme.buttonPrimary : theme.textSecondary,
+                    fontWeight: activePaymentTab === tab.id ? '600' : '400',
+                    borderBottom: activePaymentTab === tab.id ? `2px solid ${theme.buttonPrimary}` : '2px solid transparent',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    whiteSpace: 'nowrap',
+                    minWidth: 'fit-content',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activePaymentTab !== tab.id) {
+                      e.currentTarget.style.color = theme.textPrimary;
+                      e.currentTarget.style.backgroundColor = theme.hoverBgLight;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activePaymentTab !== tab.id) {
+                      e.currentTarget.style.color = theme.textSecondary;
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Brokerage Payments Tab */}
+          {activePaymentTab === 'brokerage' && (
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '20px',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '16px' : '0'
+              }}>
+                <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  💰 Brokerage Payments ({brokeragePayments.length})
+                </h3>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: '12px',
+                    color: theme.textSecondary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    Total Pending: ₹{brokeragePayments.reduce((sum, p) => sum + p.pendingAmount, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  minWidth: isMobile ? '800px' : 'auto'
+                }}>
+                  <thead>
+                    <tr style={{ backgroundColor: theme.background }}>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Firm Name</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Sold Bags</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bought Bags</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Rate (₹/bag)</th>
+                      <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Net Brokerage</th>
+                      <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Paid Amount</th>
+                      <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Pending Amount</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Status</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {brokeragePayments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <div>
+                            <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{payment.firmName}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{payment.ownerName} • {payment.city}</p>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                          {payment.soldBags}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                          {payment.boughtBags}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                          ₹{payment.brokerageRate}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                          ₹{payment.netBrokerage.toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.success }}>
+                          ₹{payment.paidAmount.toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: payment.pendingAmount > 0 ? theme.error : theme.success }}>
+                          ₹{payment.pendingAmount.toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            backgroundColor: getStatusBgColor(payment.status),
+                            color: getStatusColor(payment.status)
+                          }}>
+                            {payment.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => handleViewPaymentDetail(payment, 'brokerage')}
+                              style={{
+                                padding: '4px 8px',
+                                border: `1px solid ${theme.info}`,
+                                borderRadius: '4px',
+                                backgroundColor: theme.infoBg,
+                                color: theme.info,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              View Details
+                            </button>
+                            {payment.pendingAmount > 0 && (
+                              <button
+                                onClick={() => handleAddPartPayment(payment)}
+                                style={{
+                                  padding: '4px 8px',
+                                  border: `1px solid ${theme.success}`,
+                                  borderRadius: '4px',
+                                  backgroundColor: theme.successBg,
+                                  color: theme.success,
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease'
+                                }}
+                              >
+                                Add Payment
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Pending Payments Tab */}
+          {activePaymentTab === 'pending' && (
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '20px',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '16px' : '0'
+              }}>
+                <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  ⏳ Pending Payments ({pendingPayments.length})
+                </h3>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: '12px',
+                    color: theme.textSecondary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    Total Pending: ₹{pendingPayments.reduce((sum, p) => sum + p.totalPendingAmount, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  minWidth: isMobile ? '800px' : 'auto'
+                }}>
+                  <thead>
+                    <tr style={{ backgroundColor: theme.background }}>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Buyer Firm</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Transactions</th>
+                      <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Amount</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Oldest Due</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Status</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingPayments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <div>
+                            <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{payment.buyerFirm}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{payment.buyerOwner} • {payment.buyerCity}</p>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                          {payment.transactionCount}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.error }}>
+                          ₹{payment.totalPendingAmount.toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textSecondary }}>
+                          {new Date(payment.oldestTransactionDate).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            backgroundColor: getStatusBgColor(payment.status),
+                            color: getStatusColor(payment.status)
+                          }}>
+                            {payment.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <button
+                            onClick={() => handleViewPaymentDetail(payment, 'pending')}
+                            style={{
+                              padding: '4px 8px',
+                              border: `1px solid ${theme.info}`,
+                              borderRadius: '4px',
+                              backgroundColor: theme.infoBg,
+                              color: theme.info,
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Receivable Payments Tab */}
+          {activePaymentTab === 'receivable' && (
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '20px',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '16px' : '0'
+              }}>
+                <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  💸 Receivable Payments ({receivablePayments.length})
+                </h3>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <span style={{
+                    fontSize: '12px',
+                    color: theme.textSecondary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    Total Receivable: ₹{receivablePayments.reduce((sum, p) => sum + p.totalReceivableAmount, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  minWidth: isMobile ? '800px' : 'auto'
+                }}>
+                  <thead>
+                    <tr style={{ backgroundColor: theme.background }}>
+                      <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Seller Firm</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Transactions</th>
+                      <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Amount</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Oldest Due</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Status</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receivablePayments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <div>
+                            <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{payment.sellerFirm}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{payment.sellerOwner} • {payment.sellerCity}</p>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                          {payment.transactionCount}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.success }}>
+                          ₹{payment.totalReceivableAmount.toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textSecondary }}>
+                          {new Date(payment.oldestTransactionDate).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            backgroundColor: getStatusBgColor(payment.status),
+                            color: getStatusColor(payment.status)
+                          }}>
+                            {payment.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                          <button
+                            onClick={() => handleViewPaymentDetail(payment, 'receivable')}
+                            style={{
+                              padding: '4px 8px',
+                              border: `1px solid ${theme.info}`,
+                              borderRadius: '4px',
+                              backgroundColor: theme.infoBg,
+                              color: theme.info,
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1197,7 +2205,7 @@ const Dashboard = () => {
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Owner</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Type</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>City</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Brokerage</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Rate (₹/bag)</th>
                     <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Sold</th>
                     <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Bought</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
@@ -1254,7 +2262,7 @@ const Dashboard = () => {
                         </div>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {merchant.brokerageRate || 0}%
+                        ₹{merchant.brokerageRate || 0}
                       </td>
                       <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                         {formatNumber(merchant.totalBagsSold || 0)}
@@ -3207,8 +4215,754 @@ const Dashboard = () => {
         product={editingProduct}
         onSuccess={loadProductsData}
       />
+
+      {/* Payment Detail Modal */}
+      {showPaymentDetailModal && selectedPaymentDetail && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '800px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: theme.shadowModal,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: `2px solid ${theme.border}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: selectedPaymentDetail.type === 'brokerage' ?
+                    'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' :
+                    selectedPaymentDetail.type === 'pending' ?
+                    'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)' :
+                    'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px'
+                }}>
+                  {selectedPaymentDetail.type === 'brokerage' ? '💰' :
+                   selectedPaymentDetail.type === 'pending' ? '⏳' : '💸'}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {selectedPaymentDetail.type === 'brokerage' ? 'Brokerage Payment Details' :
+                     selectedPaymentDetail.type === 'pending' ? 'Pending Payment Details' :
+                     'Receivable Payment Details'}
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', color: theme.textSecondary, fontSize: '14px' }}>
+                    {selectedPaymentDetail.firmName || selectedPaymentDetail.buyerFirm || selectedPaymentDetail.sellerFirm}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closePaymentDetailModal}
+                style={{
+                  background: 'none',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: theme.textSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Payment Summary */}
+            <div style={{
+              backgroundColor: theme.background,
+              padding: '20px',
+              borderRadius: '12px',
+              border: `1px solid ${theme.borderLight}`,
+              marginBottom: '24px'
+            }}>
+              <h4 style={{ margin: '0 0 20px 0', color: theme.textPrimary }}>Payment Summary</h4>
+
+              {selectedPaymentDetail.type === 'brokerage' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                  {/* Bags Section */}
+                  <div>
+                    <h5 style={{ margin: '0 0 12px 0', color: theme.textSecondary, fontSize: '14px', fontWeight: '600' }}>📦 BAGS SUMMARY</h5>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '16px',
+                      backgroundColor: theme.cardBackground,
+                      padding: '20px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.borderLight}`,
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Sold</p>
+                        <p style={{ margin: 0, color: theme.success, fontSize: '20px', fontWeight: '700' }}>
+                          {selectedPaymentDetail.soldBags}
+                        </p>
+                      </div>
+
+                      <div style={{
+                        fontSize: '24px',
+                        fontWeight: '700',
+                        color: theme.textSecondary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: '40px'
+                      }}>
+                        +
+                      </div>
+
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Bought</p>
+                        <p style={{ margin: 0, color: theme.info, fontSize: '20px', fontWeight: '700' }}>
+                          {selectedPaymentDetail.boughtBags}
+                        </p>
+                      </div>
+
+                      <div style={{
+                        fontSize: '24px',
+                        fontWeight: '700',
+                        color: theme.textSecondary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: '40px'
+                      }}>
+                        =
+                      </div>
+
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Total</p>
+                        <p style={{ margin: 0, color: theme.textPrimary, fontSize: '20px', fontWeight: '700' }}>
+                          {selectedPaymentDetail.totalBags}
+                        </p>
+                      </div>
+
+                      <div style={{
+                        fontSize: '24px',
+                        fontWeight: '700',
+                        color: theme.textSecondary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: '40px'
+                      }}>
+                        ×
+                      </div>
+
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Rate/bag</p>
+                        <p style={{ margin: 0, color: theme.textPrimary, fontSize: '20px', fontWeight: '700' }}>
+                          ₹{selectedPaymentDetail.brokerageRate}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calculation Section */}
+                  <div>
+                    <h5 style={{ margin: '0 0 12px 0', color: theme.textSecondary, fontSize: '14px', fontWeight: '600' }}>💰 BROKERAGE CALCULATION</h5>
+                    <div style={{
+                      backgroundColor: theme.cardBackground,
+                      padding: '20px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.borderLight}`
+                    }}>
+                      {/* Total Brokerage */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 0',
+                        borderBottom: `1px solid ${theme.borderLight}`
+                      }}>
+                        <span style={{ color: theme.textPrimary, fontSize: '16px', fontWeight: '500' }}>
+                          Total Brokerage ({selectedPaymentDetail.totalBags} bags × ₹{selectedPaymentDetail.brokerageRate}/bag)
+                        </span>
+                        <span style={{ color: theme.textPrimary, fontSize: '18px', fontWeight: '700' }}>
+                          ₹{selectedPaymentDetail.grossBrokerage?.toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Deductions - Detailed */}
+                      <div style={{
+                        padding: '8px 0',
+                        borderBottom: `1px solid ${theme.borderLight}`
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '4px 0'
+                        }}>
+                          <span style={{ color: theme.textSecondary, fontSize: '14px' }}>
+                            Less: Offer (10%)
+                          </span>
+                          <span style={{ color: theme.warning, fontSize: '16px', fontWeight: '600' }}>
+                            -₹{(selectedPaymentDetail.discount || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '4px 0'
+                        }}>
+                          <span style={{ color: theme.textSecondary, fontSize: '14px' }}>
+                            Less: TDS (5%)
+                          </span>
+                          <span style={{ color: theme.warning, fontSize: '16px', fontWeight: '600' }}>
+                            -₹{(selectedPaymentDetail.tds || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '8px 0',
+                          marginTop: '4px',
+                          borderTop: `1px solid ${theme.borderLight}`,
+                          backgroundColor: theme.background,
+                          marginLeft: '-20px',
+                          marginRight: '-20px',
+                          paddingLeft: '20px',
+                          paddingRight: '20px'
+                        }}>
+                          <span style={{ color: theme.textSecondary, fontSize: '14px', fontWeight: '600' }}>
+                            Total Deductions
+                          </span>
+                          <span style={{ color: theme.warning, fontSize: '16px', fontWeight: '700' }}>
+                            -₹{((selectedPaymentDetail.discount || 0) + (selectedPaymentDetail.tds || 0)).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Net Amount */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 0',
+                        borderTop: `2px solid ${theme.border}`,
+                        marginTop: '8px'
+                      }}>
+                        <span style={{ color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>
+                          Net Brokerage
+                        </span>
+                        <span style={{ color: theme.info, fontSize: '20px', fontWeight: '700' }}>
+                          ₹{selectedPaymentDetail.netBrokerage?.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Status Section */}
+                  <div>
+                    <h5 style={{ margin: '0 0 12px 0', color: theme.textSecondary, fontSize: '14px', fontWeight: '600' }}>💳 PAYMENT STATUS</h5>
+                    <div style={{
+                      backgroundColor: theme.cardBackground,
+                      padding: '20px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.borderLight}`
+                    }}>
+                      {/* Net Amount */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 0',
+                        borderBottom: `1px solid ${theme.borderLight}`
+                      }}>
+                        <span style={{ color: theme.textPrimary, fontSize: '16px', fontWeight: '500' }}>
+                          Net Brokerage
+                        </span>
+                        <span style={{ color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>
+                          ₹{selectedPaymentDetail.netBrokerage?.toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Paid Amount */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 0'
+                      }}>
+                        <span style={{ color: theme.textSecondary, fontSize: '14px' }}>
+                          Less: Payments Received
+                        </span>
+                        <span style={{ color: theme.success, fontSize: '16px', fontWeight: '600' }}>
+                          -₹{selectedPaymentDetail.paidAmount?.toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Final Amount */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 0',
+                        borderTop: `2px solid ${theme.border}`,
+                        marginTop: '8px',
+                        backgroundColor: selectedPaymentDetail.pendingAmount > 0 ? theme.errorBg : theme.successBg,
+                        marginLeft: '-20px',
+                        marginRight: '-20px',
+                        paddingLeft: '20px',
+                        paddingRight: '20px',
+                        borderRadius: '0 0 8px 8px'
+                      }}>
+                        <span style={{
+                          color: selectedPaymentDetail.pendingAmount > 0 ? theme.error : theme.success,
+                          fontSize: '18px',
+                          fontWeight: '700'
+                        }}>
+                          {selectedPaymentDetail.pendingAmount > 0 ? 'PENDING AMOUNT' : 'FULLY PAID'}
+                        </span>
+                        <span style={{
+                          color: selectedPaymentDetail.pendingAmount > 0 ? theme.error : theme.success,
+                          fontSize: '24px',
+                          fontWeight: '700'
+                        }}>
+                          ₹{selectedPaymentDetail.pendingAmount?.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(selectedPaymentDetail.type === 'pending' || selectedPaymentDetail.type === 'receivable') && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  <>
+                    <div>
+                      <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Total Transactions</p>
+                      <p style={{ margin: 0, color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>
+                        {selectedPaymentDetail.transactionCount}
+                      </p>
+                    </div>
+                    <div>
+                      <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>
+                        {selectedPaymentDetail.type === 'pending' ? 'Total Pending' : 'Total Receivable'}
+                      </p>
+                      <p style={{ margin: 0, color: selectedPaymentDetail.type === 'pending' ? theme.error : theme.success, fontSize: '18px', fontWeight: '600' }}>
+                        ₹{(selectedPaymentDetail.totalPendingAmount || selectedPaymentDetail.totalReceivableAmount)?.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Oldest Transaction</p>
+                      <p style={{ margin: 0, color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>
+                        {new Date(selectedPaymentDetail.oldestTransactionDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </>
+                </div>
+              )}
+            </div>
+
+            {/* Transactions List - Only for pending and receivable payments */}
+            {selectedPaymentDetail.type !== 'brokerage' && (
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ margin: '0 0 16px 0', color: theme.textPrimary }}>Transaction Details</h4>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: theme.background }}>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Date</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Type</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Product</th>
+                        <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags</th>
+                        <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedPaymentDetail.transactions || []).map((transaction, index) => (
+                        <tr key={transaction.id || index}>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            {new Date(transaction.date).toLocaleDateString()}
+                          </td>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
+                            <span style={{
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              backgroundColor: transaction.type === 'SOLD' ? theme.successBg : theme.infoBg,
+                              color: transaction.type === 'SOLD' ? theme.success : theme.info
+                            }}>
+                              {transaction.type}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            {transaction.product} - {transaction.quality}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            {transaction.bags}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            ₹{(transaction.totalAmount || transaction.amount)?.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Part Payments History (for brokerage payments) */}
+            {selectedPaymentDetail.type === 'brokerage' && selectedPaymentDetail.partPayments && selectedPaymentDetail.partPayments.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{ margin: '0 0 16px 0', color: theme.textPrimary }}>Payment History</h4>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: theme.background }}>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Date</th>
+                        <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Amount</th>
+                        <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Method</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPaymentDetail.partPayments.map((payment, index) => (
+                        <tr key={payment.id || index}>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            {new Date(payment.date).toLocaleDateString()}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.success }}>
+                            ₹{payment.amount?.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
+                            <span style={{
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              backgroundColor: theme.infoBg,
+                              color: theme.info
+                            }}>
+                              {payment.method}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textSecondary }}>
+                            {payment.notes}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              {selectedPaymentDetail.type === 'brokerage' && selectedPaymentDetail.pendingAmount > 0 && (
+                <button
+                  onClick={() => {
+                    setShowPaymentDetailModal(false);
+                    handleAddPartPayment(selectedPaymentDetail);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    border: `1px solid ${theme.success}`,
+                    borderRadius: '8px',
+                    backgroundColor: theme.successBg,
+                    color: theme.success,
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Add Payment
+                </button>
+              )}
+              <button
+                onClick={closePaymentDetailModal}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Part Payment Modal */}
+      {showPartPaymentModal && selectedPaymentDetail && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: theme.shadowModal,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: `2px solid ${theme.border}`
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px'
+                }}>
+                  💳
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    Add Part Payment
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', color: theme.textSecondary, fontSize: '14px' }}>
+                    {selectedPaymentDetail.firmName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closePartPaymentModal}
+                style={{
+                  background: 'none',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: theme.textSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Payment Info */}
+            <div style={{
+              backgroundColor: theme.background,
+              padding: '20px',
+              borderRadius: '12px',
+              border: `1px solid ${theme.borderLight}`,
+              marginBottom: '24px'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Pending Amount</p>
+                  <p style={{ margin: 0, color: theme.error, fontSize: '18px', fontWeight: '600' }}>
+                    ₹{selectedPaymentDetail.pendingAmount?.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', color: theme.textSecondary, fontSize: '12px' }}>Already Paid</p>
+                  <p style={{ margin: 0, color: theme.success, fontSize: '18px', fontWeight: '600' }}>
+                    ₹{selectedPaymentDetail.paidAmount?.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Form */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Payment Amount *
+                </label>
+                <input
+                  type="number"
+                  value={partPaymentAmount}
+                  onChange={(e) => setPartPaymentAmount(e.target.value)}
+                  placeholder="Enter payment amount"
+                  max={selectedPaymentDetail.pendingAmount}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    outline: 'none',
+                    backgroundColor: theme.cardBackground,
+                    color: theme.textPrimary,
+                    transition: 'border-color 0.2s ease'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = theme.primary}
+                  onBlur={(e) => e.target.style.borderColor = theme.border}
+                />
+                <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '12px' }}>
+                  Maximum amount: ₹{selectedPaymentDetail.pendingAmount?.toLocaleString()}
+                </p>
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Payment Method *
+                </label>
+                <select
+                  value={partPaymentMethod}
+                  onChange={(e) => setPartPaymentMethod(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    outline: 'none',
+                    backgroundColor: theme.cardBackground,
+                    color: theme.textPrimary,
+                    transition: 'border-color 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = theme.primary}
+                  onBlur={(e) => e.target.style.borderColor = theme.border}
+                >
+                  <option value="CASH">Cash</option>
+                  <option value="BANK_TRANSFER">Bank Transfer</option>
+                  <option value="UPI">UPI</option>
+                  <option value="CHEQUE">Cheque</option>
+                  <option value="NEFT">NEFT</option>
+                  <option value="RTGS">RTGS</option>
+                  <option value="IMPS">IMPS</option>
+                  <option value="CARD">Card Payment</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={closePartPaymentModal}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePartPaymentSubmit}
+                disabled={!partPaymentAmount || parseFloat(partPaymentAmount) <= 0 || parseFloat(partPaymentAmount) > selectedPaymentDetail.pendingAmount}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  backgroundColor: (!partPaymentAmount || parseFloat(partPaymentAmount) <= 0 || parseFloat(partPaymentAmount) > selectedPaymentDetail.pendingAmount) ? theme.borderLight : theme.success,
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: (!partPaymentAmount || parseFloat(partPaymentAmount) <= 0 || parseFloat(partPaymentAmount) > selectedPaymentDetail.pendingAmount) ? 'not-allowed' : 'pointer',
+                  opacity: (!partPaymentAmount || parseFloat(partPaymentAmount) <= 0 || parseFloat(partPaymentAmount) > selectedPaymentDetail.pendingAmount) ? 0.6 : 1,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Add Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Dashboard;
+
+
+

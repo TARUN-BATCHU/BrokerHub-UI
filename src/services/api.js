@@ -30,7 +30,8 @@ api.interceptors.request.use(
       '/Product/deleteProduct',
       '/Address/getAllAddresses',
       '/Address/createAddress',
-      '/Address/updateAddress'
+      '/Address/updateAddress',
+      '/Dashboard/'
     ];
 
     const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
@@ -366,7 +367,57 @@ export const merchantAPI = {
 
 // Analytics API functions
 export const analyticsAPI = {
-  // Get sales analytics
+  // Get financial year analytics
+  getFinancialYearAnalytics: async (brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/Dashboard/${brokerId}/getFinancialYearAnalytics/${financialYearId}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top performers (comprehensive data)
+  getTopPerformers: async (brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/Dashboard/${brokerId}/getTopPerformers/${financialYearId}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top 5 buyers by quantity
+  getTop5BuyersByQuantity: async (brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/Dashboard/${brokerId}/getTop5BuyersByQuantity/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top 5 merchants by brokerage
+  getTop5MerchantsByBrokerage: async (brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/Dashboard/${brokerId}/getTop5MerchantsByBrokerage/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get sales analytics (legacy)
   getSalesAnalytics: async () => {
     try {
       const response = await api.get('/analytics/sales');
@@ -376,7 +427,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top buyers
+  // Get top buyers (legacy)
   getTopBuyers: async () => {
     try {
       const response = await api.get('/analytics/top-buyers');
@@ -386,7 +437,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top sellers
+  // Get top sellers (legacy)
   getTopSellers: async () => {
     try {
       const response = await api.get('/analytics/top-sellers');
@@ -396,7 +447,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get city-wise analytics
+  // Get city-wise analytics (legacy)
   getCityAnalytics: async () => {
     try {
       const response = await api.get('/analytics/cities');
@@ -406,7 +457,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get product analytics
+  // Get product analytics (legacy)
   getProductAnalytics: async () => {
     try {
       const response = await api.get('/analytics/products');
@@ -517,5 +568,6 @@ export const addressAPI = {
 };
 
 export default api;
+
 
 
