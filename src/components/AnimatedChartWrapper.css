@@ -1,0 +1,202 @@
+/* Chart Loading Animations */
+
+@keyframes growBar {
+  0% {
+    height: 0%;
+    transform: scaleY(0);
+  }
+  100% {
+    height: 60%;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes growBar1 {
+  0% {
+    height: 0%;
+    transform: scaleY(0);
+  }
+  100% {
+    height: 40%;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes growBar2 {
+  0% {
+    height: 0%;
+    transform: scaleY(0);
+  }
+  100% {
+    height: 70%;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes growBar3 {
+  0% {
+    height: 0%;
+    transform: scaleY(0);
+  }
+  100% {
+    height: 50%;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes growBar4 {
+  0% {
+    height: 0%;
+    transform: scaleY(0);
+  }
+  100% {
+    height: 80%;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes growBar5 {
+  0% {
+    height: 0%;
+    transform: scaleY(0);
+  }
+  100% {
+    height: 35%;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes spin {
+  0% { 
+    transform: rotate(0deg); 
+  }
+  100% { 
+    transform: rotate(360deg); 
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -30px, 0);
+  }
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+  90% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+/* Chart wrapper specific styles */
+.chart-loading-bar {
+  animation-fill-mode: forwards;
+}
+
+.chart-loading-bar:nth-child(1) {
+  animation: growBar1 1.5s ease-out 0s forwards;
+}
+
+.chart-loading-bar:nth-child(2) {
+  animation: growBar2 1.5s ease-out 0.2s forwards;
+}
+
+.chart-loading-bar:nth-child(3) {
+  animation: growBar3 1.5s ease-out 0.4s forwards;
+}
+
+.chart-loading-bar:nth-child(4) {
+  animation: growBar4 1.5s ease-out 0.6s forwards;
+}
+
+.chart-loading-bar:nth-child(5) {
+  animation: growBar5 1.5s ease-out 0.8s forwards;
+}
+
+.chart-loading-bar:nth-child(6) {
+  animation: growBar 1.5s ease-out 1s forwards;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.floating-dot {
+  animation: float 2s ease-in-out infinite;
+}
+
+.floating-dot:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.floating-dot:nth-child(3) {
+  animation-delay: 1s;
+}
+
+.shimmer-overlay {
+  animation: shimmer 2s infinite;
+}
+
+.chart-content-enter {
+  animation: fadeIn 0.8s ease 0.5s forwards;
+  opacity: 0;
+}
+
+.chart-title-enter {
+  animation: slideInUp 0.6s ease 0.2s forwards;
+  opacity: 0;
+  transform: translateY(-10px);
+}
