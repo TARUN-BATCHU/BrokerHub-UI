@@ -10,6 +10,9 @@ import VerifyAccount from './pages/VerifyAccount';
 import Dashboard from './pages/Dashboard';
 import CreateMerchant from './pages/CreateMerchant';
 import FinancialYears from './pages/FinancialYears';
+import DailyLedger from './pages/DailyLedger';
+import LedgerDetail from './pages/LedgerDetail';
+import TestLedger from './pages/TestLedger';
 import SettingsDropdown from './components/SettingsDropdown';
 
 // Protected Route component
@@ -104,6 +107,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <FinancialYears />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/daily-ledger"
+            element={
+              <ProtectedRoute>
+                <DailyLedger />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ledger-detail"
+            element={
+              <ProtectedRoute>
+                <LedgerDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/test-ledger"
+            element={
+              <ProtectedRoute>
+                <TestLedger />
               </ProtectedRoute>
             }
           />
