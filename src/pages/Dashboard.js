@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI } from '../services/api';
+import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
 import {
   SalesChart,
   QuantityChart,
@@ -78,6 +78,28 @@ const Dashboard = () => {
   const [showPartPaymentModal, setShowPartPaymentModal] = useState(false);
   const [partPaymentAmount, setPartPaymentAmount] = useState('');
   const [partPaymentMethod, setPartPaymentMethod] = useState('CASH');
+
+  // Search state for payments
+  const [brokerageSearchTerm, setBrokerageSearchTerm] = useState('');
+  const [pendingSearchTerm, setPendingSearchTerm] = useState('');
+  const [receivableSearchTerm, setReceivableSearchTerm] = useState('');
+  const [showBrokerageDropdown, setShowBrokerageDropdown] = useState(false);
+  const [showPendingDropdown, setShowPendingDropdown] = useState(false);
+  const [showReceivableDropdown, setShowReceivableDropdown] = useState(false);
+
+  // Mock firm names for search dropdown (in real app, this would come from API)
+  const [firmNames] = useState([
+    'Tarun Traders',
+    'Siri Traders',
+    'Krishna Mills',
+    'Rama Traders',
+    'Lakshmi Mills',
+    'Venkat Traders',
+    'Sai Mills',
+    'Ganga Traders',
+    'Surya Mills',
+    'Priya Traders'
+  ]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMerchant, setSelectedMerchant] = useState(null);
@@ -462,6 +484,89 @@ const Dashboard = () => {
       console.log('Payment data loaded successfully');
     } catch (error) {
       console.error('Error loading payment data:', error);
+    }
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.search-container')) {
+        setShowBrokerageDropdown(false);
+        setShowPendingDropdown(false);
+        setShowReceivableDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Search and filter functions for payments
+  const getFilteredBrokeragePayments = () => {
+    if (!brokerageSearchTerm) return brokeragePayments;
+    return brokeragePayments.filter(payment =>
+      payment.firmName.toLowerCase().includes(brokerageSearchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredPendingPayments = () => {
+    if (!pendingSearchTerm) return pendingPayments;
+    return pendingPayments.filter(payment =>
+      payment.buyerFirm.toLowerCase().includes(pendingSearchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredReceivablePayments = () => {
+    if (!receivableSearchTerm) return receivablePayments;
+    return receivablePayments.filter(payment =>
+      payment.sellerFirm.toLowerCase().includes(receivableSearchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredFirmNames = (searchTerm) => {
+    if (!searchTerm) return firmNames;
+    return firmNames.filter(name =>
+      name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const handleFirmSelect = (firmName, section) => {
+    switch(section) {
+      case 'brokerage':
+        setBrokerageSearchTerm(firmName);
+        setShowBrokerageDropdown(false);
+        break;
+      case 'pending':
+        setPendingSearchTerm(firmName);
+        setShowPendingDropdown(false);
+        break;
+      case 'receivable':
+        setReceivableSearchTerm(firmName);
+        setShowReceivableDropdown(false);
+        break;
+    }
+
+    // In real app, make API call here to get merchant details
+    console.log(`Selected firm: ${firmName} in section: ${section}`);
+    // TODO: Implement API call to backend
+  };
+
+  const clearSearch = (section) => {
+    switch(section) {
+      case 'brokerage':
+        setBrokerageSearchTerm('');
+        setShowBrokerageDropdown(false);
+        break;
+      case 'pending':
+        setPendingSearchTerm('');
+        setShowPendingDropdown(false);
+        break;
+      case 'receivable':
+        setReceivableSearchTerm('');
+        setShowReceivableDropdown(false);
+        break;
     }
   };
 
@@ -1067,7 +1172,7 @@ const Dashboard = () => {
 
               <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
                 <Link
-                  to="/financial-years"
+                  to="/daily-ledger"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -1095,7 +1200,7 @@ const Dashboard = () => {
                   }}
                 >
                   <span style={{ fontSize: '18px' }}>🚀</span>
-                  Open Audit Ledger
+                  Open Daily Ledger
                 </Link>
                 <p style={{
                   margin: '8px 0 0 0',
@@ -1751,7 +1856,7 @@ const Dashboard = () => {
                 gap: isMobile ? '16px' : '0'
               }}>
                 <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  💰 Brokerage Payments ({brokeragePayments.length})
+                  💰 Brokerage Payments ({getFilteredBrokeragePayments().length})
                 </h3>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <span style={{
@@ -1761,9 +1866,108 @@ const Dashboard = () => {
                     alignItems: 'center',
                     gap: '4px'
                   }}>
-                    Total Pending: ₹{brokeragePayments.reduce((sum, p) => sum + p.pendingAmount, 0).toLocaleString()}
+                    Total Pending: ₹{getFilteredBrokeragePayments().reduce((sum, p) => sum + p.pendingAmount, 0).toLocaleString()}
                   </span>
                 </div>
+              </div>
+
+              {/* Search Bar for Brokerage */}
+              <div className="search-container" style={{
+                marginBottom: '20px',
+                position: 'relative'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: theme.inputBackground,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <span style={{ color: theme.textSecondary, fontSize: '16px' }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search by firm name..."
+                    value={brokerageSearchTerm}
+                    onChange={(e) => {
+                      setBrokerageSearchTerm(e.target.value);
+                      setShowBrokerageDropdown(true);
+                    }}
+                    onFocus={() => setShowBrokerageDropdown(true)}
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      backgroundColor: 'transparent',
+                      color: theme.textPrimary,
+                      fontSize: '14px',
+                      flex: 1,
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  {brokerageSearchTerm && (
+                    <button
+                      onClick={() => clearSearch('brokerage')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: theme.textSecondary,
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        padding: '0',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown for firm suggestions */}
+                {showBrokerageDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: theme.cardBackground,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    boxShadow: theme.shadow,
+                    zIndex: 10,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    {getFilteredFirmNames(brokerageSearchTerm).map((firmName, index) => (
+                      <div
+                        key={index}
+                        onClick={() => handleFirmSelect(firmName, 'brokerage')}
+                        style={{
+                          padding: '12px',
+                          cursor: 'pointer',
+                          borderBottom: index < getFilteredFirmNames(brokerageSearchTerm).length - 1 ? `1px solid ${theme.borderLight}` : 'none',
+                          color: theme.textPrimary,
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBackground}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        {firmName}
+                      </div>
+                    ))}
+                    {getFilteredFirmNames(brokerageSearchTerm).length === 0 && (
+                      <div style={{
+                        padding: '12px',
+                        color: theme.textSecondary,
+                        fontStyle: 'italic'
+                      }}>
+                        No firms found
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -1786,7 +1990,7 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {brokeragePayments.map((payment) => (
+                    {getFilteredBrokeragePayments().map((payment) => (
                       <tr key={payment.id}>
                         <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                           <div>
@@ -1887,7 +2091,7 @@ const Dashboard = () => {
                 gap: isMobile ? '16px' : '0'
               }}>
                 <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  ⏳ Pending Payments ({pendingPayments.length})
+                  ⏳ Pending Payments ({getFilteredPendingPayments().length})
                 </h3>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <span style={{
@@ -1897,9 +2101,108 @@ const Dashboard = () => {
                     alignItems: 'center',
                     gap: '4px'
                   }}>
-                    Total Pending: ₹{pendingPayments.reduce((sum, p) => sum + p.totalPendingAmount, 0).toLocaleString()}
+                    Total Pending: ₹{getFilteredPendingPayments().reduce((sum, p) => sum + p.totalPendingAmount, 0).toLocaleString()}
                   </span>
                 </div>
+              </div>
+
+              {/* Search Bar for Pending Payments */}
+              <div className="search-container" style={{
+                marginBottom: '20px',
+                position: 'relative'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: theme.inputBackground,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <span style={{ color: theme.textSecondary, fontSize: '16px' }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search by buyer firm name..."
+                    value={pendingSearchTerm}
+                    onChange={(e) => {
+                      setPendingSearchTerm(e.target.value);
+                      setShowPendingDropdown(true);
+                    }}
+                    onFocus={() => setShowPendingDropdown(true)}
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      backgroundColor: 'transparent',
+                      color: theme.textPrimary,
+                      fontSize: '14px',
+                      flex: 1,
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  {pendingSearchTerm && (
+                    <button
+                      onClick={() => clearSearch('pending')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: theme.textSecondary,
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        padding: '0',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown for firm suggestions */}
+                {showPendingDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: theme.cardBackground,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    boxShadow: theme.shadow,
+                    zIndex: 10,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    {getFilteredFirmNames(pendingSearchTerm).map((firmName, index) => (
+                      <div
+                        key={index}
+                        onClick={() => handleFirmSelect(firmName, 'pending')}
+                        style={{
+                          padding: '12px',
+                          cursor: 'pointer',
+                          borderBottom: index < getFilteredFirmNames(pendingSearchTerm).length - 1 ? `1px solid ${theme.borderLight}` : 'none',
+                          color: theme.textPrimary,
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBackground}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        {firmName}
+                      </div>
+                    ))}
+                    {getFilteredFirmNames(pendingSearchTerm).length === 0 && (
+                      <div style={{
+                        padding: '12px',
+                        color: theme.textSecondary,
+                        fontStyle: 'italic'
+                      }}>
+                        No firms found
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -1919,7 +2222,7 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {pendingPayments.map((payment) => (
+                    {getFilteredPendingPayments().map((payment) => (
                       <tr key={payment.id}>
                         <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                           <div>
@@ -1992,7 +2295,7 @@ const Dashboard = () => {
                 gap: isMobile ? '16px' : '0'
               }}>
                 <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  💸 Receivable Payments ({receivablePayments.length})
+                  💸 Receivable Payments ({getFilteredReceivablePayments().length})
                 </h3>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <span style={{
@@ -2002,9 +2305,108 @@ const Dashboard = () => {
                     alignItems: 'center',
                     gap: '4px'
                   }}>
-                    Total Receivable: ₹{receivablePayments.reduce((sum, p) => sum + p.totalReceivableAmount, 0).toLocaleString()}
+                    Total Receivable: ₹{getFilteredReceivablePayments().reduce((sum, p) => sum + p.totalReceivableAmount, 0).toLocaleString()}
                   </span>
                 </div>
+              </div>
+
+              {/* Search Bar for Receivable Payments */}
+              <div className="search-container" style={{
+                marginBottom: '20px',
+                position: 'relative'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: theme.inputBackground,
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <span style={{ color: theme.textSecondary, fontSize: '16px' }}>🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search by seller firm name..."
+                    value={receivableSearchTerm}
+                    onChange={(e) => {
+                      setReceivableSearchTerm(e.target.value);
+                      setShowReceivableDropdown(true);
+                    }}
+                    onFocus={() => setShowReceivableDropdown(true)}
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      backgroundColor: 'transparent',
+                      color: theme.textPrimary,
+                      fontSize: '14px',
+                      flex: 1,
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  {receivableSearchTerm && (
+                    <button
+                      onClick={() => clearSearch('receivable')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: theme.textSecondary,
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        padding: '0',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown for firm suggestions */}
+                {showReceivableDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: theme.cardBackground,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    boxShadow: theme.shadow,
+                    zIndex: 10,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    {getFilteredFirmNames(receivableSearchTerm).map((firmName, index) => (
+                      <div
+                        key={index}
+                        onClick={() => handleFirmSelect(firmName, 'receivable')}
+                        style={{
+                          padding: '12px',
+                          cursor: 'pointer',
+                          borderBottom: index < getFilteredFirmNames(receivableSearchTerm).length - 1 ? `1px solid ${theme.borderLight}` : 'none',
+                          color: theme.textPrimary,
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBackground}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        {firmName}
+                      </div>
+                    ))}
+                    {getFilteredFirmNames(receivableSearchTerm).length === 0 && (
+                      <div style={{
+                        padding: '12px',
+                        color: theme.textSecondary,
+                        fontStyle: 'italic'
+                      }}>
+                        No firms found
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -2024,7 +2426,7 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {receivablePayments.map((payment) => (
+                    {getFilteredReceivablePayments().map((payment) => (
                       <tr key={payment.id}>
                         <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                           <div>

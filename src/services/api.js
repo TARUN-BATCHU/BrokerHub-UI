@@ -31,7 +31,10 @@ api.interceptors.request.use(
       '/Address/getAllAddresses',
       '/Address/createAddress',
       '/Address/updateAddress',
-      '/Dashboard/'
+      '/Dashboard/',
+      '/DailyLedger/',
+      '/LedgerDetail/',
+      '/LedgerRecord/'
     ];
 
     const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
@@ -560,6 +563,99 @@ export const addressAPI = {
   updateAddress: async (addressData) => {
     try {
       const response = await api.put('/Address/updateAddress', addressData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Daily Ledger API functions
+export const dailyLedgerAPI = {
+  // Create daily ledger
+  createDailyLedger: async (financialYearId, date) => {
+    try {
+      const response = await api.post(`/DailyLedger/create?financialYearId=${financialYearId}&date=${date}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get daily ledger by date
+  getDailyLedger: async (date) => {
+    try {
+      const response = await api.get(`/DailyLedger/getDailyLedger?date=${date}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  
+  // Get daily ledger with pagination
+  getDailyLedgerWithPagination: async (date, page = 0, size = 20, sortBy = 'ledgerDetailsId', sortDir = 'asc') => {
+    try {
+      const response = await api.get(`/DailyLedger/getOptimizedDailyLedgerWithPagination?date=${date}&page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Create ledger detail
+  createLedgerDetail: async (ledgerDetailData) => {
+    try {
+      const response = await api.post('/LedgerDetail/create', ledgerDetailData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update ledger detail
+  updateLedgerDetail: async (ledgerDetailData) => {
+    try {
+      const response = await api.put('/LedgerDetail/update', ledgerDetailData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete ledger detail
+  deleteLedgerDetail: async (id) => {
+    try {
+      const response = await api.delete(`/LedgerDetail/delete/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Create ledger record
+  createLedgerRecord: async (ledgerRecordData) => {
+    try {
+      const response = await api.post('/LedgerRecord/create', ledgerRecordData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update ledger record
+  updateLedgerRecord: async (ledgerRecordData) => {
+    try {
+      const response = await api.put('/LedgerRecord/update', ledgerRecordData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete ledger record
+  deleteLedgerRecord: async (id) => {
+    try {
+      const response = await api.delete(`/LedgerRecord/delete/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

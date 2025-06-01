@@ -218,3 +218,38 @@ const calculateChange = (current, previous) => {
   if (!previous || previous === 0) return 0;
   return Math.round(((current - previous) / previous) * 100 * 10) / 10;
 };
+
+// Update the analytics transformer to handle transaction summary data
+const transformLedgerDetails = (ledgerDetails) => {
+  return ledgerDetails.map(detail => {
+    // Extract transaction summary data if available
+    const transactionSummary = detail.transactionSummary || {
+      totalBagsSoldInTransaction: calculateTotalBags(detail.records || []),
+      totalBrokerageInTransaction: calculateTotalBrokerage(detail.records || []),
+      totalReceivableAmountInTransaction: calculateTotalAmount(detail.records || []),
+      averageBrokeragePerBag: detail.records?.length > 0 
+        ? calculateTotalBrokerage(detail.records) / calculateTotalBags(detail.records) 
+        : 0,
+      numberOfProducts: [...new Set(detail.records?.map(r => r.product?.productId) || [])].length,
+      numberOfBuyers: [...new Set(detail.records?.map(r => r.toBuyer?.userId) || [])].length
+    };
+    
+    return {
+      ...detail,
+      transactionSummary
+    };
+  });
+};
+
+// Helper functions
+const calculateTotalBags = (records) => {
+  return records.reduce((total, record) => total + (record.quantity || 0), 0);
+};
+
+const calculateTotalBrokerage = (records) => {
+  return records.reduce((total, record) => total + (record.totalBrokerage || 0), 0);
+};
+
+const calculateTotalAmount = (records) => {
+  return records.reduce((total, record) => total + (record.totalProductsCost || 0), 0);
+};
