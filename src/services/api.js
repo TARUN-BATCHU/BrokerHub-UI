@@ -591,6 +591,16 @@ export const dailyLedgerAPI = {
       throw error.response?.data || error.message;
     }
   },
+  
+  // Get daily ledger with pagination
+  getDailyLedgerWithPagination: async (date, page = 0, size = 20, sortBy = 'ledgerDetailsId', sortDir = 'asc') => {
+    try {
+      const response = await api.get(`/DailyLedger/getOptimizedDailyLedgerWithPagination?date=${date}&page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
 
   // Create ledger detail
   createLedgerDetail: async (ledgerDetailData) => {

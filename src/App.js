@@ -12,8 +12,12 @@ import CreateMerchant from './pages/CreateMerchant';
 import FinancialYears from './pages/FinancialYears';
 import DailyLedger from './pages/DailyLedger';
 import LedgerDetail from './pages/LedgerDetail';
+import CalendarView from './pages/CalendarView';
+import LedgerSummary from './pages/LedgerSummary';
+import CreateTransaction from './pages/CreateTransaction';
+import EditTransaction from './pages/EditTransaction';
 import TestLedger from './pages/TestLedger';
-import SettingsDropdown from './components/SettingsDropdown';
+import GlobalNavigation from './components/GlobalNavigation';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -32,8 +36,8 @@ function App() {
     <ThemeProvider>
       <Router>
         <div className="App">
-          {/* Show settings dropdown on all pages */}
-          <SettingsDropdown isDashboard={window.location.pathname === '/dashboard'} />
+          {/* Show global navigation on all pages except login/signup */}
+          <GlobalNavigation />
           <Routes>
           {/* Public routes */}
           <Route
@@ -123,6 +127,38 @@ function App() {
             element={
               <ProtectedRoute>
                 <LedgerDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar-view"
+            element={
+              <ProtectedRoute>
+                <CalendarView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ledger-summary"
+            element={
+              <ProtectedRoute>
+                <LedgerSummary />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-transaction"
+            element={
+              <ProtectedRoute>
+                <CreateTransaction />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-transaction"
+            element={
+              <ProtectedRoute>
+                <EditTransaction />
               </ProtectedRoute>
             }
           />
