@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
-import { authAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { validateLoginForm } from '../utils/validation';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -12,6 +12,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     userName: '',
     password: ''
@@ -69,51 +70,16 @@ const Login = () => {
 
     try {
       console.log('Attempting login with:', formData);
-      const response = await authAPI.loginBroker(formData);
+      const response = await login(formData);
 
       console.log('Login successful, response:', response);
 
-      // Check if token and broker ID were stored
-      const storedToken = localStorage.getItem('authToken');
-      const storedBrokerId = localStorage.getItem('brokerId');
-
-      console.log('Stored token:', storedToken);
-      console.log('Stored broker ID:', storedBrokerId);
-
-      // Fetch broker details using the extracted broker ID
-      if (storedBrokerId) {
-        try {
-          console.log('Fetching broker details for ID:', storedBrokerId);
-          const brokerDetails = await authAPI.getBrokerProfile(storedBrokerId);
-          console.log('Broker details fetched:', brokerDetails);
-
-          // Store the detailed broker data
-          localStorage.setItem('brokerData', JSON.stringify(brokerDetails));
-          console.log('Broker details stored in localStorage');
-
-          // Success - redirect to dashboard with success message including broker name
-          navigate('/dashboard', {
-            state: {
-              message: `Login successful! Welcome ${brokerDetails.brokerName || 'to BrokerHub Dashboard'}.`
-            }
-          });
-        } catch (brokerError) {
-          console.error('Error fetching broker details:', brokerError);
-          // Still redirect to dashboard even if broker details fetch fails
-          navigate('/dashboard', {
-            state: {
-              message: 'Login successful! Welcome to BrokerHub Dashboard.'
-            }
-          });
+      // Success - redirect to dashboard with success message
+      navigate('/dashboard', {
+        state: {
+          message: 'Login successful! Welcome to BrokerHub Dashboard.'
         }
-      } else {
-        // No broker ID found, redirect anyway
-        navigate('/dashboard', {
-          state: {
-            message: 'Login successful! Welcome to BrokerHub Dashboard.'
-          }
-        });
-      }
+      });
 
       console.log('Navigation to dashboard initiated');
     } catch (error) {

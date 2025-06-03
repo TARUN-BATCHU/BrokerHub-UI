@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { authAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import useResponsive from '../hooks/useResponsive';
 
 const GlobalNavigation = () => {
@@ -10,6 +10,7 @@ const GlobalNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { logout } = useAuth();
   const { isMobile } = useResponsive();
 
   useEffect(() => {
@@ -23,7 +24,7 @@ const GlobalNavigation = () => {
   }, []);
 
   const handleLogout = () => {
-    authAPI.logout();
+    logout();
     navigate('/login');
     setIsOpen(false);
   };

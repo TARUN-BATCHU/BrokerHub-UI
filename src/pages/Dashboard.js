@@ -229,15 +229,9 @@ const Dashboard = () => {
 
     setAnalyticsLoading(true);
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) {
-        console.error('No broker ID found');
-        return;
-      }
+      console.log('Loading analytics for financial year:', selectedFinancialYear.yearId);
 
-      console.log('Loading analytics for broker:', brokerId, 'financial year:', selectedFinancialYear.yearId);
-
-      const apiData = await analyticsAPI.getFinancialYearAnalytics(brokerId, selectedFinancialYear.yearId);
+      const apiData = await analyticsAPI.getFinancialYearAnalytics(selectedFinancialYear.yearId);
       console.log('Raw analytics API response:', apiData);
 
       const transformedData = transformFinancialYearAnalytics(apiData);
@@ -271,10 +265,7 @@ const Dashboard = () => {
     if (!compareFinancialYear || !selectedFinancialYear) return;
 
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) return;
-
-      const compareApiData = await analyticsAPI.getFinancialYearAnalytics(brokerId, compareFinancialYear.yearId);
+      const compareApiData = await analyticsAPI.getFinancialYearAnalytics(compareFinancialYear.yearId);
       const compareTransformedData = transformFinancialYearAnalytics(compareApiData);
 
       if (compareTransformedData && realAnalyticsData) {
@@ -439,19 +430,13 @@ const Dashboard = () => {
 
     setTopPerformersLoading(true);
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) {
-        console.error('No broker ID found');
-        return;
-      }
-
-      console.log('Loading top performers data for broker:', brokerId, 'financial year:', selectedFinancialYear.yearId);
+      console.log('Loading top performers data for financial year:', selectedFinancialYear.yearId);
 
       // Load all top performers data in parallel
       const [topPerformersResponse, topBuyersResponse, topMerchantsResponse] = await Promise.all([
-        analyticsAPI.getTopPerformers(brokerId, selectedFinancialYear.yearId),
-        analyticsAPI.getTop5BuyersByQuantity(brokerId, selectedFinancialYear.yearId),
-        analyticsAPI.getTop5MerchantsByBrokerage(brokerId, selectedFinancialYear.yearId)
+        analyticsAPI.getTopPerformers(selectedFinancialYear.yearId),
+        analyticsAPI.getTop5BuyersByQuantity(selectedFinancialYear.yearId),
+        analyticsAPI.getTop5MerchantsByBrokerage(selectedFinancialYear.yearId)
       ]);
 
       console.log('Top performers response:', topPerformersResponse);

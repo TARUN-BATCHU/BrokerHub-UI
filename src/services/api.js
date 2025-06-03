@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Base API configuration
-const API_BASE_URL = 'http://localhost:8080/BrokerHub';
+// Base API configuration - Updated for multi-tenant
+const API_BASE_URL = 'http://localhost:8080/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,44 +13,13 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-
-    // For specific endpoints that require Basic Auth, use hardcoded credentials
-    const basicAuthEndpoints = [
-      '/Broker/getBroker/',
-      '/user/allUsers',
-      '/user/updateUser',
-      '/user/bulkUpload',
-      '/user/downloadTemplate',
-      '/FinancialYear/create',
-      '/FinancialYear/getAllFinancialYears',
-      '/Product/createProduct',
-      '/Product/allProducts',
-      '/Product/updateProduct',
-      '/Product/deleteProduct',
-      '/Address/getAllAddresses',
-      '/Address/createAddress',
-      '/Address/updateAddress',
-      '/Dashboard/',
-      '/DailyLedger/',
-      '/LedgerDetail/',
-      '/LedgerRecord/'
-    ];
-
-    const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
-      config.url.includes(endpoint)
-    );
-
-    if (needsBasicAuth) {
-      // Use Basic Authentication with hardcoded credentials
-      const username = 'tarun';
-      const password = 'securePassword123';
-      const basicAuth = btoa(`${username}:${password}`);
-      config.headers.Authorization = `Basic ${basicAuth}`;
-      console.log('Using Basic Auth for:', config.url);
-    } else if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // All API calls now require Basic Authentication for multi-tenant support
+    // Update these credentials to match your backend configuration
+    const username = 'tarun';
+    const password = 'securePassword123';
+    const basicAuth = btoa(`${username}:${password}`);
+    config.headers.Authorization = `Basic ${basicAuth}`;
+    console.log('Using Basic Auth for multi-tenant API:', config.url);
 
     return config;
   },
@@ -59,7 +28,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling - Updated for multi-tenant
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -67,8 +36,25 @@ api.interceptors.response.use(
       // Unauthorized - clear token and redirect to login
       localStorage.removeItem('authToken');
       localStorage.removeItem('brokerData');
+      localStorage.removeItem('brokerId');
       window.location.href = '/login';
     }
+
+    // Handle multi-tenant specific errors
+    if (error.response?.data?.code === 'UNAUTHORIZED') {
+      console.error('Authentication required:', error.response.data.message);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('brokerData');
+      localStorage.removeItem('brokerId');
+      window.location.href = '/login';
+    }
+
+    if (error.response?.data?.code === 'ACCESS_DENIED') {
+      console.error('Access denied:', error.response.data.message);
+      // Show user-friendly error message
+      alert('Access denied: You can only access your own data');
+    }
+
     return Promise.reject(error);
   }
 );
@@ -261,12 +247,12 @@ export const authAPI = {
   }
 };
 
-// Merchant API functions
+// Merchant API functions - Updated for multi-tenant
 export const merchantAPI = {
-  // Create merchant/user
+  // Create merchant/user - Updated endpoint
   createUser: async (userData) => {
     try {
-      const response = await api.post('/user/createUser', userData);
+      const response = await api.post('/users', userData);
       return response.data;
     } catch (error) {
       console.error('Create user API Error:', error);
@@ -279,11 +265,11 @@ export const merchantAPI = {
     }
   },
 
-  // Get all merchants/users
+  // Get all merchants/users - Updated endpoint
   getAllMerchants: async () => {
     try {
       console.log('Fetching all merchants/users...');
-      const response = await api.get('/user/allUsers');
+      const response = await api.get('/users');
       console.log('All merchants response:', response);
       console.log('All merchants data:', response.data);
       console.log('Response status:', response.status);
@@ -297,31 +283,51 @@ export const merchantAPI = {
     }
   },
 
-  // Get merchant by ID
+  // Get users by city - New endpoint
+  getUsersByCity: async (cityName) => {
+    try {
+      const response = await api.get(`/users/city/${encodeURIComponent(cityName)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Search user by property - New endpoint
+  searchUserByProperty: async (property, value) => {
+    try {
+      const response = await api.get(`/users/search?property=${encodeURIComponent(property)}&value=${encodeURIComponent(value)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get merchant by ID - Keep for backward compatibility
   getMerchantById: async (id) => {
     try {
-      const response = await api.get(`/user/merchant/${id}`);
+      const response = await api.get(`/users/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update merchant/user
+  // Update merchant/user - Updated endpoint
   updateMerchant: async (userData) => {
     try {
-      const response = await api.put('/user/updateUser', userData);
+      const response = await api.put('/users', userData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Download Excel template for bulk upload
+  // Download Excel template for bulk upload - Keep existing for now
   downloadTemplate: async () => {
     try {
       console.log('Downloading Excel template...');
-      const response = await api.get('/user/downloadTemplate', {
+      const response = await api.get('/users/template', {
         responseType: 'blob',
       });
 
@@ -334,14 +340,14 @@ export const merchantAPI = {
     }
   },
 
-  // Bulk upload merchants via Excel
+  // Bulk upload merchants via Excel - Keep existing for now
   bulkUploadMerchants: async (file) => {
     try {
       console.log('Uploading bulk merchants file:', file.name);
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/user/bulkUpload', formData, {
+      const response = await api.post('/users/bulk-upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -357,10 +363,10 @@ export const merchantAPI = {
     }
   },
 
-  // Delete merchant
+  // Delete merchant - Keep for backward compatibility
   deleteMerchant: async (id) => {
     try {
-      const response = await api.delete(`/user/merchant/${id}`);
+      const response = await api.delete(`/users/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -368,12 +374,12 @@ export const merchantAPI = {
   }
 };
 
-// Analytics API functions
+// Analytics API functions - Updated for multi-tenant (brokerId removed)
 export const analyticsAPI = {
-  // Get financial year analytics
-  getFinancialYearAnalytics: async (brokerId, financialYearId) => {
+  // Get financial year analytics - Updated endpoint, no brokerId needed
+  getFinancialYearAnalytics: async (financialYearId) => {
     try {
-      const response = await api.get(`/Dashboard/${brokerId}/getFinancialYearAnalytics/${financialYearId}`, {
+      const response = await api.get(`/dashboard/analytics/${financialYearId}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -385,10 +391,10 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top performers (comprehensive data)
-  getTopPerformers: async (brokerId, financialYearId) => {
+  // Get top performers (comprehensive data) - Updated endpoint, no brokerId needed
+  getTopPerformers: async (financialYearId) => {
     try {
-      const response = await api.get(`/Dashboard/${brokerId}/getTopPerformers/${financialYearId}`, {
+      const response = await api.get(`/dashboard/top-performers/${financialYearId}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -400,27 +406,27 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top 5 buyers by quantity
-  getTop5BuyersByQuantity: async (brokerId, financialYearId) => {
+  // Get top 5 buyers by quantity - Updated endpoint, no brokerId needed
+  getTop5BuyersByQuantity: async (financialYearId) => {
     try {
-      const response = await api.get(`/Dashboard/${brokerId}/getTop5BuyersByQuantity/${financialYearId}`);
+      const response = await api.get(`/dashboard/top-buyers/${financialYearId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get top 5 merchants by brokerage
-  getTop5MerchantsByBrokerage: async (brokerId, financialYearId) => {
+  // Get top 5 merchants by brokerage - Updated endpoint, no brokerId needed
+  getTop5MerchantsByBrokerage: async (financialYearId) => {
     try {
-      const response = await api.get(`/Dashboard/${brokerId}/getTop5MerchantsByBrokerage/${financialYearId}`);
+      const response = await api.get(`/dashboard/top-merchants/${financialYearId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get sales analytics (legacy)
+  // Get sales analytics (legacy) - Keep for backward compatibility
   getSalesAnalytics: async () => {
     try {
       const response = await api.get('/analytics/sales');
@@ -430,7 +436,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top buyers (legacy)
+  // Get top buyers (legacy) - Keep for backward compatibility
   getTopBuyers: async () => {
     try {
       const response = await api.get('/analytics/top-buyers');
@@ -440,7 +446,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top sellers (legacy)
+  // Get top sellers (legacy) - Keep for backward compatibility
   getTopSellers: async () => {
     try {
       const response = await api.get('/analytics/top-sellers');
@@ -450,7 +456,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get city-wise analytics (legacy)
+  // Get city-wise analytics (legacy) - Keep for backward compatibility
   getCityAnalytics: async () => {
     try {
       const response = await api.get('/analytics/cities');
@@ -460,7 +466,7 @@ export const analyticsAPI = {
     }
   },
 
-  // Get product analytics (legacy)
+  // Get product analytics (legacy) - Keep for backward compatibility
   getProductAnalytics: async () => {
     try {
       const response = await api.get('/analytics/products');
@@ -471,22 +477,22 @@ export const analyticsAPI = {
   }
 };
 
-// Financial Year API functions
+// Financial Year API functions - Updated for multi-tenant
 export const financialYearAPI = {
-  // Create financial year
+  // Create financial year - Updated endpoint
   createFinancialYear: async (financialYearData) => {
     try {
-      const response = await api.post('/FinancialYear/create', financialYearData);
+      const response = await api.post('/financial-years', financialYearData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get all financial years
+  // Get all financial years - Updated endpoint
   getAllFinancialYears: async () => {
     try {
-      const response = await api.get('/FinancialYear/getAllFinancialYears');
+      const response = await api.get('/financial-years');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -494,42 +500,52 @@ export const financialYearAPI = {
   }
 };
 
-// Product API functions
+// Product API functions - Updated for multi-tenant
 export const productAPI = {
-  // Create product
+  // Create product - Updated endpoint
   createProduct: async (productData) => {
     try {
-      const response = await api.post('/Product/createProduct', productData);
+      const response = await api.post('/products', productData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get all products
+  // Get all products - Updated endpoint with pagination
   getAllProducts: async (page = 0, size = 10) => {
     try {
-      const response = await api.get(`/Product/allProducts?page=${page}&size=${size}`);
+      const response = await api.get(`/products?page=${page}&size=${size}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update product
+  // Get products by name - New endpoint
+  getProductsByName: async (productName) => {
+    try {
+      const response = await api.get(`/products/name/${encodeURIComponent(productName)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update product - Updated endpoint
   updateProduct: async (productData) => {
     try {
-      const response = await api.put('/Product/updateProduct', productData);
+      const response = await api.put('/products', productData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Delete product
+  // Delete product - Updated endpoint
   deleteProduct: async (productId) => {
     try {
-      const response = await api.delete(`/Product/deleteProduct?productId=${productId}`);
+      const response = await api.delete(`/products/${productId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -537,32 +553,42 @@ export const productAPI = {
   }
 };
 
-// Address API functions
+// Address API functions - Updated for multi-tenant
 export const addressAPI = {
-  // Get all addresses
+  // Get all addresses - Updated endpoint
   getAllAddresses: async () => {
     try {
-      const response = await api.get('/Address/getAllAddresses');
+      const response = await api.get('/addresses');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Create address
+  // Create address - Updated endpoint
   createAddress: async (addressData) => {
     try {
-      const response = await api.post('/Address/createAddress', addressData);
+      const response = await api.post('/addresses', addressData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update address
+  // Update address - Updated endpoint
   updateAddress: async (addressData) => {
     try {
-      const response = await api.put('/Address/updateAddress', addressData);
+      const response = await api.put('/addresses', addressData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Check if city exists - New endpoint
+  checkCityExists: async (cityName) => {
+    try {
+      const response = await api.get(`/addresses/city/${encodeURIComponent(cityName)}/exists`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -570,92 +596,171 @@ export const addressAPI = {
   }
 };
 
-// Daily Ledger API functions
+// Daily Ledger API functions - Updated for multi-tenant
 export const dailyLedgerAPI = {
-  // Create daily ledger
-  createDailyLedger: async (financialYearId, date) => {
+  // Create daily ledger - Updated endpoint
+  createDailyLedger: async (dailyLedgerData) => {
     try {
-      const response = await api.post(`/DailyLedger/create?financialYearId=${financialYearId}&date=${date}`);
+      const response = await api.post('/daily-ledger', dailyLedgerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get daily ledger by date
+  // Get daily ledger by date - Updated endpoint
   getDailyLedger: async (date) => {
     try {
-      const response = await api.get(`/DailyLedger/getDailyLedger?date=${date}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-  
-  // Get daily ledger with pagination
-  getDailyLedgerWithPagination: async (date, page = 0, size = 20, sortBy = 'ledgerDetailsId', sortDir = 'asc') => {
-    try {
-      const response = await api.get(`/DailyLedger/getOptimizedDailyLedgerWithPagination?date=${date}&page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+      const response = await api.get(`/daily-ledger/${date}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Create ledger detail
+  // Get daily ledger with pagination - Updated endpoint
+  getDailyLedgerWithPagination: async (date, page = 0, size = 20) => {
+    try {
+      const response = await api.get(`/daily-ledger/${date}/paginated?page=${page}&size=${size}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Create ledger detail - Updated endpoint
   createLedgerDetail: async (ledgerDetailData) => {
     try {
-      const response = await api.post('/LedgerDetail/create', ledgerDetailData);
+      const response = await api.post('/ledger-details', ledgerDetailData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update ledger detail
+  // Get all ledger details - New endpoint
+  getAllLedgerDetails: async () => {
+    try {
+      const response = await api.get('/ledger-details');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by ID - New endpoint
+  getLedgerDetailsById: async (ledgerDetailId) => {
+    try {
+      const response = await api.get(`/ledger-details/${ledgerDetailId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by date - New endpoint
+  getLedgerDetailsByDate: async (date) => {
+    try {
+      const response = await api.get(`/ledger-details/date/${date}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update ledger detail - Updated endpoint
   updateLedgerDetail: async (ledgerDetailData) => {
     try {
-      const response = await api.put('/LedgerDetail/update', ledgerDetailData);
+      const response = await api.put('/ledger-details', ledgerDetailData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Delete ledger detail
+  // Delete ledger detail - Updated endpoint
   deleteLedgerDetail: async (id) => {
     try {
-      const response = await api.delete(`/LedgerDetail/delete/${id}`);
+      const response = await api.delete(`/ledger-details/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Bank Details API functions - New for multi-tenant
+export const bankDetailsAPI = {
+  // Create bank details
+  createBankDetails: async (bankDetailsData) => {
+    try {
+      const response = await api.post('/bank-details', bankDetailsData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Create ledger record
-  createLedgerRecord: async (ledgerRecordData) => {
+  // Get bank details by account number
+  getBankDetailsByAccountNumber: async (accountNumber) => {
     try {
-      const response = await api.post('/LedgerRecord/create', ledgerRecordData);
+      const response = await api.get(`/bank-details/account/${encodeURIComponent(accountNumber)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Payment System API functions - New for multi-tenant
+export const paymentAPI = {
+  // Get brokerage payments
+  getBrokeragePayments: async () => {
+    try {
+      const response = await api.get('/payments/brokerage');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update ledger record
-  updateLedgerRecord: async (ledgerRecordData) => {
+  // Get pending payments
+  getPendingPayments: async () => {
     try {
-      const response = await api.put('/LedgerRecord/update', ledgerRecordData);
+      const response = await api.get('/payments/pending');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Delete ledger record
-  deleteLedgerRecord: async (id) => {
+  // Get receivable payments
+  getReceivablePayments: async () => {
     try {
-      const response = await api.delete(`/LedgerRecord/delete/${id}`);
+      const response = await api.get('/payments/receivable');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Cache API functions - New for multi-tenant
+export const cacheAPI = {
+  // Get product names cache
+  getProductNames: async () => {
+    try {
+      const response = await api.get('/cache/products/names');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get user names cache
+  getUserNames: async () => {
+    try {
+      const response = await api.get('/cache/users/names');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
