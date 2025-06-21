@@ -1,31 +1,32 @@
 import axios from 'axios';
 
 // Base API configuration - Updated for multi-tenant
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'http://localhost:8080/BrokerHub';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    // All API calls now require Basic Authentication for multi-tenant support
-    // Update these credentials to match your backend configuration
-    const username = 'tarun';
-    const password = 'securePassword123';
-    const basicAuth = btoa(`${username}:${password}`);
-    config.headers.Authorization = `Basic ${basicAuth}`;
-    console.log('Using Basic Auth for multi-tenant API:', config.url);
+    // Skip basic auth for login
+    if (!config.url.includes('/Broker/login') && !config.url.includes('/Broker/createBroker')) {
+      const username = 'tarun';
+      const password = 'securePassword123';
+      const basicAuth = btoa(`${username}:${password}`);
+      config.headers.Authorization = `Basic ${basicAuth}`;
+    } else {
+      // Remove auth if mistakenly set
+      delete config.headers.Authorization;
+    }
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor for error handling - Updated for multi-tenant
@@ -111,21 +112,19 @@ export const authAPI = {
           console.log('Found broker ID in response data:', brokerId);
         }
 
-        // Handle different token scenarios
-        if (response.data.token) {
-          // If token is directly in response.data
-          localStorage.setItem('authToken', response.data.token);
-          localStorage.setItem('brokerData', JSON.stringify(response.data.broker || response.data));
-        } else if (response.data.data && response.data.data.token) {
-          // If token is nested in response.data.data
-          localStorage.setItem('authToken', response.data.data.token);
-          localStorage.setItem('brokerData', JSON.stringify(response.data.data.broker || response.data.data));
-        } else {
-          // If no token but successful response, create a temporary token
-          const tempToken = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          localStorage.setItem('authToken', tempToken);
-          console.log('Created temporary token for session');
-        }
+        // Create temporary token for session-based auth
+        const tempToken = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('authToken', tempToken);
+        
+        // Store basic broker data for immediate use
+        const brokerData = {
+          brokerName: 'Broker User',
+          userName: credentials.userName,
+          brokerageFirmName: 'BrokerHub',
+          email: 'user@brokerhub.com'
+        };
+        localStorage.setItem('brokerData', JSON.stringify(brokerData));
+        console.log('Created temporary token and basic broker data for session');
 
         // Store broker ID if found
         if (brokerId) {
