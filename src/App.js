@@ -8,9 +8,12 @@ import ForgotPassword from './pages/ForgotPassword';
 import CreatePassword from './pages/CreatePassword';
 import ChangePassword from './pages/ChangePassword';
 import VerifyAccount from './pages/VerifyAccount';
+import OTPVerification from './pages/OTPVerification';
 import Dashboard from './pages/Dashboard';
 import CreateMerchant from './pages/CreateMerchant';
 import FinancialYears from './pages/FinancialYears';
+import RouteExplorer from './pages/RouteExplorer';
+import TodayMarket from './pages/TodayMarket';
 import GlobalNavigation from './components/GlobalNavigation';
 
 // Protected Route component - Updated for multi-tenant
@@ -44,88 +47,111 @@ function App() {
             {/* Show global navigation on all pages except login/signup */}
             <GlobalNavigation />
             <Routes>
-          {/* Public routes */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <PublicRoute>
-                <Signup />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <PublicRoute>
-                <ForgotPassword />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/create-password"
-            element={
-              <PublicRoute>
-                <CreatePassword />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/verify-account"
-            element={
-              <PublicRoute>
-                <VerifyAccount />
-              </PublicRoute>
-            }
-          />
+              {/* Public routes */}
+              <Route
+                path="/login"
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/signup"
+                element={
+                  <PublicRoute>
+                    <Signup />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/forgot-password"
+                element={
+                  <PublicRoute>
+                    <ForgotPassword />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/verify-otp"
+                element={
+                  <PublicRoute>
+                    <OTPVerification />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/create-password"
+                element={
+                  <PublicRoute>
+                    <CreatePassword />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/verify-account"
+                element={
+                  <PublicRoute>
+                    <VerifyAccount />
+                  </PublicRoute>
+                }
+              />
 
-          {/* Protected routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/change-password"
-            element={
-              <ProtectedRoute>
-                <ChangePassword />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/create-merchant"
-            element={
-              <ProtectedRoute>
-                <CreateMerchant />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/financial-years"
-            element={
-              <ProtectedRoute>
-                <FinancialYears />
-              </ProtectedRoute>
-            }
-          />
+              {/* Protected routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/change-password"
+                element={
+                  <ProtectedRoute>
+                    <ChangePassword />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/create-merchant"
+                element={
+                  <ProtectedRoute>
+                    <CreateMerchant />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/financial-years"
+                element={
+                  <ProtectedRoute>
+                    <FinancialYears />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/route-explorer"
+                element={
+                  <ProtectedRoute>
+                    <RouteExplorer />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/today-market"
+                element={
+                  <ProtectedRoute>
+                    <TodayMarket />
+                  </ProtectedRoute>
+                }
+              />
 
+              {/* Default redirect */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* Catch all route */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+              {/* Catch all route */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </div>
         </Router>

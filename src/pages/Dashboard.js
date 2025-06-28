@@ -18,6 +18,7 @@ import AddressModal from '../components/AddressModal';
 import ProductEditModal from '../components/ProductEditModal';
 import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
 import AnalyticsControls from '../components/AnalyticsControls';
+import TodayMarket from '../components/TodayMarket';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
@@ -122,14 +123,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Check if user is authenticated
-    const token = localStorage.getItem('authToken');
     const savedBrokerData = localStorage.getItem('brokerData');
 
-    console.log('Dashboard - Token:', token);
     console.log('Dashboard - Saved broker data:', savedBrokerData);
 
-    if (!token) {
-      console.log('No token found, redirecting to login');
+    if (!savedBrokerData) {
+      console.log('No broker data found, redirecting to login');
       navigate('/login');
       return;
     }
@@ -1011,6 +1010,7 @@ const Dashboard = () => {
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'analytics', label: 'Analytics' },
+            { id: 'todaymarket', label: 'Today Market' },
             { id: 'payments', label: 'Payments' },
             { id: 'merchants', label: 'Merchants' },
             { id: 'products', label: 'Products' },
@@ -2756,6 +2756,49 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Today Market Tab */}
+      {activeTab === 'todaymarket' && (
+        <div>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px'
+            }}>
+              <h2 style={{
+                margin: 0,
+                color: theme.textPrimary,
+                fontSize: '24px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                📈 Today's Market
+              </h2>
+            </div>
+            
+            {/* Import and use TodayMarket component */}
+            <div style={{
+              backgroundColor: theme.background,
+              borderRadius: '12px',
+              padding: '20px',
+              border: `1px solid ${theme.borderLight}`
+            }}>
+              <TodayMarket />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Addresses Tab */}
       {activeTab === 'addresses' && (
         <div>
@@ -2802,6 +2845,33 @@ const Dashboard = () => {
                 >
                   🔄 Refresh
                 </button>
+                <Link
+                  to="/route-explorer"
+                  style={{
+                    textDecoration: 'none',
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.info}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.infoBg,
+                    color: theme.info,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.info;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.infoBg;
+                    e.currentTarget.style.color = theme.info;
+                  }}
+                >
+                  🗺️ Route Explorer
+                </Link>
                 <button
                   onClick={() => setShowAddressModal(true)}
                   style={{

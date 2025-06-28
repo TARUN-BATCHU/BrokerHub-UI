@@ -222,7 +222,7 @@ const CreateMerchant = () => {
         collectionRote: formData.collectionRote.trim()
       };
 
-      await merchantAPI.createUser(merchantData);
+      await merchantAPI.createMerchant(merchantData);
 
       navigate('/dashboard', {
         state: {

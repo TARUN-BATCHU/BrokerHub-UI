@@ -15,32 +15,27 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [brokerData, setBrokerData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      const brokerId = localStorage.getItem('brokerId');
       const storedBrokerData = localStorage.getItem('brokerData');
 
-      if (token && brokerId) {
+      if (storedBrokerData) {
+        // Parse and set stored broker data (session-based auth)
+        const parsedBrokerData = JSON.parse(storedBrokerData);
         setIsAuthenticated(true);
-        
-        if (storedBrokerData) {
-          setBrokerData(JSON.parse(storedBrokerData));
-        } else {
-          // Fetch broker data if not in localStorage
-          const fetchedBrokerData = await authAPI.getBrokerProfile(brokerId);
-          setBrokerData(fetchedBrokerData);
-          localStorage.setItem('brokerData', JSON.stringify(fetchedBrokerData));
-        }
+        setBrokerData(parsedBrokerData);
       } else {
         setIsAuthenticated(false);
         setBrokerData(null);
       }
+      setError(null);
     } catch (error) {
       console.error('Error checking auth status:', error);
-      // If there's an error fetching broker data, clear auth state
+      // Clear auth state on error
       logout();
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -53,43 +48,75 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const response = await authAPI.loginBroker(credentials);
       
-      // The API service already handles storing tokens and broker data
-      const brokerId = localStorage.getItem('brokerId');
+      // Verify we have the required data
       const storedBrokerData = localStorage.getItem('brokerData');
       
-      if (brokerId && storedBrokerData) {
-        setIsAuthenticated(true);
-        setBrokerData(JSON.parse(storedBrokerData));
-        return response;
-      } else {
-        throw new Error('Authentication failed - missing broker data');
+      if (!storedBrokerData) {
+        throw new Error('Login failed - missing broker data');
       }
+
+      const parsedBrokerData = JSON.parse(storedBrokerData);
+      setIsAuthenticated(true);
+      setBrokerData(parsedBrokerData);
+      
+      return response;
     } catch (error) {
       console.error('Login error:', error);
+      setError(error.message);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
-    authAPI.logout();
-    setIsAuthenticated(false);
-    setBrokerData(null);
+    setLoading(true);
+    try {
+      authAPI.logout();
+      setIsAuthenticated(false);
+      setBrokerData(null);
+      setError(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateBrokerData = (newBrokerData) => {
-    setBrokerData(newBrokerData);
-    localStorage.setItem('brokerData', JSON.stringify(newBrokerData));
+  const updateProfile = async (profileData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Update local broker data
+      const updatedProfile = { ...brokerData, ...profileData };
+      setBrokerData(updatedProfile);
+      localStorage.setItem('brokerData', JSON.stringify(updatedProfile));
+      
+      return updatedProfile;
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = {
     isAuthenticated,
     brokerData,
     loading,
+    error,
     login,
     logout,
-    updateBrokerData,
+    updateProfile,
     checkAuthStatus
   };
 

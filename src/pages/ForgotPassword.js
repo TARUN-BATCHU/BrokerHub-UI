@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
 import { authAPI } from '../services/api';
 import './Auth.css';
 
 const ForgotPassword = () => {
+  const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   const handleChange = (e) => {
     setUserName(e.target.value);
@@ -29,60 +29,31 @@ const ForgotPassword = () => {
     setError('');
 
     try {
+      // Generate OTP and send to email
       await authAPI.forgotPassword(userName);
-      setSuccess(true);
+      
+      // Navigate to OTP verification page
+      navigate('/verify-otp', { 
+        state: { 
+          userName,
+          email: userName, // Using username as email since we don't have email yet
+          fromForgotPassword: true
+        }
+      });
     } catch (error) {
       console.error('Forgot password error:', error);
-      setError(error.message || 'Failed to send password reset. Please try again.');
+      setError(error.message || 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-header">
-            <h1>Check Your Email</h1>
-            <p>We've sent a password reset link to your email address</p>
-          </div>
-
-          <div className="success-message">
-            Password reset instructions have been sent for username <strong>{userName}</strong>.
-            Please check your email and follow the instructions to reset your password.
-          </div>
-
-          <div className="auth-actions">
-            <Link to="/login" className="btn btn-primary auth-submit-btn">
-              Back to Sign In
-            </Link>
-          </div>
-
-          <div className="auth-links">
-            <button
-              type="button"
-              onClick={() => {
-                setSuccess(false);
-                setUserName('');
-              }}
-              className="auth-link"
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              Try a different username
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
           <h1>Forgot Password?</h1>
-          <p>Enter your username and we'll send password reset instructions to your email</p>
+          <p>Enter your username and we'll send an OTP to your email</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -108,7 +79,7 @@ const ForgotPassword = () => {
               loading={loading}
               className="btn btn-primary auth-submit-btn"
             >
-              Send Reset Link
+              Send OTP
             </LoadingButton>
           </div>
 
