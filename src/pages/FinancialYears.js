@@ -283,7 +283,7 @@ const FinancialYears = () => {
                 justifyContent: 'flex-end'
               }}>
                 <button
-                  onClick={() => alert('View transactions functionality coming soon!')}
+                  onClick={() => navigate('/calendar-view', { state: { financialYear: fy } })}
                   style={{
                     padding: '8px 16px',
                     border: '1px solid #3b82f6',

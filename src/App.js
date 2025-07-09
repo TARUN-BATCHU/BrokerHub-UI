@@ -14,25 +14,18 @@ import CreateMerchant from './pages/CreateMerchant';
 import FinancialYears from './pages/FinancialYears';
 import RouteExplorer from './pages/RouteExplorer';
 import TodayMarket from './pages/TodayMarket';
+import CalendarView from './pages/CalendarView';
+import DailyLedger from './pages/DailyLedger';
+import TransactionDetail from './pages/TransactionDetail';
 import GlobalNavigation from './components/GlobalNavigation';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Protected Route component - Updated for multi-tenant
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return <div>Loading...</div>; // You can replace this with a proper loading component
-  }
-
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-};
-
-// Public Route component (redirect to dashboard if already logged in) - Updated for multi-tenant
+// Public Route component (redirect to dashboard if already logged in)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // You can replace this with a proper loading component
+    return <div>Loading...</div>;
   }
 
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
@@ -143,6 +136,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TodayMarket />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/calendar-view"
+                element={
+                  <ProtectedRoute>
+                    <CalendarView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/daily-ledger"
+                element={
+                  <ProtectedRoute>
+                    <DailyLedger />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/transaction-detail"
+                element={
+                  <ProtectedRoute>
+                    <TransactionDetail />
                   </ProtectedRoute>
                 }
               />

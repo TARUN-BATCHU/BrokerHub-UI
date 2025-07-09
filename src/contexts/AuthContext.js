@@ -13,27 +13,32 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [brokerData, setBrokerData] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      const storedBrokerData = localStorage.getItem('brokerData');
+      const token = localStorage.getItem('authToken');
+      const brokerId = localStorage.getItem('brokerId');
+      const brokerName = localStorage.getItem('brokerName');
+      const userName = localStorage.getItem('userName');
 
-      if (storedBrokerData) {
-        // Parse and set stored broker data (session-based auth)
-        const parsedBrokerData = JSON.parse(storedBrokerData);
+      if (token && brokerId) {
         setIsAuthenticated(true);
-        setBrokerData(parsedBrokerData);
+        setUser({
+          brokerId: parseInt(brokerId),
+          brokerName,
+          userName,
+          token
+        });
       } else {
         setIsAuthenticated(false);
-        setBrokerData(null);
+        setUser(null);
       }
       setError(null);
     } catch (error) {
       console.error('Error checking auth status:', error);
-      // Clear auth state on error
       logout();
       setError(error.message);
     } finally {
@@ -54,15 +59,22 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.loginBroker(credentials);
       
       // Verify we have the required data
-      const storedBrokerData = localStorage.getItem('brokerData');
+      const token = localStorage.getItem('authToken');
+      const brokerId = localStorage.getItem('brokerId');
+      const brokerName = localStorage.getItem('brokerName');
+      const userName = localStorage.getItem('userName');
       
-      if (!storedBrokerData) {
-        throw new Error('Login failed - missing broker data');
+      if (!token || !brokerId) {
+        throw new Error('Login failed - missing authentication data');
       }
 
-      const parsedBrokerData = JSON.parse(storedBrokerData);
       setIsAuthenticated(true);
-      setBrokerData(parsedBrokerData);
+      setUser({
+        brokerId: parseInt(brokerId),
+        brokerName,
+        userName,
+        token
+      });
       
       return response;
     } catch (error) {
@@ -79,7 +91,7 @@ export const AuthProvider = ({ children }) => {
     try {
       authAPI.logout();
       setIsAuthenticated(false);
-      setBrokerData(null);
+      setUser(null);
       setError(null);
     } catch (error) {
       console.error('Logout error:', error);
@@ -94,10 +106,17 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      // Update local broker data
-      const updatedProfile = { ...brokerData, ...profileData };
-      setBrokerData(updatedProfile);
-      localStorage.setItem('brokerData', JSON.stringify(updatedProfile));
+      // Update local user data
+      const updatedProfile = { ...user, ...profileData };
+      setUser(updatedProfile);
+      
+      // Update localStorage if needed
+      if (profileData.brokerName) {
+        localStorage.setItem('brokerName', profileData.brokerName);
+      }
+      if (profileData.userName) {
+        localStorage.setItem('userName', profileData.userName);
+      }
       
       return updatedProfile;
     } catch (error) {
@@ -111,7 +130,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     isAuthenticated,
-    brokerData,
+    user,
     loading,
     error,
     login,

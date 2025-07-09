@@ -21,6 +21,7 @@ import AnalyticsControls from '../components/AnalyticsControls';
 import TodayMarket from '../components/TodayMarket';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
 import {
   mockSalesData,
@@ -40,7 +41,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { isMobile, isTablet } = useResponsive();
   const { theme } = useTheme();
-  const [brokerData, setBrokerData] = useState(null);
+  const { user } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [analyticsData, setAnalyticsData] = useState({
@@ -122,54 +123,8 @@ const Dashboard = () => {
   const [editingProduct, setEditingProduct] = useState(null);
 
   useEffect(() => {
-    // Check if user is authenticated
-    const savedBrokerData = localStorage.getItem('brokerData');
-
-    console.log('Dashboard - Saved broker data:', savedBrokerData);
-
-    if (!savedBrokerData) {
-      console.log('No broker data found, redirecting to login');
-      navigate('/login');
-      return;
-    }
-
-    if (savedBrokerData) {
-      try {
-        const parsedData = JSON.parse(savedBrokerData);
-        console.log('Dashboard - Parsed broker data:', parsedData);
-        setBrokerData(parsedData);
-      } catch (error) {
-        console.error('Error parsing broker data:', error);
-        // If parsing fails, create a default broker data structure
-        setBrokerData({
-          brokerName: 'Broker User',
-          userName: 'user',
-          brokerageFirmName: 'BrokerHub',
-          email: 'user@brokerhub.com',
-          phoneNumber: 'N/A',
-          pincode: 'N/A',
-          BankName: 'N/A',
-          Branch: 'N/A',
-          AccountNumber: 'N/A',
-          IfscCode: 'N/A'
-        });
-      }
-    } else {
-      // If no broker data, create a default structure
-      console.log('No broker data found, using default');
-      setBrokerData({
-        brokerName: 'Broker User',
-        userName: 'user',
-        brokerageFirmName: 'BrokerHub',
-        email: 'user@brokerhub.com',
-        phoneNumber: 'N/A',
-        pincode: 'N/A',
-        BankName: 'N/A',
-        Branch: 'N/A',
-        AccountNumber: 'N/A',
-        IfscCode: 'N/A'
-      });
-    }
+    // User authentication is handled by AuthContext and ProtectedRoute
+    console.log('Dashboard - User data:', user);
 
     // Check for success message from navigation state
     if (location.state?.message) {
@@ -183,12 +138,9 @@ const Dashboard = () => {
     // Load analytics data (using mock data for now)
     loadAnalyticsData();
 
-    // Load real broker data (only if not already loaded during login)
-    if (!savedBrokerData || savedBrokerData === 'null') {
-      console.log('No broker data found, attempting to load...');
-      loadBrokerData();
-    } else {
-      console.log('Broker data already available from login');
+    // Load real broker data if needed
+    if (user && user.brokerId) {
+      console.log('User data available from auth context');
     }
 
     // Load merchants data
@@ -202,7 +154,7 @@ const Dashboard = () => {
 
     // Load payment data
     loadPaymentData();
-  }, [navigate, location]);
+  }, [navigate, location, user]);
 
   const loadAnalyticsData = async () => {
     try {
@@ -331,14 +283,11 @@ const Dashboard = () => {
 
   const loadBrokerData = async () => {
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (brokerId) {
-        console.log('Loading broker data for ID:', brokerId);
-        const brokerData = await authAPI.getBrokerProfile(brokerId);
-        console.log('Loaded broker data:', brokerData);
-        setBrokerData(brokerData);
-        // Update localStorage with fresh data
-        localStorage.setItem('brokerData', JSON.stringify(brokerData));
+      if (user && user.brokerId) {
+        console.log('Loading broker data for ID:', user.brokerId);
+        const userData = await authAPI.getBrokerProfile(user.brokerId);
+        console.log('Loaded user data:', userData);
+        // Update user context if needed
       }
     } catch (error) {
       console.error('Error loading broker data:', error);
@@ -921,8 +870,8 @@ const Dashboard = () => {
     return grouped;
   };
 
-  // Show loading only briefly, then show dashboard with default data
-  if (!brokerData) {
+  // Show loading only briefly, then show dashboard with user data
+  if (!user) {
     return (
       <div style={{
         display: 'flex',
@@ -969,7 +918,7 @@ const Dashboard = () => {
             color: theme.textSecondary,
             fontSize: isMobile ? '14px' : '16px'
           }}>
-            Welcome back, {brokerData?.brokerName || 'Broker User'}!
+            Welcome back, {user?.brokerName || 'Broker User'}!
           </p>
         </div>
         {/* Settings dropdown will be positioned here by App.js */}
@@ -1157,7 +1106,7 @@ const Dashboard = () => {
 
               <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
                 <Link
-                  to="/daily-ledger"
+                  to="/financial-years"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -1185,7 +1134,7 @@ const Dashboard = () => {
                   }}
                 >
                   <span style={{ fontSize: '18px' }}>🚀</span>
-                  Open Daily Ledger
+                  Open Ledger Detail
                 </Link>
                 <p style={{
                   margin: '8px 0 0 0',
@@ -3057,7 +3006,7 @@ const Dashboard = () => {
                 boxShadow: theme.shadowHover,
                 flexShrink: 0
               }}>
-                {(brokerData?.brokerName || 'B').charAt(0).toUpperCase()}
+                {(user?.brokerName || 'B').charAt(0).toUpperCase()}
               </div>
 
               {/* Profile Info */}
@@ -3068,14 +3017,14 @@ const Dashboard = () => {
                   fontSize: '32px',
                   fontWeight: '700'
                 }}>
-                  {brokerData?.brokerName || 'Broker User'}
+                  {user?.brokerName || 'Broker User'}
                 </h2>
                 <p style={{
                   margin: '0 0 12px 0',
                   color: theme.textSecondary,
                   fontSize: '18px'
                 }}>
-                  {brokerData?.brokerageFirmName || 'BrokerHub'}
+                  {user?.brokerName || 'BrokerHub'}
                 </p>
                 <div style={{
                   display: 'flex',
@@ -3101,7 +3050,7 @@ const Dashboard = () => {
                     fontSize: '14px',
                     fontWeight: '500'
                   }}>
-                    📧 {brokerData?.email || 'N/A'}
+                    📧 {user?.email || 'N/A'}
                   </span>
                 </div>
               </div>
@@ -3160,27 +3109,27 @@ const Dashboard = () => {
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Broker ID:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerId || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerId || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Name:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Username:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.userName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.userName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Firm Name:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerageFirmName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Phone:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.phoneNumber || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.phoneNumber || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Total Brokerage:</span>
-                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(brokerData?.totalBrokerage || 0)}</span>
+                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(user?.totalBrokerage || 0)}</span>
                 </div>
               </div>
             </div>
@@ -3209,19 +3158,19 @@ const Dashboard = () => {
                   <span style={{ fontSize: '16px' }}>📍</span>
                   <span style={{ fontWeight: '600', color: theme.textPrimary }}>Address Information</span>
                 </div>
-                {brokerData?.address ? (
+                {user?.address ? (
                   <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>City:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.city || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.city || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Area:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.area || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.area || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Pincode:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.pincode || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.pincode || 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
@@ -3242,23 +3191,23 @@ const Dashboard = () => {
                   <span style={{ fontSize: '16px' }}>🏦</span>
                   <span style={{ fontWeight: '600', color: theme.textPrimary }}>Banking Details</span>
                 </div>
-                {brokerData?.bankDetails ? (
+                {user?.bankDetails ? (
                   <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Bank:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.bankName || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.bankName || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Branch:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.branch || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.branch || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Account:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.accountNumber || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.accountNumber || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>IFSC:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.ifscCode || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.ifscCode || 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
