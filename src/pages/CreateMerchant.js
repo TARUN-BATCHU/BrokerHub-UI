@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
 import AddressModal from '../components/AddressModal';
-import { merchantAPI, addressAPI } from '../services/api';
+import { userAPI, addressAPI } from '../services/api';
 import useResponsive from '../hooks/useResponsive';
 import './Auth.css';
 
@@ -222,7 +222,7 @@ const CreateMerchant = () => {
         collectionRote: formData.collectionRote.trim()
       };
 
-      await merchantAPI.createMerchant(merchantData);
+      await userAPI.createUser(merchantData);
 
       navigate('/dashboard', {
         state: {

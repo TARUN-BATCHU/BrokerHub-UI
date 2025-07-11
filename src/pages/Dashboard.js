@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
+import { authAPI, userAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
 import {
   SalesChart,
   QuantityChart,
@@ -19,6 +19,8 @@ import ProductEditModal from '../components/ProductEditModal';
 import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
 import AnalyticsControls from '../components/AnalyticsControls';
 import TodayMarket from '../components/TodayMarket';
+import ProductBulkUpload from '../components/ProductBulkUpload';
+import MerchantDetailModal from '../components/MerchantDetailModal';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -121,6 +123,9 @@ const Dashboard = () => {
   const [expandedCities, setExpandedCities] = useState({});
   const [showProductEditModal, setShowProductEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [showProductBulkUpload, setShowProductBulkUpload] = useState(false);
+  const [showMerchantDetailModal, setShowMerchantDetailModal] = useState(false);
+  const [selectedMerchantId, setSelectedMerchantId] = useState(null);
 
   useEffect(() => {
     // User authentication is handled by AuthContext and ProtectedRoute
@@ -299,28 +304,18 @@ const Dashboard = () => {
     setLoading(true);
     try {
       console.log('Loading merchants data...');
-      const merchantsData = await merchantAPI.getAllMerchants();
+      const merchantsData = await userAPI.getUserSummary(0, 100, 'firmName,asc');
+      // Extract content from paginated response
+      const merchants = merchantsData.content || merchantsData;
       console.log('Loaded merchants data:', merchantsData);
       console.log('Type of merchants data:', typeof merchantsData);
       console.log('Is array:', Array.isArray(merchantsData));
 
-      // Ensure we always set an array
-      if (Array.isArray(merchantsData)) {
-        setMerchants(merchantsData);
-      } else if (merchantsData && typeof merchantsData === 'object') {
-        // If it's an object, try to extract array from common properties
-        if (Array.isArray(merchantsData.data)) {
-          setMerchants(merchantsData.data);
-        } else if (Array.isArray(merchantsData.users)) {
-          setMerchants(merchantsData.users);
-        } else if (Array.isArray(merchantsData.merchants)) {
-          setMerchants(merchantsData.merchants);
-        } else {
-          console.warn('Merchants data is not an array and no array found in object:', merchantsData);
-          setMerchants([]);
-        }
+      // Set merchants from the extracted data
+      if (Array.isArray(merchants)) {
+        setMerchants(merchants);
       } else {
-        console.warn('Merchants data is not an array or object:', merchantsData);
+        console.warn('Merchants data is not an array:', merchants);
         setMerchants([]);
       }
     } catch (error) {
@@ -607,8 +602,8 @@ const Dashboard = () => {
   };
 
   const handleViewMerchant = (merchant) => {
-    setSelectedMerchant(merchant);
-    setShowMerchantModal(true);
+    setSelectedMerchantId(merchant.userId);
+    setShowMerchantDetailModal(true);
   };
 
   const handleEditMerchant = (merchant) => {
@@ -703,7 +698,7 @@ const Dashboard = () => {
     setUploadMessage('⏳ Uploading and processing file...');
 
     try {
-      const result = await merchantAPI.bulkUploadMerchants(uploadFile);
+      const result = await userAPI.bulkUpload(uploadFile);
       console.log('Upload result:', result);
 
       // Handle the detailed response from backend
@@ -769,7 +764,7 @@ const Dashboard = () => {
       console.log('Downloading Excel template from backend...');
       setUploadMessage('📥 Downloading template...');
 
-      const blob = await merchantAPI.downloadTemplate();
+      const blob = await userAPI.downloadTemplate();
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -2504,7 +2499,7 @@ const Dashboard = () => {
             <div style={{ marginBottom: '20px' }}>
               <input
                 type="text"
-                placeholder="Search merchants by name, firm, email, or city..."
+                placeholder="Search merchants by firm name or city..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="merchant-search-input"
@@ -2538,12 +2533,10 @@ const Dashboard = () => {
                 <thead>
                   <tr style={{ backgroundColor: theme.background }}>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Firm Name</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Owner</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Type</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>City</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Bags</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Rate (₹/bag)</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Sold</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Bought</th>
+                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Brokerage</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
                   </tr>
                 </thead>
@@ -2554,107 +2547,50 @@ const Dashboard = () => {
                       const search = searchTerm.toLowerCase();
                       return (
                         merchant.firmName?.toLowerCase().includes(search) ||
-                        merchant.ownerName?.toLowerCase().includes(search) ||
-                        merchant.email?.toLowerCase().includes(search) ||
-                        merchant.address?.city?.toLowerCase().includes(search) ||
-                        merchant.userType?.toLowerCase().includes(search)
+                        merchant.city?.toLowerCase().includes(search)
                       );
                     })
                     .map((merchant) => (
                     <tr key={merchant.userId}>
                       <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.gstNumber || 'N/A'}</p>
-                        </div>
+                        <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName}</p>
                       </td>
                       <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.ownerName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.email || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
-                            {merchant.phoneNumbers && merchant.phoneNumbers.length > 0 ? merchant.phoneNumbers[0] : 'N/A'}
-                          </p>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          backgroundColor: merchant.userType === 'Miller' ? theme.infoBg : theme.successBg,
-                          color: merchant.userType === 'Miller' ? theme.info : theme.success
-                        }}>
-                          {merchant.userType || 'User'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.address?.city || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
-                            {merchant.address?.area || ''} {merchant.address?.pincode || ''}
-                          </p>
-                        </div>
+                        <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.city}</p>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        ₹{merchant.brokerageRate || 0}
+                        {formatNumber((merchant.totalBagsSold || 0) + (merchant.totalBagsBought || 0))}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {formatNumber(merchant.totalBagsSold || 0)}
+                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                        ₹{merchant.brokeragePerBag?.toFixed(2) || '0.00'}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {formatNumber(merchant.totalBagsBought || 0)}
+                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.success }}>
+                        ₹{merchant.totalPayableBrokerage?.toFixed(2) || '0.00'}
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button
-                            onClick={() => handleViewMerchant(merchant)}
-                            style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${theme.info}`,
-                              borderRadius: '4px',
-                              backgroundColor: theme.infoBg,
-                              color: theme.info,
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.info;
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.infoBg;
-                              e.currentTarget.style.color = theme.info;
-                            }}
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEditMerchant(merchant)}
-                            style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${theme.warning}`,
-                              borderRadius: '4px',
-                              backgroundColor: theme.warningBg,
-                              color: theme.warning,
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.warning;
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.warningBg;
-                              e.currentTarget.style.color = theme.warning;
-                            }}
-                          >
-                            Edit
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleViewMerchant(merchant)}
+                          style={{
+                            padding: '4px 8px',
+                            border: `1px solid ${theme.info}`,
+                            borderRadius: '4px',
+                            backgroundColor: theme.infoBg,
+                            color: theme.info,
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = theme.info;
+                            e.currentTarget.style.color = 'white';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = theme.infoBg;
+                            e.currentTarget.style.color = theme.info;
+                          }}
+                        >
+                          View
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -3357,6 +3293,20 @@ const Dashboard = () => {
                   }}
                 >
                   🔄 Refresh
+                </button>
+                <button
+                  onClick={() => setShowProductBulkUpload(true)}
+                  style={{
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.success}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.successBg,
+                    color: theme.success,
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📊 Bulk Upload
                 </button>
                 <button
                   onClick={() => alert('Add Product functionality coming soon!')}
@@ -4620,6 +4570,23 @@ const Dashboard = () => {
         onClose={closeProductEditModal}
         product={editingProduct}
         onSuccess={loadProductsData}
+      />
+
+      {/* Product Bulk Upload Modal */}
+      <ProductBulkUpload
+        isOpen={showProductBulkUpload}
+        onClose={() => setShowProductBulkUpload(false)}
+        onSuccess={loadProductsData}
+      />
+
+      {/* Merchant Detail Modal */}
+      <MerchantDetailModal
+        isOpen={showMerchantDetailModal}
+        onClose={() => {
+          setShowMerchantDetailModal(false);
+          setSelectedMerchantId(null);
+        }}
+        merchantId={selectedMerchantId}
       />
 
       {/* Payment Detail Modal */}

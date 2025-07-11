@@ -168,10 +168,10 @@ export const userAPI = {
     }
   },
 
-  // Get all users
-  getAllUsers: async () => {
+  // Get user summary with pagination
+  getUserSummary: async (page = 0, size = 10, sort = 'firmName,asc') => {
     try {
-      const response = await api.get('/user/getUserNamesAndIds');
+      const response = await api.get(`/user/getUserSummary?page=${page}&size=${size}&sort=${sort}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -202,6 +202,34 @@ export const userAPI = {
   updateUser: async (userData) => {
     try {
       const response = await api.put('/user/updateUser', userData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Bulk upload users
+  bulkUpload: async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/user/bulkUpload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download user template
+  downloadTemplate: async () => {
+    try {
+      const response = await api.get('/user/downloadTemplate', {
+        responseType: 'blob'
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -265,6 +293,34 @@ export const productAPI = {
   deleteProduct: async (productId) => {
     try {
       const response = await api.delete(`/Product/deleteProduct/${productId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Bulk upload products
+  bulkUpload: async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/Product/bulkUpload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download product template
+  downloadTemplate: async () => {
+    try {
+      const response = await api.get('/Product/downloadTemplate', {
+        responseType: 'blob'
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -528,10 +584,10 @@ export const addressAPI = {
 
 // Merchant API functions
 export const merchantAPI = {
-  // Get all merchants
-  getAllMerchants: async () => {
+  // Get merchant summary
+  getMerchantSummary: async (page = 0, size = 10, sort = 'firmName,asc') => {
     try {
-      const response = await api.get('/user/getUserNamesAndIds');
+      const response = await api.get(`/user/getUserSummary?page=${page}&size=${size}&sort=${sort}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

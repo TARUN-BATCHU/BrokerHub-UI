@@ -38,6 +38,8 @@ const GlobalNavigation = () => {
     { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { path: '/daily-ledger', label: 'Daily Ledger', icon: '📊' },
     { path: '/calendar-view', label: 'Calendar View', icon: '📅' },
+    { path: '/products', label: 'Products', icon: '🌾' },
+    { path: '/merchants', label: 'Merchants', icon: '🏢' },
     { path: '/financial-years', label: 'Financial Years', icon: '📈' },
     { path: '/create-merchant', label: 'Create Merchant', icon: '👥' },
   ];

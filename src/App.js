@@ -17,6 +17,8 @@ import TodayMarket from './pages/TodayMarket';
 import CalendarView from './pages/CalendarView';
 import DailyLedger from './pages/DailyLedger';
 import TransactionDetail from './pages/TransactionDetail';
+import Products from './pages/Products';
+import Merchants from './pages/Merchants';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -160,6 +162,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TransactionDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products"
+                element={
+                  <ProtectedRoute>
+                    <Products />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/merchants"
+                element={
+                  <ProtectedRoute>
+                    <Merchants />
                   </ProtectedRoute>
                 }
               />

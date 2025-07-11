@@ -68,6 +68,7 @@ const TodayMarket = ({ isBroker }) => {
     availableUntil: ''
   });
 
+
   // Load market data
   useEffect(() => {
     const loadMarketData = async () => {
@@ -451,6 +452,8 @@ const TodayMarket = ({ isBroker }) => {
           </div>
         </div>
       )}
+
+
     </div>
   );
 };
