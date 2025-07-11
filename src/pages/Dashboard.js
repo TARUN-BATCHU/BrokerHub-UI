@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
+import { authAPI, userAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
 import {
   SalesChart,
   QuantityChart,
@@ -18,8 +18,12 @@ import AddressModal from '../components/AddressModal';
 import ProductEditModal from '../components/ProductEditModal';
 import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
 import AnalyticsControls from '../components/AnalyticsControls';
+import TodayMarket from '../components/TodayMarket';
+import ProductBulkUpload from '../components/ProductBulkUpload';
+import MerchantDetailModal from '../components/MerchantDetailModal';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
 import {
   mockSalesData,
@@ -39,7 +43,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { isMobile, isTablet } = useResponsive();
   const { theme } = useTheme();
-  const [brokerData, setBrokerData] = useState(null);
+  const { user } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [analyticsData, setAnalyticsData] = useState({
@@ -119,58 +123,16 @@ const Dashboard = () => {
   const [expandedCities, setExpandedCities] = useState({});
   const [showProductEditModal, setShowProductEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [showProductBulkUpload, setShowProductBulkUpload] = useState(false);
+  const [showMerchantDetailModal, setShowMerchantDetailModal] = useState(false);
+  const [selectedMerchantId, setSelectedMerchantId] = useState(null);
+  const [financialYears, setFinancialYears] = useState([]);
+  const [currentFinancialYearId, setCurrentFinancialYearId] = useState('');
+  const [settingFY, setSettingFY] = useState(false);
 
   useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('authToken');
-    const savedBrokerData = localStorage.getItem('brokerData');
-
-    console.log('Dashboard - Token:', token);
-    console.log('Dashboard - Saved broker data:', savedBrokerData);
-
-    if (!token) {
-      console.log('No token found, redirecting to login');
-      navigate('/login');
-      return;
-    }
-
-    if (savedBrokerData) {
-      try {
-        const parsedData = JSON.parse(savedBrokerData);
-        console.log('Dashboard - Parsed broker data:', parsedData);
-        setBrokerData(parsedData);
-      } catch (error) {
-        console.error('Error parsing broker data:', error);
-        // If parsing fails, create a default broker data structure
-        setBrokerData({
-          brokerName: 'Broker User',
-          userName: 'user',
-          brokerageFirmName: 'BrokerHub',
-          email: 'user@brokerhub.com',
-          phoneNumber: 'N/A',
-          pincode: 'N/A',
-          BankName: 'N/A',
-          Branch: 'N/A',
-          AccountNumber: 'N/A',
-          IfscCode: 'N/A'
-        });
-      }
-    } else {
-      // If no broker data, create a default structure
-      console.log('No broker data found, using default');
-      setBrokerData({
-        brokerName: 'Broker User',
-        userName: 'user',
-        brokerageFirmName: 'BrokerHub',
-        email: 'user@brokerhub.com',
-        phoneNumber: 'N/A',
-        pincode: 'N/A',
-        BankName: 'N/A',
-        Branch: 'N/A',
-        AccountNumber: 'N/A',
-        IfscCode: 'N/A'
-      });
-    }
+    // User authentication is handled by AuthContext and ProtectedRoute
+    console.log('Dashboard - User data:', user);
 
     // Check for success message from navigation state
     if (location.state?.message) {
@@ -184,12 +146,9 @@ const Dashboard = () => {
     // Load analytics data (using mock data for now)
     loadAnalyticsData();
 
-    // Load real broker data (only if not already loaded during login)
-    if (!savedBrokerData || savedBrokerData === 'null') {
-      console.log('No broker data found, attempting to load...');
-      loadBrokerData();
-    } else {
-      console.log('Broker data already available from login');
+    // Load real broker data if needed
+    if (user && user.brokerId) {
+      console.log('User data available from auth context');
     }
 
     // Load merchants data
@@ -203,7 +162,13 @@ const Dashboard = () => {
 
     // Load payment data
     loadPaymentData();
-  }, [navigate, location]);
+
+    // Load financial years
+    loadFinancialYears();
+
+    // Load current financial year
+    loadCurrentFinancialYear();
+  }, [navigate, location, user]);
 
   const loadAnalyticsData = async () => {
     try {
@@ -332,18 +297,12 @@ const Dashboard = () => {
 
   const loadBrokerData = async () => {
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (brokerId) {
-        console.log('Loading broker data for ID:', brokerId);
-        const brokerData = await authAPI.getBrokerProfile(brokerId);
-        console.log('Loaded broker data:', brokerData);
-        setBrokerData(brokerData);
-        // Update localStorage with fresh data
-        localStorage.setItem('brokerData', JSON.stringify(brokerData));
-      }
+      console.log('Refreshing broker profile data...');
+      // Just refresh the page or show a message since we don't have a specific broker profile API
+      alert('Profile data refreshed from current session!');
     } catch (error) {
-      console.error('Error loading broker data:', error);
-      alert(`Failed to fetch broker profile: ${error.message || 'Server error occurred'}`);
+      console.error('Error refreshing broker data:', error);
+      alert(`Failed to refresh broker profile: ${error.message || 'Server error occurred'}`);
     }
   };
 
@@ -351,28 +310,18 @@ const Dashboard = () => {
     setLoading(true);
     try {
       console.log('Loading merchants data...');
-      const merchantsData = await merchantAPI.getAllMerchants();
+      const merchantsData = await userAPI.getUserSummary(0, 100, 'firmName,asc');
+      // Extract content from paginated response
+      const merchants = merchantsData.content || merchantsData;
       console.log('Loaded merchants data:', merchantsData);
       console.log('Type of merchants data:', typeof merchantsData);
       console.log('Is array:', Array.isArray(merchantsData));
 
-      // Ensure we always set an array
-      if (Array.isArray(merchantsData)) {
-        setMerchants(merchantsData);
-      } else if (merchantsData && typeof merchantsData === 'object') {
-        // If it's an object, try to extract array from common properties
-        if (Array.isArray(merchantsData.data)) {
-          setMerchants(merchantsData.data);
-        } else if (Array.isArray(merchantsData.users)) {
-          setMerchants(merchantsData.users);
-        } else if (Array.isArray(merchantsData.merchants)) {
-          setMerchants(merchantsData.merchants);
-        } else {
-          console.warn('Merchants data is not an array and no array found in object:', merchantsData);
-          setMerchants([]);
-        }
+      // Set merchants from the extracted data
+      if (Array.isArray(merchants)) {
+        setMerchants(merchants);
       } else {
-        console.warn('Merchants data is not an array or object:', merchantsData);
+        console.warn('Merchants data is not an array:', merchants);
         setMerchants([]);
       }
     } catch (error) {
@@ -469,6 +418,54 @@ const Dashboard = () => {
       console.log('Payment data loaded successfully');
     } catch (error) {
       console.error('Error loading payment data:', error);
+    }
+  };
+
+  // Load financial years
+  const loadFinancialYears = async () => {
+    try {
+      console.log('Loading financial years...');
+      const fyData = await financialYearAPI.getAllFinancialYears();
+      setFinancialYears(fyData || []);
+      console.log('Financial years loaded:', fyData);
+    } catch (error) {
+      console.error('Error loading financial years:', error);
+      setFinancialYears([]);
+    }
+  };
+
+  // Load current financial year
+  const loadCurrentFinancialYear = async () => {
+    try {
+      const currentFY = await financialYearAPI.getCurrentFinancialYear();
+      if (currentFY && currentFY.financialYearName) {
+        setCurrentFinancialYearId(currentFY.financialYearName);
+      }
+    } catch (error) {
+      console.log('No current financial year set or error loading:', error);
+    }
+  };
+
+  // Set current financial year
+  const handleSetCurrentFinancialYear = async () => {
+    if (!currentFinancialYearId) return;
+    
+    setSettingFY(true);
+    try {
+      const selectedFY = financialYears.find(fy => fy.financialYearName === currentFinancialYearId);
+      const fyId = selectedFY?.yearId;
+      if (!fyId) {
+        alert('Financial Year ID not found');
+        return;
+      }
+      console.log('Sending financialYearId to API:', fyId, typeof fyId);
+      await financialYearAPI.setCurrentFinancialYear(parseInt(fyId));
+      alert(`Financial Year set to ${currentFinancialYearId}`);
+    } catch (error) {
+      console.error('Error setting financial year:', error);
+      alert('Failed to set financial year');
+    } finally {
+      setSettingFY(false);
     }
   };
 
@@ -659,8 +656,8 @@ const Dashboard = () => {
   };
 
   const handleViewMerchant = (merchant) => {
-    setSelectedMerchant(merchant);
-    setShowMerchantModal(true);
+    setSelectedMerchantId(merchant.userId);
+    setShowMerchantDetailModal(true);
   };
 
   const handleEditMerchant = (merchant) => {
@@ -755,7 +752,7 @@ const Dashboard = () => {
     setUploadMessage('⏳ Uploading and processing file...');
 
     try {
-      const result = await merchantAPI.bulkUploadMerchants(uploadFile);
+      const result = await userAPI.bulkUpload(uploadFile);
       console.log('Upload result:', result);
 
       // Handle the detailed response from backend
@@ -821,7 +818,7 @@ const Dashboard = () => {
       console.log('Downloading Excel template from backend...');
       setUploadMessage('📥 Downloading template...');
 
-      const blob = await merchantAPI.downloadTemplate();
+      const blob = await userAPI.downloadTemplate();
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -922,8 +919,8 @@ const Dashboard = () => {
     return grouped;
   };
 
-  // Show loading only briefly, then show dashboard with default data
-  if (!brokerData) {
+  // Show loading only briefly, then show dashboard with user data
+  if (!user) {
     return (
       <div style={{
         display: 'flex',
@@ -970,7 +967,7 @@ const Dashboard = () => {
             color: theme.textSecondary,
             fontSize: isMobile ? '14px' : '16px'
           }}>
-            Welcome back, {brokerData?.brokerName || 'Broker User'}!
+            Welcome back, {user?.brokerName || 'Broker User'}!
           </p>
         </div>
         {/* Settings dropdown will be positioned here by App.js */}
@@ -1011,6 +1008,7 @@ const Dashboard = () => {
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'analytics', label: 'Analytics' },
+            { id: 'todaymarket', label: 'Today Market' },
             { id: 'payments', label: 'Payments' },
             { id: 'merchants', label: 'Merchants' },
             { id: 'products', label: 'Products' },
@@ -1157,7 +1155,7 @@ const Dashboard = () => {
 
               <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
                 <Link
-                  to="/daily-ledger"
+                  to="/financial-years"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -1185,7 +1183,7 @@ const Dashboard = () => {
                   }}
                 >
                   <span style={{ fontSize: '18px' }}>🚀</span>
-                  Open Daily Ledger
+                  Open Ledger Detail
                 </Link>
                 <p style={{
                   margin: '8px 0 0 0',
@@ -2555,7 +2553,7 @@ const Dashboard = () => {
             <div style={{ marginBottom: '20px' }}>
               <input
                 type="text"
-                placeholder="Search merchants by name, firm, email, or city..."
+                placeholder="Search merchants by firm name or city..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="merchant-search-input"
@@ -2589,12 +2587,10 @@ const Dashboard = () => {
                 <thead>
                   <tr style={{ backgroundColor: theme.background }}>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Firm Name</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Owner</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Type</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>City</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Bags</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Rate (₹/bag)</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Sold</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Bought</th>
+                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Brokerage</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
                   </tr>
                 </thead>
@@ -2605,107 +2601,50 @@ const Dashboard = () => {
                       const search = searchTerm.toLowerCase();
                       return (
                         merchant.firmName?.toLowerCase().includes(search) ||
-                        merchant.ownerName?.toLowerCase().includes(search) ||
-                        merchant.email?.toLowerCase().includes(search) ||
-                        merchant.address?.city?.toLowerCase().includes(search) ||
-                        merchant.userType?.toLowerCase().includes(search)
+                        merchant.city?.toLowerCase().includes(search)
                       );
                     })
                     .map((merchant) => (
                     <tr key={merchant.userId}>
                       <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.gstNumber || 'N/A'}</p>
-                        </div>
+                        <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName}</p>
                       </td>
                       <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.ownerName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.email || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
-                            {merchant.phoneNumbers && merchant.phoneNumbers.length > 0 ? merchant.phoneNumbers[0] : 'N/A'}
-                          </p>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          backgroundColor: merchant.userType === 'Miller' ? theme.infoBg : theme.successBg,
-                          color: merchant.userType === 'Miller' ? theme.info : theme.success
-                        }}>
-                          {merchant.userType || 'User'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.address?.city || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
-                            {merchant.address?.area || ''} {merchant.address?.pincode || ''}
-                          </p>
-                        </div>
+                        <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.city}</p>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        ₹{merchant.brokerageRate || 0}
+                        {formatNumber((merchant.totalBagsSold || 0) + (merchant.totalBagsBought || 0))}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {formatNumber(merchant.totalBagsSold || 0)}
+                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                        ₹{merchant.brokeragePerBag?.toFixed(2) || '0.00'}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {formatNumber(merchant.totalBagsBought || 0)}
+                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.success }}>
+                        ₹{merchant.totalPayableBrokerage?.toFixed(2) || '0.00'}
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button
-                            onClick={() => handleViewMerchant(merchant)}
-                            style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${theme.info}`,
-                              borderRadius: '4px',
-                              backgroundColor: theme.infoBg,
-                              color: theme.info,
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.info;
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.infoBg;
-                              e.currentTarget.style.color = theme.info;
-                            }}
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEditMerchant(merchant)}
-                            style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${theme.warning}`,
-                              borderRadius: '4px',
-                              backgroundColor: theme.warningBg,
-                              color: theme.warning,
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.warning;
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.warningBg;
-                              e.currentTarget.style.color = theme.warning;
-                            }}
-                          >
-                            Edit
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleViewMerchant(merchant)}
+                          style={{
+                            padding: '4px 8px',
+                            border: `1px solid ${theme.info}`,
+                            borderRadius: '4px',
+                            backgroundColor: theme.infoBg,
+                            color: theme.info,
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = theme.info;
+                            e.currentTarget.style.color = 'white';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = theme.infoBg;
+                            e.currentTarget.style.color = theme.info;
+                          }}
+                        >
+                          View
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -2751,6 +2690,49 @@ const Dashboard = () => {
                   <p style={{ color: theme.textPrimary }}>Loading merchants...</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Today Market Tab */}
+      {activeTab === 'todaymarket' && (
+        <div>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px'
+            }}>
+              <h2 style={{
+                margin: 0,
+                color: theme.textPrimary,
+                fontSize: '24px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                📈 Today's Market
+              </h2>
+            </div>
+            
+            {/* Import and use TodayMarket component */}
+            <div style={{
+              backgroundColor: theme.background,
+              borderRadius: '12px',
+              padding: '20px',
+              border: `1px solid ${theme.borderLight}`
+            }}>
+              <TodayMarket />
             </div>
           </div>
         </div>
@@ -2802,6 +2784,33 @@ const Dashboard = () => {
                 >
                   🔄 Refresh
                 </button>
+                <Link
+                  to="/route-explorer"
+                  style={{
+                    textDecoration: 'none',
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.info}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.infoBg,
+                    color: theme.info,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.info;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.infoBg;
+                    e.currentTarget.style.color = theme.info;
+                  }}
+                >
+                  🗺️ Route Explorer
+                </Link>
                 <button
                   onClick={() => setShowAddressModal(true)}
                   style={{
@@ -2987,7 +2996,7 @@ const Dashboard = () => {
                 boxShadow: theme.shadowHover,
                 flexShrink: 0
               }}>
-                {(brokerData?.brokerName || 'B').charAt(0).toUpperCase()}
+                {(user?.brokerName || 'B').charAt(0).toUpperCase()}
               </div>
 
               {/* Profile Info */}
@@ -2998,14 +3007,14 @@ const Dashboard = () => {
                   fontSize: '32px',
                   fontWeight: '700'
                 }}>
-                  {brokerData?.brokerName || 'Broker User'}
+                  {user?.brokerName || 'Broker User'}
                 </h2>
                 <p style={{
                   margin: '0 0 12px 0',
                   color: theme.textSecondary,
                   fontSize: '18px'
                 }}>
-                  {brokerData?.brokerageFirmName || 'BrokerHub'}
+                  {user?.brokerName || 'BrokerHub'}
                 </p>
                 <div style={{
                   display: 'flex',
@@ -3031,7 +3040,7 @@ const Dashboard = () => {
                     fontSize: '14px',
                     fontWeight: '500'
                   }}>
-                    📧 {brokerData?.email || 'N/A'}
+                    📧 {user?.email || 'N/A'}
                   </span>
                 </div>
               </div>
@@ -3090,27 +3099,27 @@ const Dashboard = () => {
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Broker ID:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerId || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerId || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Name:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Username:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.userName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.userName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Firm Name:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerageFirmName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Phone:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.phoneNumber || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.phoneNumber || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Total Brokerage:</span>
-                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(brokerData?.totalBrokerage || 0)}</span>
+                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(user?.totalBrokerage || 0)}</span>
                 </div>
               </div>
             </div>
@@ -3139,19 +3148,19 @@ const Dashboard = () => {
                   <span style={{ fontSize: '16px' }}>📍</span>
                   <span style={{ fontWeight: '600', color: theme.textPrimary }}>Address Information</span>
                 </div>
-                {brokerData?.address ? (
+                {user?.address ? (
                   <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>City:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.city || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.city || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Area:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.area || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.area || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Pincode:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.pincode || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.pincode || 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
@@ -3172,23 +3181,23 @@ const Dashboard = () => {
                   <span style={{ fontSize: '16px' }}>🏦</span>
                   <span style={{ fontWeight: '600', color: theme.textPrimary }}>Banking Details</span>
                 </div>
-                {brokerData?.bankDetails ? (
+                {user?.bankDetails ? (
                   <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Bank:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.bankName || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.bankName || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Branch:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.branch || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.branch || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Account:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.accountNumber || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.accountNumber || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>IFSC:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.ifscCode || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.ifscCode || 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
@@ -3206,7 +3215,59 @@ const Dashboard = () => {
             border: `1px solid ${theme.border}`,
             transition: 'all 0.3s ease'
           }}>
-            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚡ Quick Actions</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚙️ Settings & Actions</h3>
+            
+            {/* Current Financial Year Setting */}
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: theme.background, borderRadius: '8px', border: `1px solid ${theme.borderLight}` }}>
+              <h4 style={{ margin: '0 0 12px 0', color: theme.textPrimary, fontSize: '14px', fontWeight: '600' }}>📅 Current Financial Year</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ color: theme.textSecondary, fontSize: '14px' }}>Active FY:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <select
+                    value={currentFinancialYearId || ''}
+                    onChange={(e) => setCurrentFinancialYearId(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: '4px',
+                      backgroundColor: theme.cardBackground,
+                      color: theme.textPrimary,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      minWidth: '120px'
+                    }}
+                  >
+                    <option value="">Select Financial Year</option>
+                    {financialYears.map(fy => (
+                      <option key={fy.financialYearId} value={fy.financialYearName}>
+                        {fy.financialYearName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSetCurrentFinancialYear}
+                    disabled={!currentFinancialYearId || settingFY}
+                    style={{
+                      padding: '4px 12px',
+                      border: 'none',
+                      borderRadius: '4px',
+                      backgroundColor: theme.primary || '#007bff',
+                      color: 'white',
+                      fontSize: '12px',
+                      cursor: (!currentFinancialYearId || settingFY) ? 'not-allowed' : 'pointer',
+                      opacity: (!currentFinancialYearId || settingFY) ? 0.6 : 1
+                    }}
+                  >
+                    {settingFY ? 'Setting...' : 'Set'}
+                  </button>
+                </div>
+              </div>
+              <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: theme.textSecondary, fontStyle: 'italic' }}>
+                All new transactions will use this financial year
+              </p>
+            </div>
+            
+            <h4 style={{ margin: '0 0 12px 0', color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>⚡ Quick Actions</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button
                 onClick={() => alert('Update Profile functionality coming soon!')}
@@ -3338,6 +3399,20 @@ const Dashboard = () => {
                   }}
                 >
                   🔄 Refresh
+                </button>
+                <button
+                  onClick={() => setShowProductBulkUpload(true)}
+                  style={{
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.success}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.successBg,
+                    color: theme.success,
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📊 Bulk Upload
                 </button>
                 <button
                   onClick={() => alert('Add Product functionality coming soon!')}
@@ -4601,6 +4676,23 @@ const Dashboard = () => {
         onClose={closeProductEditModal}
         product={editingProduct}
         onSuccess={loadProductsData}
+      />
+
+      {/* Product Bulk Upload Modal */}
+      <ProductBulkUpload
+        isOpen={showProductBulkUpload}
+        onClose={() => setShowProductBulkUpload(false)}
+        onSuccess={loadProductsData}
+      />
+
+      {/* Merchant Detail Modal */}
+      <MerchantDetailModal
+        isOpen={showMerchantDetailModal}
+        onClose={() => {
+          setShowMerchantDetailModal(false);
+          setSelectedMerchantId(null);
+        }}
+        merchantId={selectedMerchantId}
       />
 
       {/* Payment Detail Modal */}

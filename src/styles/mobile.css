@@ -1,0 +1,202 @@
+/* Mobile-specific styles */
+@media (max-width: 480px) {
+  /* Audit Ledger Mobile Styles */
+  .audit-ledger-card {
+    padding: 16px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .audit-ledger-card .background-pattern {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .audit-ledger-card .content {
+    gap: 12px !important;
+  }
+
+  .audit-ledger-card .title {
+    font-size: 18px !important;
+  }
+
+  .audit-ledger-card .icon {
+    font-size: 24px !important;
+  }
+
+  /* Merchant List Mobile Styles */
+  .merchant-list {
+    margin: 0 -16px;
+  }
+
+  .merchant-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .merchant-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .merchant-name {
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .merchant-details {
+    display: none;
+  }
+
+  .merchant-item.expanded .merchant-details {
+    display: block;
+    margin-top: 12px;
+  }
+
+  /* Payment Tabs Mobile Styles */
+  .payment-tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+
+  .payment-tab {
+    flex: 0 0 auto;
+    padding: 12px 20px;
+    white-space: nowrap;
+  }
+
+  /* Search Bar Mobile Styles */
+  .search-bar {
+    position: relative;
+    margin-bottom: 16px;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+  }
+
+  .search-input {
+    padding-left: 40px !important;
+  }
+
+  /* Action Buttons Mobile Layout */
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .action-buttons .primary-button {
+    grid-column: 1 / -1;
+  }
+
+  /* Calendar View Mobile Styles */
+  .calendar-container {
+    margin: 0 -16px;
+  }
+
+  .calendar {
+    font-size: 14px;
+  }
+
+  .calendar td {
+    padding: 8px;
+    height: 40px;
+  }
+
+  .today {
+    background-color: var(--primary-light);
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .weekend {
+    background-color: var(--background-secondary);
+  }
+
+  /* Ledger Summary Mobile Styles */
+  .ledger-summary-card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .summary-item {
+    padding: 12px;
+    text-align: center;
+  }
+
+  /* Create Transaction Mobile Styles */
+  .create-transaction-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .form-group {
+    margin-bottom: 0;
+  }
+
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Navigation Menu */
+  .mobile-menu-button {
+    display: block;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1000;
+  }
+
+  .mobile-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    background-color: var(--background);
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .mobile-menu.open {
+    transform: translateX(0);
+  }
+
+  .menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .menu-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

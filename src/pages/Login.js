@@ -110,7 +110,6 @@ const Login = () => {
       data-theme={theme.isDarkMode ? 'dark' : 'light'}
     >
 
-
       <div className="auth-card" style={{
         backgroundColor: theme.cardBackground,
         border: `1px solid ${theme.border}`,
@@ -192,5 +191,3 @@ const Login = () => {
 };
 
 export default Login;
-
-
