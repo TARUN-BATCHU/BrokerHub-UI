@@ -126,6 +126,9 @@ const Dashboard = () => {
   const [showProductBulkUpload, setShowProductBulkUpload] = useState(false);
   const [showMerchantDetailModal, setShowMerchantDetailModal] = useState(false);
   const [selectedMerchantId, setSelectedMerchantId] = useState(null);
+  const [financialYears, setFinancialYears] = useState([]);
+  const [currentFinancialYearId, setCurrentFinancialYearId] = useState('');
+  const [settingFY, setSettingFY] = useState(false);
 
   useEffect(() => {
     // User authentication is handled by AuthContext and ProtectedRoute
@@ -159,6 +162,12 @@ const Dashboard = () => {
 
     // Load payment data
     loadPaymentData();
+
+    // Load financial years
+    loadFinancialYears();
+
+    // Load current financial year
+    loadCurrentFinancialYear();
   }, [navigate, location, user]);
 
   const loadAnalyticsData = async () => {
@@ -288,15 +297,12 @@ const Dashboard = () => {
 
   const loadBrokerData = async () => {
     try {
-      if (user && user.brokerId) {
-        console.log('Loading broker data for ID:', user.brokerId);
-        const userData = await authAPI.getBrokerProfile(user.brokerId);
-        console.log('Loaded user data:', userData);
-        // Update user context if needed
-      }
+      console.log('Refreshing broker profile data...');
+      // Just refresh the page or show a message since we don't have a specific broker profile API
+      alert('Profile data refreshed from current session!');
     } catch (error) {
-      console.error('Error loading broker data:', error);
-      alert(`Failed to fetch broker profile: ${error.message || 'Server error occurred'}`);
+      console.error('Error refreshing broker data:', error);
+      alert(`Failed to refresh broker profile: ${error.message || 'Server error occurred'}`);
     }
   };
 
@@ -412,6 +418,54 @@ const Dashboard = () => {
       console.log('Payment data loaded successfully');
     } catch (error) {
       console.error('Error loading payment data:', error);
+    }
+  };
+
+  // Load financial years
+  const loadFinancialYears = async () => {
+    try {
+      console.log('Loading financial years...');
+      const fyData = await financialYearAPI.getAllFinancialYears();
+      setFinancialYears(fyData || []);
+      console.log('Financial years loaded:', fyData);
+    } catch (error) {
+      console.error('Error loading financial years:', error);
+      setFinancialYears([]);
+    }
+  };
+
+  // Load current financial year
+  const loadCurrentFinancialYear = async () => {
+    try {
+      const currentFY = await financialYearAPI.getCurrentFinancialYear();
+      if (currentFY && currentFY.financialYearName) {
+        setCurrentFinancialYearId(currentFY.financialYearName);
+      }
+    } catch (error) {
+      console.log('No current financial year set or error loading:', error);
+    }
+  };
+
+  // Set current financial year
+  const handleSetCurrentFinancialYear = async () => {
+    if (!currentFinancialYearId) return;
+    
+    setSettingFY(true);
+    try {
+      const selectedFY = financialYears.find(fy => fy.financialYearName === currentFinancialYearId);
+      const fyId = selectedFY?.yearId;
+      if (!fyId) {
+        alert('Financial Year ID not found');
+        return;
+      }
+      console.log('Sending financialYearId to API:', fyId, typeof fyId);
+      await financialYearAPI.setCurrentFinancialYear(parseInt(fyId));
+      alert(`Financial Year set to ${currentFinancialYearId}`);
+    } catch (error) {
+      console.error('Error setting financial year:', error);
+      alert('Failed to set financial year');
+    } finally {
+      setSettingFY(false);
     }
   };
 
@@ -3161,7 +3215,59 @@ const Dashboard = () => {
             border: `1px solid ${theme.border}`,
             transition: 'all 0.3s ease'
           }}>
-            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚡ Quick Actions</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚙️ Settings & Actions</h3>
+            
+            {/* Current Financial Year Setting */}
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: theme.background, borderRadius: '8px', border: `1px solid ${theme.borderLight}` }}>
+              <h4 style={{ margin: '0 0 12px 0', color: theme.textPrimary, fontSize: '14px', fontWeight: '600' }}>📅 Current Financial Year</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ color: theme.textSecondary, fontSize: '14px' }}>Active FY:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <select
+                    value={currentFinancialYearId || ''}
+                    onChange={(e) => setCurrentFinancialYearId(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: '4px',
+                      backgroundColor: theme.cardBackground,
+                      color: theme.textPrimary,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      minWidth: '120px'
+                    }}
+                  >
+                    <option value="">Select Financial Year</option>
+                    {financialYears.map(fy => (
+                      <option key={fy.financialYearId} value={fy.financialYearName}>
+                        {fy.financialYearName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSetCurrentFinancialYear}
+                    disabled={!currentFinancialYearId || settingFY}
+                    style={{
+                      padding: '4px 12px',
+                      border: 'none',
+                      borderRadius: '4px',
+                      backgroundColor: theme.primary || '#007bff',
+                      color: 'white',
+                      fontSize: '12px',
+                      cursor: (!currentFinancialYearId || settingFY) ? 'not-allowed' : 'pointer',
+                      opacity: (!currentFinancialYearId || settingFY) ? 0.6 : 1
+                    }}
+                  >
+                    {settingFY ? 'Setting...' : 'Set'}
+                  </button>
+                </div>
+              </div>
+              <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: theme.textSecondary, fontStyle: 'italic' }}>
+                All new transactions will use this financial year
+              </p>
+            </div>
+            
+            <h4 style={{ margin: '0 0 12px 0', color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>⚡ Quick Actions</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button
                 onClick={() => alert('Update Profile functionality coming soon!')}

@@ -17,6 +17,7 @@ import TodayMarket from './pages/TodayMarket';
 import CalendarView from './pages/CalendarView';
 import DailyLedger from './pages/DailyLedger';
 import TransactionDetail from './pages/TransactionDetail';
+import LedgerManagement from './pages/LedgerManagement';
 import Products from './pages/Products';
 import Merchants from './pages/Merchants';
 import GlobalNavigation from './components/GlobalNavigation';
@@ -162,6 +163,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TransactionDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ledger-management"
+                element={
+                  <ProtectedRoute>
+                    <LedgerManagement />
                   </ProtectedRoute>
                 }
               />

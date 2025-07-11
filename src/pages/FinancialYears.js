@@ -20,6 +20,8 @@ const FinancialYears = () => {
   });
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState('');
+  const [currentFinancialYearId, setCurrentFinancialYearId] = useState('');
+  const [settingFY, setSettingFY] = useState(false);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -30,6 +32,7 @@ const FinancialYears = () => {
     }
 
     loadFinancialYears();
+    loadCurrentFinancialYear();
   }, [navigate]);
 
   const loadFinancialYears = async () => {
@@ -79,6 +82,42 @@ const FinancialYears = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  // Load current financial year
+  const loadCurrentFinancialYear = async () => {
+    try {
+      const currentFY = await financialYearAPI.getCurrentFinancialYear();
+      if (currentFY && currentFY.financialYearName) {
+        setCurrentFinancialYearId(currentFY.financialYearName);
+      }
+    } catch (error) {
+      console.log('No current financial year set or error loading:', error);
+    }
+  };
+
+  // Set current financial year
+  const handleSetCurrentFinancialYear = async () => {
+    if (!currentFinancialYearId) return;
+    
+    setSettingFY(true);
+    try {
+      const selectedFY = financialYears.find(fy => fy.financialYearName === currentFinancialYearId);
+      const fyId = selectedFY?.yearId;
+      if (!fyId) {
+        setMessage('Financial Year ID not found');
+        return;
+      }
+      await financialYearAPI.setCurrentFinancialYear(parseInt(fyId));
+      setMessage(`Financial Year set to ${currentFinancialYearId}`);
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Error setting financial year:', error);
+      setMessage('Failed to set financial year');
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setSettingFY(false);
+    }
   };
 
   return (
@@ -163,6 +202,71 @@ const FinancialYears = () => {
           {message}
         </div>
       )}
+
+      {/* Current Financial Year Selector */}
+      <div style={{
+        backgroundColor: theme.cardBackground,
+        padding: '20px',
+        borderRadius: '12px',
+        boxShadow: theme.shadow,
+        border: `1px solid ${theme.border}`,
+        marginBottom: '20px',
+        transition: 'all 0.3s ease'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap'
+        }}>
+          <h4 style={{ margin: 0, color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>
+            📅 Current Active Financial Year:
+          </h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <select
+              value={currentFinancialYearId || ''}
+              onChange={(e) => setCurrentFinancialYearId(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: `1px solid ${theme.border}`,
+                borderRadius: '6px',
+                backgroundColor: theme.cardBackground,
+                color: theme.textPrimary,
+                fontSize: '14px',
+                cursor: 'pointer',
+                minWidth: '150px'
+              }}
+            >
+              <option value="">Select Financial Year</option>
+              {financialYears.map(fy => (
+                <option key={fy.yearId} value={fy.financialYearName}>
+                  {fy.financialYearName}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleSetCurrentFinancialYear}
+              disabled={!currentFinancialYearId || settingFY}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '6px',
+                backgroundColor: theme.primary || '#007bff',
+                color: 'white',
+                fontSize: '14px',
+                cursor: (!currentFinancialYearId || settingFY) ? 'not-allowed' : 'pointer',
+                opacity: (!currentFinancialYearId || settingFY) ? 0.6 : 1
+              }}
+            >
+              {settingFY ? 'Setting...' : 'Set Active'}
+            </button>
+          </div>
+
+          <span style={{ fontSize: '12px', color: theme.textSecondary, fontStyle: 'italic' }}>
+            All new transactions will use this financial year
+          </span>
+        </div>
+      </div>
 
       {/* Main Content */}
       <div style={{

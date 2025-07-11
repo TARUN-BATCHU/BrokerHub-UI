@@ -39,6 +39,15 @@ const DailyLedger = () => {
     setSelectedDate(e.target.value);
   };
 
+  const handleDateSubmit = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedDate) {
+        fetchLedgerData();
+      }
+    }
+  };
+
   const handleAddNewTransaction = () => {
     navigate('/transaction-detail', { 
       state: { 
@@ -52,7 +61,8 @@ const DailyLedger = () => {
     navigate('/transaction-detail', { 
       state: { 
         mode: 'edit', 
-        transactionNumber: transaction.brokerTransactionNumber,
+        transactionNumber: transaction.brokerTransactionNumber || transaction.ledgerDetailsId,
+        financialYearId: transaction.financialYearId || new Date().getFullYear(),
         date: selectedDate 
       } 
     });
@@ -75,11 +85,11 @@ const DailyLedger = () => {
       color: theme.textPrimary
     }}>
       <div className="header-section" style={{ marginBottom: '30px' }}>
-        <h1 style={{ color: '#333', marginBottom: '20px' }}>Daily Ledger - {selectedDate}</h1>
+        <h1 style={{ color: theme.textPrimary, marginBottom: '20px' }}>Daily Ledger - {selectedDate}</h1>
         
         <div className="controls" style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <label htmlFor="date-picker" style={{ marginRight: '10px', fontWeight: 'bold' }}>
+            <label htmlFor="date-picker" style={{ marginRight: '10px', fontWeight: 'bold', color: theme.textPrimary }}>
               Change Date:
             </label>
             <input
@@ -87,11 +97,14 @@ const DailyLedger = () => {
               type="date"
               value={selectedDate}
               onChange={handleDateChange}
+              onKeyPress={handleDateSubmit}
               style={{
                 padding: '8px 12px',
-                border: '1px solid #ddd',
+                border: `1px solid ${theme.border}`,
                 borderRadius: '4px',
-                fontSize: '14px'
+                fontSize: '14px',
+                backgroundColor: theme.inputBackground || theme.cardBackground,
+                color: theme.textPrimary
               }}
             />
           </div>
@@ -99,7 +112,7 @@ const DailyLedger = () => {
           <button
             onClick={handleAddNewTransaction}
             style={{
-              backgroundColor: '#007bff',
+              backgroundColor: theme.primary || '#007bff',
               color: 'white',
               border: 'none',
               padding: '10px 20px',
@@ -115,18 +128,19 @@ const DailyLedger = () => {
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '20px' }}>
+        <div style={{ textAlign: 'center', padding: '20px', color: theme.textPrimary }}>
           <div>Loading...</div>
         </div>
       )}
 
       {error && (
         <div style={{ 
-          backgroundColor: '#f8d7da', 
-          color: '#721c24', 
+          backgroundColor: theme.errorBg || '#f8d7da', 
+          color: theme.errorText || '#721c24', 
           padding: '12px', 
           borderRadius: '4px', 
-          marginBottom: '20px' 
+          marginBottom: '20px',
+          border: `1px solid ${theme.errorBorder || '#f5c6cb'}`
         }}>
           {error}
         </div>
@@ -136,16 +150,17 @@ const DailyLedger = () => {
         <div style={{ 
           textAlign: 'center', 
           padding: '40px', 
-          backgroundColor: '#f8f9fa', 
-          borderRadius: '8px' 
+          backgroundColor: theme.cardBackground, 
+          borderRadius: '8px',
+          border: `1px solid ${theme.border}`
         }}>
-          <p style={{ fontSize: '18px', color: '#666', marginBottom: '20px' }}>
+          <p style={{ fontSize: '18px', color: theme.textSecondary, marginBottom: '20px' }}>
             No transactions found for {selectedDate}
           </p>
           <button
             onClick={handleAddNewTransaction}
             style={{
-              backgroundColor: '#28a745',
+              backgroundColor: theme.success || '#28a745',
               color: 'white',
               border: 'none',
               padding: '12px 24px',
@@ -165,32 +180,34 @@ const DailyLedger = () => {
           {ledgerData.map((brokerData, index) => (
             <div key={index} className="broker-section" style={{ marginBottom: '30px' }}>
               <div className="broker-header" style={{ 
-                backgroundColor: '#e9ecef', 
+                backgroundColor: theme.cardBackground, 
                 padding: '15px', 
                 borderRadius: '8px 8px 0 0',
-                borderBottom: '2px solid #007bff'
+                borderBottom: `2px solid ${theme.primary || '#007bff'}`,
+                border: `1px solid ${theme.border}`
               }}>
-                <h3 style={{ margin: '0', color: '#333' }}>
+                <h3 style={{ margin: '0', color: theme.textPrimary }}>
                   Broker: {brokerData.brokerName}
                 </h3>
-                <p style={{ margin: '5px 0 0 0', color: '#666' }}>
+                <p style={{ margin: '5px 0 0 0', color: theme.textSecondary }}>
                   Total Brokerage: {formatCurrency(brokerData.brokerage)}
                 </p>
-                <p style={{ margin: '5px 0 0 0', color: '#666' }}>
+                <p style={{ margin: '5px 0 0 0', color: theme.textSecondary }}>
                   Seller: {brokerData.sellerName}
                 </p>
               </div>
 
               <div className="transactions-table" style={{ 
-                backgroundColor: 'white', 
-                border: '1px solid #ddd',
+                backgroundColor: theme.cardBackground, 
+                border: `1px solid ${theme.border}`,
                 borderRadius: '0 0 8px 8px'
               }}>
                 <h4 style={{ 
                   padding: '15px', 
                   margin: '0', 
-                  backgroundColor: '#f8f9fa', 
-                  borderBottom: '1px solid #ddd' 
+                  backgroundColor: theme.background, 
+                  borderBottom: `1px solid ${theme.border}`,
+                  color: theme.textPrimary
                 }}>
                   Transaction Ledger Details List
                 </h4>
@@ -198,12 +215,12 @@ const DailyLedger = () => {
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f8f9fa' }}>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>ID</th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>From</th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Total Bags</th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Total Buyers</th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Action</th>
+                      <tr style={{ backgroundColor: theme.background }}>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>ID</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>From</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Total Bags</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Total Buyers</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -214,28 +231,29 @@ const DailyLedger = () => {
                             cursor: 'pointer',
                             ':hover': { backgroundColor: '#f8f9fa' }
                           }}
-                          onMouseEnter={(e) => e.target.parentElement.style.backgroundColor = '#f8f9fa'}
-                          onMouseLeave={(e) => e.target.parentElement.style.backgroundColor = 'white'}
+                          onMouseEnter={(e) => e.target.parentElement.style.backgroundColor = theme.hoverBg || '#f8f9fa'}
+                          onMouseLeave={(e) => e.target.parentElement.style.backgroundColor = theme.cardBackground}
                         >
-                          <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                            {record.ledgerDetailsId || recordIndex + 1}
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            #{record.brokerTransactionNumber || record.ledgerDetailsId || recordIndex + 1}
                           </td>
-                          <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             {brokerData.sellerName}
                           </td>
-                          <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             {record.quantity}
                           </td>
-                          <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             1
                           </td>
-                          <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
                             <button
                               onClick={() => handleTransactionClick({
-                                brokerTransactionNumber: record.ledgerDetailsId || recordIndex + 1
+                                brokerTransactionNumber: record.brokerTransactionNumber || record.ledgerDetailsId || recordIndex + 1,
+                                financialYearId: record.financialYearId
                               })}
                               style={{
-                                backgroundColor: '#17a2b8',
+                                backgroundColor: theme.info || '#17a2b8',
                                 color: 'white',
                                 border: 'none',
                                 padding: '6px 12px',

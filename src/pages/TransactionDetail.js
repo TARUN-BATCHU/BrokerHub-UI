@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ledgerDetailsAPI, userAPI, productAPI } from '../services/api';
+import { ledgerDetailsAPI, userAPI, productAPI, financialYearAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import FinancialYearSelector from '../components/FinancialYearSelector';
 import '../styles/ledger.css';
 
 const TransactionDetail = () => {
@@ -10,11 +11,14 @@ const TransactionDetail = () => {
   const { theme } = useTheme();
   const { mode, transactionNumber, date } = location.state || {};
   
+  const initialDate = date || new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
     brokerId: parseInt(localStorage.getItem('brokerId')),
+    financialYearId: null,
     sellerBrokerage: '',
+    brokerage: 0,
     fromSeller: '',
-    date: date || new Date().toISOString().split('T')[0],
+    date: initialDate,
     sellerProducts: [{ productId: '', productCost: '' }],
     ledgerRecordDTOList: [
       {
@@ -40,6 +44,8 @@ const TransactionDetail = () => {
   const [buyerSearches, setBuyerSearches] = useState({});
   const [showSellerDropdown, setShowSellerDropdown] = useState(false);
   const [showBuyerDropdowns, setShowBuyerDropdowns] = useState({});
+  const [productSearches, setProductSearches] = useState({});
+  const [showProductDropdowns, setShowProductDropdowns] = useState({});
 
   useEffect(() => {
     console.log('TransactionDetail component mounted, fetching data...');
@@ -48,6 +54,22 @@ const TransactionDetail = () => {
       fetchTransactionData(transactionNumber);
     }
   }, [mode, transactionNumber]);
+
+  useEffect(() => {
+    const loadCurrentFinancialYear = async () => {
+      try {
+        const currentFY = await financialYearAPI.getCurrentFinancialYear();
+        if (currentFY && currentFY.financialYearId) {
+          console.log('Setting financialYearId to:', currentFY.financialYearId);
+          setFormData(prev => ({ ...prev, financialYearId: currentFY.financialYearId }));
+        }
+      } catch (error) {
+        console.log('No current financial year set or error loading:', error);
+      }
+    };
+    
+    loadCurrentFinancialYear();
+  }, []);
 
   useEffect(() => {
     console.log('Sellers state updated:', sellers);
@@ -85,8 +107,8 @@ const TransactionDetail = () => {
 
   const fetchProducts = async () => {
     try {
-      console.log('Fetching products from /BrokerHub/Product/getProductNames');
-      const data = await productAPI.getProductNames();
+      console.log('Fetching products from /BrokerHub/Product/getProductNamesAndQualitiesAndQuantitesWithId');
+      const data = await productAPI.getProductNamesAndQualitiesAndQuantitesWithId();
       console.log('Products data:', data);
       setProducts(data || []);
     } catch (err) {
@@ -110,15 +132,16 @@ const TransactionDetail = () => {
     try {
       const data = await ledgerDetailsAPI.getOptimizedLedgerDetailsByTransactionNumber(
         txnNumber, 
-        localStorage.getItem('brokerId')
+        localStorage.getItem('brokerId'),
+        formData.financialYearId
       );
       
       if (data) {
         setFormData({
-          brokerId: data.broker.brokerId,
-          sellerBrokerage: data.records.reduce((sum, record) => sum + record.totalBrokerage, 0),
+          brokerId: parseInt(localStorage.getItem('brokerId')),
+          sellerBrokerage: data.transactionSummary?.averageBrokeragePerBag || 0,
           fromSeller: data.fromSeller.userId,
-          date: data.dailyLedger.date,
+          date: data.transactionDate,
           sellerProducts: [{ productId: data.records[0]?.product.productId || '', productCost: data.records[0]?.productCost || '' }],
           ledgerRecordDTOList: data.records.map(record => ({
             buyerName: record.toBuyer.firmName,
@@ -128,6 +151,17 @@ const TransactionDetail = () => {
             productCost: record.productCost
           }))
         });
+        // Update search fields for display
+        const seller = sellers.find(s => s.id === data.fromSeller.userId);
+        if (seller) {
+          setSellerSearch(seller.firmName);
+        }
+        // Update buyer search fields
+        const newBuyerSearches = {};
+        data.records.forEach((record, index) => {
+          newBuyerSearches[index] = record.toBuyer.firmName;
+        });
+        setBuyerSearches(newBuyerSearches);
       }
     } catch (err) {
       setError('Failed to fetch transaction data');
@@ -161,19 +195,6 @@ const TransactionDetail = () => {
         i === index ? { ...product, [field]: value } : product
       )
     }));
-
-    // Auto-populate first buyer record if it's the first seller product
-    if (index === 0) {
-      setFormData(prev => ({
-        ...prev,
-        ledgerRecordDTOList: prev.ledgerRecordDTOList.map((record, i) => 
-          i === 0 ? { 
-            ...record, 
-            [field === 'productId' ? 'productId' : 'productCost']: value 
-          } : record
-        )
-      }));
-    }
   };
 
   const addSellerProduct = () => {
@@ -192,6 +213,8 @@ const TransactionDetail = () => {
     }
   };
 
+
+
   const handleRecordChange = (index, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -208,10 +231,10 @@ const TransactionDetail = () => {
         ...prev.ledgerRecordDTOList,
         {
           buyerName: '',
-          productId: formData.sellerProducts[0]?.productId || '',
+          productId: '',
           quantity: '',
           brokerage: '',
-          productCost: formData.sellerProducts[0]?.productCost || ''
+          productCost: ''
         }
       ]
     }));
@@ -253,6 +276,12 @@ const TransactionDetail = () => {
   };
 
   const handleSave = async () => {
+    console.log('FormData financialYearId:', formData.financialYearId, typeof formData.financialYearId);
+    
+    if (!formData.financialYearId) {
+      console.log('No financial year set, proceeding without it (backend will handle)');
+    }
+    
     if (!formData.fromSeller) {
       setError('Please select a seller');
       return;
@@ -280,6 +309,8 @@ const TransactionDetail = () => {
         brokerage: calculateTotalBrokerage()
       };
       
+      console.log('Saving transaction with data:', saveData);
+      
       if (mode === 'create') {
         await ledgerDetailsAPI.createLedgerDetails(saveData);
         setSuccess('Transaction created successfully!');
@@ -287,6 +318,7 @@ const TransactionDetail = () => {
         await ledgerDetailsAPI.updateLedgerDetailByTransactionNumber(
           transactionNumber,
           localStorage.getItem('brokerId'),
+          formData.financialYearId,
           saveData
         );
         setSuccess('Transaction updated successfully!');
@@ -300,11 +332,15 @@ const TransactionDetail = () => {
   };
 
   const handleNext = () => {
+    const newDate = date || new Date().toISOString().split('T')[0];
+    
     setFormData({
       brokerId: parseInt(localStorage.getItem('brokerId')),
+      financialYearId: null,
       sellerBrokerage: '',
+      brokerage: 0,
       fromSeller: '',
-      date: date || new Date().toISOString().split('T')[0],
+      date: newDate,
       sellerProducts: [{ productId: '', productCost: '' }],
       ledgerRecordDTOList: [
         {
@@ -334,6 +370,14 @@ const TransactionDetail = () => {
       buyer.firmName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       buyer.city.toLowerCase().includes(searchTerm.toLowerCase())
     );
+  };
+
+  const getFilteredProducts = (searchTerm) => {
+    if (!searchTerm) return products;
+    return products.filter(product => {
+      const [description] = Object.entries(product)[0];
+      return description.toLowerCase().includes(searchTerm.toLowerCase());
+    });
   };
 
   const getSelectedSellerCity = () => {
@@ -420,14 +464,14 @@ const TransactionDetail = () => {
         }}>
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: theme.textPrimary }}>
-              Transaction ID:
+              Transaction Number:
             </label>
             <input
               type="text"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               onKeyPress={handleTransactionIdSubmit}
-              placeholder="Enter ID and press Enter"
+              placeholder="Enter transaction number and press Enter"
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -439,6 +483,8 @@ const TransactionDetail = () => {
               }}
             />
           </div>
+
+
 
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: theme.textPrimary }}>
@@ -462,12 +508,13 @@ const TransactionDetail = () => {
 
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: theme.textPrimary }}>
-              Seller Brokerage Per Bag:
+              Seller Brokerage (%):
             </label>
             <input
-              type="number"
+              type="text"
               value={formData.sellerBrokerage}
               onChange={(e) => handleInputChange('sellerBrokerage', e.target.value)}
+              placeholder="e.g., 2%"
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -549,55 +596,81 @@ const TransactionDetail = () => {
               </div>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              {formData.sellerProducts.map((product, index) => (
-                <div key={index} style={{ display: 'contents' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: theme.textPrimary, fontSize: '12px' }}>
-                      Product:
-                    </label>
-                    <select
-                      value={product.productId}
-                      onChange={(e) => handleSellerProductChange(index, 'productId', e.target.value)}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: theme.textPrimary }}>
+                Seller Products:
+              </label>
+              {(formData.sellerProducts || []).map((product, index) => (
+                <div key={index} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '8px', marginBottom: '8px' }}>
+                  <select
+                    value={product.productId}
+                    onChange={(e) => handleSellerProductChange(index, 'productId', e.target.value)}
+                    style={{
+                      padding: '6px 8px',
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: theme.inputBackground || theme.cardBackground,
+                      color: theme.textPrimary
+                    }}
+                  >
+                    <option value="">Select Product</option>
+                    {(products || []).map((product) => {
+                      const [description, id] = Object.entries(product)[0];
+                      return (
+                        <option key={id} value={id}>
+                          {description}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Cost"
+                    value={product.productCost}
+                    onChange={(e) => handleSellerProductChange(index, 'productCost', e.target.value)}
+                    style={{
+                      padding: '6px 8px',
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: theme.inputBackground || theme.cardBackground,
+                      color: theme.textPrimary
+                    }}
+                  />
+                  {formData.sellerProducts.length > 1 && (
+                    <button
+                      onClick={() => removeSellerProduct(index)}
                       style={{
-                        width: '100%',
-                        padding: '6px 8px',
-                        border: `1px solid ${theme.border}`,
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
                         borderRadius: '4px',
-                        fontSize: '12px',
-                        backgroundColor: theme.inputBackground || theme.cardBackground,
-                        color: theme.textPrimary
+                        cursor: 'pointer',
+                        fontSize: '10px'
                       }}
                     >
-                      <option value="">Select</option>
-                      {products.map(productName => (
-                        <option key={productName} value={productName}>
-                          {productName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: theme.textPrimary, fontSize: '12px' }}>
-                      Cost:
-                    </label>
-                    <input
-                      type="number"
-                      value={product.productCost}
-                      onChange={(e) => handleSellerProductChange(index, 'productCost', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 8px',
-                        border: `1px solid ${theme.border}`,
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        backgroundColor: theme.inputBackground || theme.cardBackground,
-                        color: theme.textPrimary
-                      }}
-                    />
-                  </div>
+                      ×
+                    </button>
+                  )}
                 </div>
               ))}
+              <button
+                onClick={addSellerProduct}
+                style={{
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  marginTop: '8px'
+                }}
+              >
+                + Add Product
+              </button>
             </div>
           </div>
         </div>
@@ -685,10 +758,16 @@ const TransactionDetail = () => {
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '8px', border: `1px solid ${theme.border}` }}>
-                      <select
-                        value={record.productId}
-                        onChange={(e) => handleRecordChange(index, 'productId', e.target.value)}
+                    <td style={{ padding: '8px', border: `1px solid ${theme.border}`, position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="Search product..."
+                        value={productSearches[index] || ''}
+                        onChange={(e) => {
+                          setProductSearches(prev => ({ ...prev, [index]: e.target.value }));
+                          setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
+                        }}
+                        onFocus={() => setShowProductDropdowns(prev => ({ ...prev, [index]: true }))}
                         style={{
                           width: '100%',
                           padding: '6px',
@@ -698,14 +777,47 @@ const TransactionDetail = () => {
                           backgroundColor: theme.inputBackground || theme.cardBackground,
                           color: theme.textPrimary
                         }}
-                      >
-                        <option value="">Select Product</option>
-                        {products.map(productName => (
-                          <option key={productName} value={productName}>
-                            {productName}
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      {showProductDropdowns[index] && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: '8px',
+                          right: '8px',
+                          backgroundColor: theme.cardBackground,
+                          border: `1px solid ${theme.border}`,
+                          borderRadius: '4px',
+                          boxShadow: theme.shadow,
+                          zIndex: 10,
+                          maxHeight: '150px',
+                          overflowY: 'auto'
+                        }}>
+                          {getFilteredProducts(productSearches[index]).map((product, productIndex) => {
+                            const [description, id] = Object.entries(product)[0];
+                            return (
+                              <div
+                                key={id}
+                                onClick={() => {
+                                  handleRecordChange(index, 'productId', id);
+                                  setProductSearches(prev => ({ ...prev, [index]: description }));
+                                  setShowProductDropdowns(prev => ({ ...prev, [index]: false }));
+                                }}
+                                style={{
+                                  padding: '8px',
+                                  cursor: 'pointer',
+                                  borderBottom: `1px solid ${theme.borderLight}`,
+                                  color: theme.textPrimary,
+                                  fontSize: '12px'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                              >
+                                {description}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '8px', border: `1px solid ${theme.border}` }}>
                       <input

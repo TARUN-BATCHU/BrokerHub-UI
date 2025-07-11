@@ -279,6 +279,16 @@ export const productAPI = {
     }
   },
 
+  // Get product names, qualities and quantities with ID
+  getProductNamesAndQualitiesAndQuantitesWithId: async () => {
+    try {
+      const response = await api.get('/Product/getProductNamesAndQualitiesAndQuantitesWithId');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Update product
   updateProduct: async (productData) => {
     try {
@@ -371,6 +381,26 @@ export const financialYearAPI = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Set current financial year
+  setCurrentFinancialYear: async (financialYearId) => {
+    try {
+      const response = await api.post(`/FinancialYear/setCurrentFinancialYear?financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get current financial year
+  getCurrentFinancialYear: async () => {
+    try {
+      const response = await api.get('/FinancialYear/getCurrentFinancialYear');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 
@@ -399,26 +429,6 @@ export const dailyLedgerAPI = {
 
 // Ledger Details API functions
 export const ledgerDetailsAPI = {
-  // Get ledger details by date
-  getLedgerDetailsByDate: async (date, brokerId) => {
-    try {
-      const response = await api.get(`/LedgerDetails/getLedgerDetailsByDate?date=${date}&brokerId=${brokerId}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Get optimized ledger details by transaction number
-  getOptimizedLedgerDetailsByTransactionNumber: async (transactionNumber, brokerId) => {
-    try {
-      const response = await api.get(`/LedgerDetails/getOptimizedLedgerDetailsByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
   // Create ledger details
   createLedgerDetails: async (ledgerData) => {
     try {
@@ -429,10 +439,80 @@ export const ledgerDetailsAPI = {
     }
   },
 
-  // Update ledger detail by transaction number
-  updateLedgerDetailByTransactionNumber: async (transactionNumber, brokerId, ledgerData) => {
+  // Get all ledger details
+  getAllLedgerDetails: async (brokerId) => {
     try {
-      const response = await api.put(`/LedgerDetails/updateLedgerDetailByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}`, ledgerData);
+      const response = await api.post('/LedgerDetails/getAllLedgerDetails', brokerId);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by ID
+  getLedgerDetailsById: async (ledgerDetailId, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsById?ledgerDetailId=${ledgerDetailId}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by transaction number
+  getLedgerDetailsByTransactionNumber: async (transactionNumber, brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get optimized ledger details by ID
+  getOptimizedLedgerDetailsById: async (ledgerDetailId, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getOptimizedLedgerDetailsById?ledgerDetailId=${ledgerDetailId}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get optimized ledger details by transaction number
+  getOptimizedLedgerDetailsByTransactionNumber: async (transactionNumber, brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getOptimizedLedgerDetailsByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by date
+  getLedgerDetailsByDate: async (date, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsByDate?date=${date}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by seller
+  getLedgerDetailsBySeller: async (sellerId, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsBySeller?sellerId=${sellerId}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update ledger detail by transaction number
+  updateLedgerDetailByTransactionNumber: async (transactionNumber, brokerId, financialYearId, ledgerData) => {
+    try {
+      const response = await api.put(`/LedgerDetails/updateLedgerDetailByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`, ledgerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
