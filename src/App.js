@@ -20,6 +20,9 @@ import TransactionDetailEnhanced from './pages/TransactionDetailEnhanced';
 import LedgerManagement from './pages/LedgerManagement';
 import Products from './pages/Products';
 import Merchants from './pages/Merchants';
+import BrokerageDashboard from './pages/BrokerageDashboard';
+import BrokerageUsers from './pages/BrokerageUsers';
+import BulkOperations from './pages/BulkOperations';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -187,6 +190,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Merchants />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/brokerage"
+                element={
+                  <ProtectedRoute>
+                    <BrokerageDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/brokerage/users"
+                element={
+                  <ProtectedRoute>
+                    <BrokerageUsers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/brokerage/bulk"
+                element={
+                  <ProtectedRoute>
+                    <BulkOperations />
                   </ProtectedRoute>
                 }
               />

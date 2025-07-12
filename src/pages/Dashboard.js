@@ -1154,37 +1154,70 @@ const Dashboard = () => {
               </div>
 
               <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
-                <Link
-                  to="/financial-years"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '16px 24px',
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    transition: 'all 0.3s ease',
-                    backdropFilter: 'blur(10px)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <span style={{ fontSize: '18px' }}>🚀</span>
-                  Open Ledger Detail
-                </Link>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <Link
+                    to="/financial-years"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '16px 24px',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '12px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>🚀</span>
+                    Open Ledger Detail
+                  </Link>
+                  <Link
+                    to="/brokerage"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '16px 24px',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '12px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>💰</span>
+                    Brokerage Dashboard
+                  </Link>
+                </div>
                 <p style={{
                   margin: '8px 0 0 0',
                   color: 'rgba(255,255,255,0.7)',
