@@ -13,34 +13,34 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [brokerData, setBrokerData] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const checkAuthStatus = useCallback(async () => {
     try {
       const token = localStorage.getItem('authToken');
       const brokerId = localStorage.getItem('brokerId');
-      const storedBrokerData = localStorage.getItem('brokerData');
+      const brokerName = localStorage.getItem('brokerName');
+      const userName = localStorage.getItem('userName');
 
       if (token && brokerId) {
         setIsAuthenticated(true);
-        
-        if (storedBrokerData) {
-          setBrokerData(JSON.parse(storedBrokerData));
-        } else {
-          // Fetch broker data if not in localStorage
-          const fetchedBrokerData = await authAPI.getBrokerProfile(brokerId);
-          setBrokerData(fetchedBrokerData);
-          localStorage.setItem('brokerData', JSON.stringify(fetchedBrokerData));
-        }
+        setUser({
+          brokerId: parseInt(brokerId),
+          brokerName,
+          userName,
+          token
+        });
       } else {
         setIsAuthenticated(false);
-        setBrokerData(null);
+        setUser(null);
       }
+      setError(null);
     } catch (error) {
       console.error('Error checking auth status:', error);
-      // If there's an error fetching broker data, clear auth state
       logout();
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -53,43 +53,89 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const response = await authAPI.loginBroker(credentials);
       
-      // The API service already handles storing tokens and broker data
+      // Verify we have the required data
+      const token = localStorage.getItem('authToken');
       const brokerId = localStorage.getItem('brokerId');
-      const storedBrokerData = localStorage.getItem('brokerData');
+      const brokerName = localStorage.getItem('brokerName');
+      const userName = localStorage.getItem('userName');
       
-      if (brokerId && storedBrokerData) {
-        setIsAuthenticated(true);
-        setBrokerData(JSON.parse(storedBrokerData));
-        return response;
-      } else {
-        throw new Error('Authentication failed - missing broker data');
+      if (!token || !brokerId) {
+        throw new Error('Login failed - missing authentication data');
       }
+
+      setIsAuthenticated(true);
+      setUser({
+        brokerId: parseInt(brokerId),
+        brokerName,
+        userName,
+        token
+      });
+      
+      return response;
     } catch (error) {
       console.error('Login error:', error);
+      setError(error.message);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
-    authAPI.logout();
-    setIsAuthenticated(false);
-    setBrokerData(null);
+    setLoading(true);
+    try {
+      authAPI.logout();
+      setIsAuthenticated(false);
+      setUser(null);
+      setError(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateBrokerData = (newBrokerData) => {
-    setBrokerData(newBrokerData);
-    localStorage.setItem('brokerData', JSON.stringify(newBrokerData));
+  const updateProfile = async (profileData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Update local user data
+      const updatedProfile = { ...user, ...profileData };
+      setUser(updatedProfile);
+      
+      // Update localStorage if needed
+      if (profileData.brokerName) {
+        localStorage.setItem('brokerName', profileData.brokerName);
+      }
+      if (profileData.userName) {
+        localStorage.setItem('userName', profileData.userName);
+      }
+      
+      return updatedProfile;
+    } catch (error) {
+      console.error('Profile update error:', error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = {
     isAuthenticated,
-    brokerData,
+    user,
     loading,
+    error,
     login,
     logout,
-    updateBrokerData,
+    updateProfile,
     checkAuthStatus
   };
 
