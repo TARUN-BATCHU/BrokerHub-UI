@@ -9,7 +9,7 @@ const TransactionDetailEnhanced = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const { mode, transactionNumber, date } = location.state || {};
-  
+
   // Refs for keyboard navigation
   const sellerInputRef = useRef(null);
   const dateInputRef = useRef(null);
@@ -40,7 +40,7 @@ const TransactionDetailEnhanced = () => {
       }
     ]
   });
-  
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -48,12 +48,12 @@ const TransactionDetailEnhanced = () => {
   const [buyers, setBuyers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  
+
   // Search states
   const [sellerSearch, setSellerSearch] = useState('');
   const [buyerSearches, setBuyerSearches] = useState({});
   const [productSearches, setProductSearches] = useState({});
-  
+
   // Dropdown visibility
   const [showSellerDropdown, setShowSellerDropdown] = useState(false);
   const [showBuyerDropdowns, setShowBuyerDropdowns] = useState({});
@@ -98,27 +98,27 @@ const TransactionDetailEnhanced = () => {
         // Let default tab behavior work
         return;
       }
-      
+
       // Arrow keys for dropdown navigation
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         // Handle dropdown navigation
         return;
       }
-      
+
       // Enter key to add new record
       if (e.key === 'Enter' && e.ctrlKey) {
         e.preventDefault();
         addNewRecord();
         return;
       }
-      
+
       // Ctrl+S to save
       if (e.key === 's' && e.ctrlKey) {
         e.preventDefault();
         handleSave();
         return;
       }
-      
+
       // Escape to close dropdowns
       if (e.key === 'Escape') {
         setShowSellerDropdown(false);
@@ -218,7 +218,7 @@ const TransactionDetailEnhanced = () => {
         }
       ]
     }));
-    
+
     // Focus on new record's first input after state update
     setTimeout(() => {
       const newIndex = formData.ledgerRecordDTOList.length;
@@ -266,12 +266,12 @@ const TransactionDetailEnhanced = () => {
       setError('Please select a seller');
       return;
     }
-    
+
     if (!formData.date) {
       setError('Please select a date');
       return;
     }
-    
+
     if (formData.ledgerRecordDTOList.some(record => 
       !record.buyerName || !record.productId || !record.quantity || !record.productCost
     )) {
@@ -282,7 +282,7 @@ const TransactionDetailEnhanced = () => {
     setSaving(true);
     setError('');
     setSuccess('');
-    
+
     try {
       const saveData = {
         ...formData,
@@ -292,7 +292,7 @@ const TransactionDetailEnhanced = () => {
           return recordWithoutCity;
         })
       };
-      
+
       if (mode === 'create') {
         const response = await ledgerDetailsAPI.createLedgerDetails(saveData);
         const createdTransactionNumber = response; // Assuming API returns the transaction number
@@ -323,7 +323,7 @@ const TransactionDetailEnhanced = () => {
 
   const handleNext = () => {
     const newDate = date || new Date().toISOString().split('T')[0];
-    
+
     setFormData({
       brokerId: parseInt(localStorage.getItem('brokerId')),
       financialYearId: formData.financialYearId,
@@ -346,12 +346,12 @@ const TransactionDetailEnhanced = () => {
     setSuccess('');
     setError('');
     setHasUnsavedChanges(false);
-    
+
     // Set next transaction number
     if (nextTransactionNumber && typeof nextTransactionNumber === 'number') {
       setNextTransactionNumber(nextTransactionNumber + 1);
     }
-    
+
     // Focus on first buyer input for next entry
     setTimeout(() => {
       buyerInputRefs.current[0]?.focus();
@@ -522,7 +522,7 @@ const TransactionDetailEnhanced = () => {
                 {nextTransactionNumber || 'Auto'}
               </span>
             </div>
-            
+
             <div style={{
               fontSize: '16px',
               fontWeight: '600',
@@ -530,7 +530,7 @@ const TransactionDetailEnhanced = () => {
             }}>
               Seller Details
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{ 
                 fontSize: '15px',
@@ -842,7 +842,7 @@ const TransactionDetailEnhanced = () => {
                     <td style={{ padding: '8px', border: `1px solid ${theme.border}`, color: theme.textPrimary, textAlign: 'center' }}>
                       {index + 1}
                     </td>
-                    
+
                     {/* Buyer Name */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'relative', minWidth: '200px' }}>
                       <input
@@ -877,7 +877,7 @@ const TransactionDetailEnhanced = () => {
                           width: '100%',
                           padding: '8px',
                           border: 'none',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           backgroundColor: 'transparent',
                           color: theme.textPrimary,
                           outline: 'none'
@@ -925,12 +925,12 @@ const TransactionDetailEnhanced = () => {
                         </div>
                       )}
                     </td>
-                    
+
                     {/* City */}
                     <td style={{ padding: '8px', border: `1px solid ${theme.border}`, color: theme.textSecondary, fontSize: '14px' }}>
                       {record.buyerCity || '-'}
                     </td>
-                    
+
                     {/* Product */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'relative', minWidth: '200px' }}>
                       <input
@@ -965,7 +965,7 @@ const TransactionDetailEnhanced = () => {
                           width: '100%',
                           padding: '8px',
                           border: 'none',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           backgroundColor: 'transparent',
                           color: theme.textPrimary,
                           outline: 'none'
@@ -1014,7 +1014,7 @@ const TransactionDetailEnhanced = () => {
                         </div>
                       )}
                     </td>
-                    
+
                     {/* Quantity */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}` }}>
                       <input
@@ -1031,14 +1031,14 @@ const TransactionDetailEnhanced = () => {
                           width: '100%',
                           padding: '8px',
                           border: 'none',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           backgroundColor: 'transparent',
                           color: theme.textPrimary,
                           outline: 'none'
                         }}
                       />
                     </td>
-                    
+
                     {/* Brokerage */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}` }}>
                       <input
@@ -1049,14 +1049,14 @@ const TransactionDetailEnhanced = () => {
                           width: '100%',
                           padding: '8px',
                           border: 'none',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           backgroundColor: 'transparent',
                           color: theme.textPrimary,
                           outline: 'none'
                         }}
                       />
                     </td>
-                    
+
                     {/* Rate */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}` }}>
                       <input
@@ -1077,14 +1077,14 @@ const TransactionDetailEnhanced = () => {
                           width: '100%',
                           padding: '8px',
                           border: 'none',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           backgroundColor: 'transparent',
                           color: theme.textPrimary,
                           outline: 'none'
                         }}
                       />
                     </td>
-                    
+
                     {/* Total */}
                     <td style={{ 
                       padding: '8px', 
@@ -1096,7 +1096,7 @@ const TransactionDetailEnhanced = () => {
                     }}>
                       ₹{calculateRowTotal(record).toFixed(2)}
                     </td>
-                    
+
                     {/* Action */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
                       {formData.ledgerRecordDTOList.length > 1 && (
@@ -1142,23 +1142,23 @@ const TransactionDetailEnhanced = () => {
               <div style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '4px' }}>Total Bags</div>
               <div style={{ fontSize: '22px', fontWeight: '700', color: theme.success }}>{calculateTotalBags()}</div>
             </div>
-            
+
             <div style={{ fontSize: '24px', color: theme.textSecondary, fontWeight: 'bold' }}>|</div>
-            
+
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '4px' }}>Seller Brokerage</div>
               <div style={{ fontSize: '22px', fontWeight: '700', color: theme.info }}>₹{calculateTotalSellerBrokerage().toFixed(2)}</div>
             </div>
-            
+
             <div style={{ fontSize: '28px', color: theme.primary, fontWeight: 'bold' }}>+</div>
-            
+
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '4px' }}>Buyer Brokerage</div>
               <div style={{ fontSize: '22px', fontWeight: '700', color: theme.primary }}>₹{calculateTotalBuyerBrokerage().toFixed(2)}</div>
             </div>
-            
+
             <div style={{ fontSize: '28px', color: theme.warning, fontWeight: 'bold' }}>=</div>
-            
+
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '13px', color: theme.textSecondary, marginBottom: '4px' }}>Total Brokerage</div>
               <div style={{ fontSize: '24px', fontWeight: '700', color: theme.warning }}>₹{calculateTotalBrokerage().toFixed(2)}</div>
