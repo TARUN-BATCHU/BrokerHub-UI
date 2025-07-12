@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import FormInput from '../components/FormInput';
+import FormInputWithAvailability from '../components/FormInputWithAvailability';
 import LoadingButton from '../components/LoadingButton';
 import { authAPI } from '../services/api';
 import { validateBrokerForm } from '../utils/validation';
+import { useTheme } from '../contexts/ThemeContext';
 import './Auth.css';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     userName: '',
@@ -26,6 +29,7 @@ const Signup = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [availabilityErrors, setAvailabilityErrors] = useState({});
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -46,12 +50,116 @@ const Signup = () => {
     if (apiError) {
       setApiError('');
     }
+
+    // Clear availability errors
+    if (availabilityErrors[name]) {
+      setAvailabilityErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+
+
+  // Track checked values to prevent duplicate calls
+  const [checkedUsernames, setCheckedUsernames] = useState(new Set());
+  const [checkedFirmNames, setCheckedFirmNames] = useState(new Set());
+  const [checkingStates, setCheckingStates] = useState({ username: false, firmName: false });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const username = formData.userName?.trim();
+      if (username && username.length >= 3 && !checkedUsernames.has(username) && !checkingStates.username) {
+        checkUsernameAvailability(username);
+      } else if (!username || username.length < 3) {
+        setAvailabilityErrors(prev => ({ ...prev, userName: '' }));
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.userName]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const firmName = formData.brokerageFirmName?.trim();
+      if (firmName && firmName.length >= 3 && !checkedFirmNames.has(firmName) && !checkingStates.firmName) {
+        checkFirmNameAvailability(firmName);
+      } else if (!firmName || firmName.length < 3) {
+        setAvailabilityErrors(prev => ({ ...prev, brokerageFirmName: '' }));
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.brokerageFirmName]);
+
+  const checkUsernameAvailability = async (userName) => {
+    if (!userName || userName.length < 3 || checkedUsernames.has(userName)) return;
+    
+    setCheckingStates(prev => ({ ...prev, username: true }));
+    setCheckedUsernames(prev => new Set([...prev, userName]));
+    
+    try {
+      const exists = await authAPI.checkUsernameExists(userName);
+      
+      if (exists) {
+        setAvailabilityErrors(prev => ({
+          ...prev,
+          userName: 'Username is already taken. Please choose another one.'
+        }));
+      } else {
+        setAvailabilityErrors(prev => ({
+          ...prev,
+          userName: ''
+        }));
+      }
+    } catch (error) {
+      console.error('Username availability check failed:', error);
+      setAvailabilityErrors(prev => ({
+        ...prev,
+        userName: 'Unable to verify username availability. Please try again later.'
+      }));
+    } finally {
+      setCheckingStates(prev => ({ ...prev, username: false }));
+    }
+  };
+
+  const checkFirmNameAvailability = async (firmName) => {
+    if (!firmName || firmName.length < 3 || checkedFirmNames.has(firmName)) return;
+    
+    setCheckingStates(prev => ({ ...prev, firmName: true }));
+    setCheckedFirmNames(prev => new Set([...prev, firmName]));
+    
+    try {
+      const exists = await authAPI.checkBrokerFirmNameExists(firmName);
+      
+      if (exists) {
+        setAvailabilityErrors(prev => ({
+          ...prev,
+          brokerageFirmName: 'Firm name is already taken. Please choose another one.'
+        }));
+      } else {
+        setAvailabilityErrors(prev => ({
+          ...prev,
+          brokerageFirmName: ''
+        }));
+      }
+    } catch (error) {
+      console.error('Firm name availability check failed:', error);
+      setAvailabilityErrors(prev => ({
+        ...prev,
+        brokerageFirmName: 'Unable to verify firm name availability. Please try again later.'
+      }));
+    } finally {
+      setCheckingStates(prev => ({ ...prev, firmName: false }));
+    }
   };
 
   const handleNextStep = () => {
     // Validate current step
     const validation = validateBrokerForm(formData);
     const stepErrors = {};
+    const stepAvailabilityErrors = {};
 
     if (currentStep === 1) {
       // Step 1: Account details
@@ -60,6 +168,14 @@ const Signup = () => {
           stepErrors[field] = validation.errors[field];
         }
       });
+      
+      // Check availability errors
+      if (availabilityErrors.userName) {
+        stepAvailabilityErrors.userName = availabilityErrors.userName;
+      }
+      if (availabilityErrors.brokerageFirmName) {
+        stepAvailabilityErrors.brokerageFirmName = availabilityErrors.brokerageFirmName;
+      }
     } else if (currentStep === 2) {
       // Step 2: Contact details
       ['email', 'phoneNumber', 'pincode'].forEach(field => {
@@ -69,8 +185,9 @@ const Signup = () => {
       });
     }
 
-    if (Object.keys(stepErrors).length > 0) {
-      setErrors(stepErrors);
+    const allErrors = { ...stepErrors, ...stepAvailabilityErrors };
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
       return;
     }
 
@@ -86,8 +203,18 @@ const Signup = () => {
 
     // Validate entire form
     const validation = validateBrokerForm(formData);
-    if (!validation.isValid) {
-      setErrors(validation.errors);
+    const allErrors = { ...validation.errors };
+    
+    // Add availability errors
+    if (availabilityErrors.userName) {
+      allErrors.userName = availabilityErrors.userName;
+    }
+    if (availabilityErrors.brokerageFirmName) {
+      allErrors.brokerageFirmName = availabilityErrors.brokerageFirmName;
+    }
+    
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
       return;
     }
 
@@ -95,8 +222,18 @@ const Signup = () => {
     setApiError('');
 
     try {
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...brokerData } = formData;
+      // Send only required fields to API
+      const brokerData = {
+        userName: formData.userName,
+        password: formData.password,
+        brokerName: formData.brokerName,
+        brokerageFirmName: formData.brokerageFirmName,
+        pincode: formData.pincode,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        AccountNumber: formData.AccountNumber,
+        IfscCode: formData.IfscCode
+      };
 
       const response = await authAPI.createBroker(brokerData);
 
@@ -118,15 +255,64 @@ const Signup = () => {
 
   const renderStep1 = () => (
     <>
-      <FormInput
-        label="Username"
-        name="userName"
-        value={formData.userName}
-        onChange={handleChange}
-        error={errors.userName}
-        placeholder="Choose a username"
-        required
-      />
+      <div style={{
+        padding: '16px',
+        border: '2px solid #4f46e5',
+        borderRadius: '8px',
+        backgroundColor: '#f5f3ff',
+        marginBottom: '16px'
+      }}>
+        <h3 style={{
+          margin: '0 0 8px 0',
+          color: '#4f46e5',
+          fontSize: '16px',
+          fontWeight: '600'
+        }}>
+          Brokerage Firm Name *
+        </h3>
+        <FormInputWithAvailability
+          name="brokerageFirmName"
+          value={formData.brokerageFirmName}
+          onChange={handleChange}
+          error={errors.brokerageFirmName || availabilityErrors.brokerageFirmName}
+          placeholder="Enter your unique firm/company name"
+          checkAvailability={checkFirmNameAvailability}
+          required
+          style={{
+            marginBottom: '8px',
+            borderBottom: '2px solid #4f46e5'
+          }}
+        />
+      </div>
+      <p style={{
+        margin: '0 0 16px 0',
+        fontSize: '12px',
+        color: '#4b5563',
+        fontStyle: 'italic'
+      }}>
+        This name will be used for all business transactions and documents
+      </p>
+
+      <div>
+        <FormInputWithAvailability
+          label="Username"
+          name="userName"
+          value={formData.userName}
+          onChange={handleChange}
+          error={errors.userName || availabilityErrors.userName}
+          placeholder="Choose a unique username"
+          checkAvailability={checkUsernameAvailability}
+          required
+        />
+        <p style={{
+          margin: '4px 0 16px 0',
+          fontSize: '12px',
+          color: '#6b7280',
+          fontStyle: 'italic'
+        }}>
+          Username will be used for login and must be unique across the platform
+        </p>
+      </div>
 
       <FormInput
         label="Password"
@@ -157,16 +343,6 @@ const Signup = () => {
         onChange={handleChange}
         error={errors.brokerName}
         placeholder="Your full name"
-        required
-      />
-
-      <FormInput
-        label="Brokerage Firm Name"
-        name="brokerageFirmName"
-        value={formData.brokerageFirmName}
-        onChange={handleChange}
-        error={errors.brokerageFirmName}
-        placeholder="Your firm/company name"
         required
       />
     </>
@@ -251,6 +427,11 @@ const Signup = () => {
       />
     </>
   );
+
+  // Apply theme class to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   return (
     <div className="auth-container">
