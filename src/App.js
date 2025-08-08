@@ -7,6 +7,7 @@ import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import CreatePassword from './pages/CreatePassword';
 import ChangePassword from './pages/ChangePassword';
+import UpdateProfile from './pages/UpdateProfile';
 import VerifyAccount from './pages/VerifyAccount';
 import OTPVerification from './pages/OTPVerification';
 import Dashboard from './pages/Dashboard';
@@ -43,7 +44,7 @@ function App() {
       <AuthProvider>
         <Router>
           <div className="App">
-            {/* Show global navigation on all pages except login/signup */}
+            {/* GlobalNavigation now handles its own conditional rendering */}
             <GlobalNavigation />
             <Routes>
               {/* Public routes */}
@@ -110,6 +111,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ChangePassword />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/update-profile"
+                element={
+                  <ProtectedRoute>
+                    <UpdateProfile />
                   </ProtectedRoute>
                 }
               />

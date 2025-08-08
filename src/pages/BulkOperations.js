@@ -4,7 +4,7 @@ import { brokerageAPI } from '../services/brokerageAPI';
 import { userAPI, financialYearAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DocumentStatusDashboard from '../components/DocumentStatusDashboard';
-import '../styles/animations.css';
+import '../styles/modern-ui.css';
 
 const BulkOperations = () => {
   const { theme } = useTheme();
@@ -107,117 +107,365 @@ const BulkOperations = () => {
   };
 
   if (loading) return (
-    <div style={{ background: theme.background, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ background: theme.background, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: 0 }}>
       <LoadingSpinner />
     </div>
   );
 
   return (
-    <div style={{ background: theme.background, minHeight: '100vh', padding: '1rem' }}>
+    <div style={{ background: theme.background, minHeight: '100vh', margin: 0, padding: 0 }}>
+      <div className="modern-container" style={{ color: theme.textPrimary }}>
         {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${theme.buttonPrimary}, ${theme.buttonPrimaryHover})`, borderRadius: '20px', padding: '2rem', marginBottom: '2rem', color: 'white', boxShadow: theme.shadowModal }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>🚀 Bulk Operations</h1>
-              <p style={{ margin: 0, opacity: 0.9, fontSize: '1.1rem' }}>Generate documents in bulk for multiple users or cities</p>
-            </div>
-            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ padding: '0.75rem 1rem', border: 'none', borderRadius: '12px', fontSize: '1rem', background: 'rgba(255,255,255,0.2)', color: 'white', backdropFilter: 'blur(10px)', cursor: 'pointer' }}>
+        <div className="modern-header animate-fade-in" style={{ background: theme.background, borderBottom: `1px solid ${theme.border}` }}>
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '2.25rem', 
+              fontWeight: '600', 
+              marginBottom: 'var(--space-2)',
+              color: theme.textPrimary,
+              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+              letterSpacing: '-0.025em'
+            }}>Bulk Operations</h1>
+            <p style={{ 
+              margin: 0, 
+              color: theme.textSecondary, 
+              fontSize: '0.95rem',
+              fontWeight: '400',
+              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+            }}>Generate documents in bulk for multiple users or cities efficiently</p>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.textSecondary} strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <select 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(e.target.value)} 
+              className="modern-select"
+              style={{ minWidth: '160px', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
+            >
               {financialYears.map(year => (
-                <option key={year.financialYearId} value={year.financialYearId} style={{ color: theme.textPrimary, background: theme.cardBackground }}>{year.financialYearName}</option>
+                <option key={year.financialYearId} value={year.financialYearId} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{year.financialYearName}</option>
               ))}
             </select>
           </div>
         </div>
 
         {isGenerating && (
-          <div style={{ background: `linear-gradient(135deg, #3498db, #5dade2)`, color: 'white', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: '0 4px 15px rgba(52, 152, 219, 0.3)' }}>
-            <img src={require('../utils/Animation - 1752033337485.gif')} alt="Loading..." style={{ width: '32px', height: '32px' }} />
-            <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>{generationStatus}</div>
+          <div className="modern-card animate-fade-in" style={{ 
+            background: 'var(--color-secondary)', 
+            color: 'white', 
+            padding: 'var(--space-6)', 
+            marginBottom: 'var(--space-8)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 'var(--space-4)',
+            border: `1px solid ${theme.border}`
+          }}>
+            <div style={{ 
+              width: '32px', 
+              height: '32px', 
+              border: '3px solid rgba(255,255,255,0.3)', 
+              borderTop: '3px solid white', 
+              borderRadius: '50%', 
+              animation: 'spin 1s linear infinite' 
+            }}></div>
+            <div style={{ fontWeight: '600', fontSize: '1.125rem' }}>{generationStatus}</div>
           </div>
         )}
 
         {/* Operations Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(550px, 1fr))', gap: 'var(--space-8)', marginBottom: 'var(--space-12)' }} className="animate-slide-in">
           {/* HTML Bills Section */}
-          <div style={{ background: theme.cardBackground, borderRadius: '20px', boxShadow: theme.shadowHover, border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
-            <div style={{ background: `linear-gradient(135deg, #e67e22, #f39c12)`, color: 'white', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ fontSize: '2rem' }}>📄</div>
+          <div className="modern-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+            <div style={{ 
+              background: 'var(--color-primary)', 
+              color: 'white', 
+              padding: 'var(--space-8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 'var(--space-4)' 
+            }}>
+              <div style={{ 
+                background: 'rgba(255,255,255,0.2)', 
+                padding: 'var(--space-4)', 
+                borderRadius: 'var(--radius-xl)' 
+              }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10,9 9,9 8,9"/>
+                </svg>
+              </div>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>HTML Bills</h2>
-                <p style={{ margin: 0, opacity: 0.9, fontSize: '0.9rem' }}>Generate HTML brokerage bills</p>
+                <p style={{ margin: 0, opacity: 0.9, fontSize: '1rem' }}>Generate HTML brokerage bills</p>
               </div>
             </div>
-            <div style={{ padding: '2rem' }}>
+            <div style={{ padding: 'var(--space-8)' }}>
               {/* City Bills */}
-              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: theme.hoverBg, borderRadius: '16px' }}>
-                <h3 style={{ margin: '0 0 1rem 0', color: theme.textPrimary, fontSize: '1.2rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>🏙️ By City</h3>
-                <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} disabled={isGenerating} style={{ width: '100%', padding: '1rem', border: `2px solid ${theme.border}`, borderRadius: '12px', fontSize: '1rem', background: theme.cardBackground, color: theme.textPrimary, marginBottom: '1rem' }}>
+              <div style={{ marginBottom: 'var(--space-8)', padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
+                <h3 style={{ 
+                  margin: '0 0 var(--space-4) 0', 
+                  color: theme.textPrimary, 
+                  fontSize: '1.125rem', 
+                  fontWeight: '700', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 'var(--space-3)' 
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  By City
+                </h3>
+                <select 
+                  value={selectedCity} 
+                  onChange={(e) => setSelectedCity(e.target.value)} 
+                  disabled={isGenerating} 
+                  className="modern-select"
+                  style={{ marginBottom: 'var(--space-4)', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
+                >
                   {cities.map(city => (
-                    <option key={city} value={city}>{city}</option>
+                    <option key={city} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
                   ))}
                 </select>
-                <button onClick={() => startBulkOperation('city-bills', selectedCity)} disabled={!selectedCity || isGenerating} style={{ width: '100%', padding: '1rem 1.5rem', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', cursor: isGenerating ? 'not-allowed' : 'pointer', background: isGenerating ? '#bdc3c7' : 'linear-gradient(135deg, #e67e22, #f39c12)', color: 'white', boxShadow: isGenerating ? 'none' : '0 4px 15px rgba(230, 126, 34, 0.3)', transition: 'all 0.3s ease' }}>
-                  🚀 Generate City Bills
+                <button 
+                  onClick={() => startBulkOperation('city-bills', selectedCity)} 
+                  disabled={!selectedCity || isGenerating} 
+                  className={`modern-button modern-button-primary ${(!selectedCity || isGenerating) ? 'opacity-50' : ''}`}
+                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Generate City Bills
                 </button>
               </div>
               
               {/* User Bills */}
-              <div style={{ padding: '1.5rem', background: theme.hoverBg, borderRadius: '16px' }}>
-                <h3 style={{ margin: '0 0 1rem 0', color: theme.textPrimary, fontSize: '1.2rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>👥 By Users</h3>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer', marginBottom: '1rem' }}>
-                    <input type="checkbox" checked={selectedUsers.length === users.length && users.length > 0} onChange={handleSelectAll} style={{ transform: 'scale(1.2)' }} />
+              <div style={{ padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
+                <h3 style={{ 
+                  margin: '0 0 var(--space-4) 0', 
+                  color: theme.textPrimary, 
+                  fontSize: '1.125rem', 
+                  fontWeight: '700', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 'var(--space-3)' 
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  By Users
+                </h3>
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 'var(--space-2)', 
+                    fontWeight: '600', 
+                    color: theme.textPrimary, 
+                    cursor: 'pointer', 
+                    marginBottom: 'var(--space-4)' 
+                  }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedUsers.length === users.length && users.length > 0} 
+                      onChange={handleSelectAll} 
+                      style={{ 
+                        transform: 'scale(1.2)',
+                        accentColor: 'var(--color-secondary)'
+                      }} 
+                    />
                     Select All ({users.length} users)
                   </label>
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '0.5rem' }}>
+                  <div style={{ 
+                    maxHeight: '180px', 
+                    overflowY: 'auto', 
+                    border: `1px solid ${theme.border}`, 
+                    borderRadius: 'var(--radius-lg)', 
+                    padding: 'var(--space-2)' 
+                  }}>
                     {users.slice(0, 10).map(user => (
-                      <label key={user.userId} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', cursor: 'pointer', borderRadius: '4px', transition: 'background-color 0.2s' }}>
-                        <input type="checkbox" checked={selectedUsers.includes(user.userId)} onChange={() => handleUserSelect(user.userId)} />
-                        <span style={{ color: theme.textPrimary }}>{user.firmName} - {user.city}</span>
+                      <label key={user.userId} className="modern-table-row" style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 'var(--space-2)', 
+                        cursor: 'pointer', 
+                        margin: '0 -var(--space-2)',
+                        borderRadius: 'var(--radius-md)'
+                      }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedUsers.includes(user.userId)} 
+                          onChange={() => handleUserSelect(user.userId)} 
+                          style={{ accentColor: 'var(--color-secondary)' }}
+                        />
+                        <span style={{ color: theme.textSecondary, fontSize: '0.875rem' }}>{user.firmName} - {user.city}</span>
                       </label>
                     ))}
                     {users.length > 10 && (
-                      <div style={{ padding: '0.5rem', color: theme.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>... and {users.length - 10} more users</div>
+                      <div style={{ 
+                        padding: 'var(--space-2)', 
+                        color: theme.textMuted, 
+                        fontStyle: 'italic', 
+                        textAlign: 'center',
+                        fontSize: '0.875rem'
+                      }}>... and {users.length - 10} more users</div>
                     )}
                   </div>
-                  <div style={{ fontWeight: '700', color: theme.textPrimary, marginTop: '1rem', textAlign: 'center' }}>Selected: {selectedUsers.length} users</div>
+                  <div style={{ 
+                    fontWeight: '700', 
+                    color: theme.textPrimary, 
+                    marginTop: 'var(--space-4)', 
+                    textAlign: 'center',
+                    padding: 'var(--space-3)',
+                    background: theme.cardBackground,
+                    borderRadius: 'var(--radius-lg)',
+                    fontSize: '0.875rem'
+                  }}>Selected: {selectedUsers.length} users</div>
                 </div>
-                <button onClick={() => startBulkOperation('user-bills', selectedUsers)} disabled={selectedUsers.length === 0 || isGenerating} style={{ width: '100%', padding: '1rem 1.5rem', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', cursor: (selectedUsers.length === 0 || isGenerating) ? 'not-allowed' : 'pointer', background: (selectedUsers.length === 0 || isGenerating) ? '#bdc3c7' : 'linear-gradient(135deg, #e67e22, #f39c12)', color: 'white', boxShadow: (selectedUsers.length === 0 || isGenerating) ? 'none' : '0 4px 15px rgba(230, 126, 34, 0.3)', transition: 'all 0.3s ease' }}>
-                  🚀 Generate User Bills
+                <button 
+                  onClick={() => startBulkOperation('user-bills', selectedUsers)} 
+                  disabled={selectedUsers.length === 0 || isGenerating} 
+                  className={`modern-button modern-button-primary ${(selectedUsers.length === 0 || isGenerating) ? 'opacity-50' : ''}`}
+                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Generate User Bills
                 </button>
               </div>
             </div>
           </div>
 
           {/* Excel Reports Section */}
-          <div style={{ background: theme.cardBackground, borderRadius: '20px', boxShadow: theme.shadowHover, border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
-            <div style={{ background: `linear-gradient(135deg, #27ae60, #2ecc71)`, color: 'white', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ fontSize: '2rem' }}>📊</div>
+          <div className="modern-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+            <div style={{ 
+              background: 'var(--color-accent)', 
+              color: 'white', 
+              padding: 'var(--space-8)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 'var(--space-4)' 
+            }}>
+              <div style={{ 
+                background: 'rgba(255,255,255,0.2)', 
+                padding: 'var(--space-4)', 
+                borderRadius: 'var(--radius-xl)' 
+              }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7,10 12,15 17,10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </div>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>Excel Reports</h2>
-                <p style={{ margin: 0, opacity: 0.9, fontSize: '0.9rem' }}>Generate Excel brokerage reports</p>
+                <p style={{ margin: 0, opacity: 0.9, fontSize: '1rem' }}>Generate Excel brokerage reports</p>
               </div>
             </div>
-            <div style={{ padding: '2rem' }}>
+            <div style={{ padding: 'var(--space-8)' }}>
               {/* City Excel */}
-              <div style={{ marginBottom: '2rem', padding: '1.5rem', background: theme.hoverBg, borderRadius: '16px' }}>
-                <h3 style={{ margin: '0 0 1rem 0', color: theme.textPrimary, fontSize: '1.2rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>🏙️ By City</h3>
-                <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} disabled={isGenerating} style={{ width: '100%', padding: '1rem', border: `2px solid ${theme.border}`, borderRadius: '12px', fontSize: '1rem', background: theme.cardBackground, color: theme.textPrimary, marginBottom: '1rem' }}>
+              <div style={{ marginBottom: 'var(--space-8)', padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
+                <h3 style={{ 
+                  margin: '0 0 var(--space-4) 0', 
+                  color: theme.textPrimary, 
+                  fontSize: '1.125rem', 
+                  fontWeight: '700', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 'var(--space-3)' 
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  By City
+                </h3>
+                <select 
+                  value={selectedCity} 
+                  onChange={(e) => setSelectedCity(e.target.value)} 
+                  disabled={isGenerating} 
+                  className="modern-select"
+                  style={{ marginBottom: 'var(--space-4)', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
+                >
                   {cities.map(city => (
-                    <option key={city} value={city}>{city}</option>
+                    <option key={city} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
                   ))}
                 </select>
-                <button onClick={() => startBulkOperation('city-excel', selectedCity)} disabled={!selectedCity || isGenerating} style={{ width: '100%', padding: '1rem 1.5rem', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', cursor: isGenerating ? 'not-allowed' : 'pointer', background: isGenerating ? '#bdc3c7' : 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white', boxShadow: isGenerating ? 'none' : '0 4px 15px rgba(39, 174, 96, 0.3)', transition: 'all 0.3s ease' }}>
-                  🚀 Generate City Excel
+                <button 
+                  onClick={() => startBulkOperation('city-excel', selectedCity)} 
+                  disabled={!selectedCity || isGenerating} 
+                  className={`modern-button modern-button-accent ${(!selectedCity || isGenerating) ? 'opacity-50' : ''}`}
+                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Generate City Excel
                 </button>
               </div>
               
               {/* User Excel */}
-              <div style={{ padding: '1.5rem', background: theme.hoverBg, borderRadius: '16px' }}>
-                <h3 style={{ margin: '0 0 1rem 0', color: theme.textPrimary, fontSize: '1.2rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>👥 By Users</h3>
-                <div style={{ fontWeight: '700', color: theme.textPrimary, marginBottom: '1rem', textAlign: 'center', padding: '1rem', background: theme.cardBackground, borderRadius: '8px' }}>Selected: {selectedUsers.length} users</div>
-                <button onClick={() => startBulkOperation('user-excel', selectedUsers)} disabled={selectedUsers.length === 0 || isGenerating} style={{ width: '100%', padding: '1rem 1.5rem', border: 'none', borderRadius: '12px', fontSize: '1.1rem', fontWeight: '600', cursor: (selectedUsers.length === 0 || isGenerating) ? 'not-allowed' : 'pointer', background: (selectedUsers.length === 0 || isGenerating) ? '#bdc3c7' : 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white', boxShadow: (selectedUsers.length === 0 || isGenerating) ? 'none' : '0 4px 15px rgba(39, 174, 96, 0.3)', transition: 'all 0.3s ease' }}>
-                  🚀 Generate User Excel
+              <div style={{ padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
+                <h3 style={{ 
+                  margin: '0 0 var(--space-4) 0', 
+                  color: theme.textPrimary, 
+                  fontSize: '1.125rem', 
+                  fontWeight: '700', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 'var(--space-3)' 
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  By Users
+                </h3>
+                <div style={{ 
+                  fontWeight: '700', 
+                  color: theme.textPrimary, 
+                  marginBottom: 'var(--space-4)', 
+                  textAlign: 'center', 
+                  padding: 'var(--space-4)', 
+                  background: theme.cardBackground, 
+                  borderRadius: 'var(--radius-lg)',
+                  fontSize: '0.875rem'
+                }}>Selected: {selectedUsers.length} users</div>
+                <button 
+                  onClick={() => startBulkOperation('user-excel', selectedUsers)} 
+                  disabled={selectedUsers.length === 0 || isGenerating} 
+                  className={`modern-button modern-button-accent ${(selectedUsers.length === 0 || isGenerating) ? 'opacity-50' : ''}`}
+                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Generate User Excel
                 </button>
               </div>
             </div>
@@ -229,61 +477,47 @@ const BulkOperations = () => {
         {/* Navigation Buttons */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '1rem', 
-          marginTop: '2rem'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: 'var(--space-4)', 
+          marginTop: 'var(--space-8)'
         }}>
           <button 
             onClick={() => window.location.href = '/brokerage'} 
-            style={{ 
-              padding: '1rem 1.5rem', 
-              border: 'none', 
-              borderRadius: '12px', 
-              fontSize: '1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: 'linear-gradient(135deg, #27ae60, #2ecc71)', 
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(39, 174, 96, 0.3)',
-              transition: 'all 0.3s ease'
-            }}
+            className="modern-button modern-button-accent"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            💰 Brokerage Dashboard
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            Brokerage Dashboard
           </button>
           <button 
             onClick={() => window.location.href = '/brokerage/users'} 
-            style={{ 
-              padding: '1rem 1.5rem', 
-              border: 'none', 
-              borderRadius: '12px', 
-              fontSize: '1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: 'linear-gradient(135deg, #3498db, #5dade2)', 
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(52, 152, 219, 0.3)',
-              transition: 'all 0.3s ease'
-            }}
+            className="modern-button modern-button-secondary"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            👥 User Management
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            User Management
           </button>
           <button 
             onClick={() => window.location.href = '/dashboard'} 
-            style={{ 
-              padding: '1rem 1.5rem', 
-              border: `2px solid ${theme.border}`, 
-              borderRadius: '12px', 
-              fontSize: '1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: theme.cardBackground, 
-              color: theme.textPrimary,
-              transition: 'all 0.3s ease'
-            }}
+            className="modern-button modern-button-outline"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            🏠 Main Dashboard
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9,22 9,12 15,12 15,22"/>
+            </svg>
+            Main Dashboard
           </button>
         </div>
+      </div>
     </div>
   );
 };

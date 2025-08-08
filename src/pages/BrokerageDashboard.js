@@ -4,14 +4,15 @@ import { useTheme } from '../contexts/ThemeContext';
 import { brokerageAPI } from '../services/brokerageAPI';
 import { financialYearAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import '../styles/modern-ui.css';
 
 const BrokerageDashboard = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const [financialYears, setFinancialYears] = useState([]);
-  const [selectedYear, setSelectedYear] = useState('1');
+  const [selectedYear, setSelectedYear] = useState('');
   const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -19,47 +20,99 @@ const BrokerageDashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedYear) {
+    if (selectedYear && financialYears.length > 0) {
+      console.log('useEffect triggered - calling loadBrokerageSummary');
       loadBrokerageSummary();
     }
-  }, [selectedYear]);
+  }, [selectedYear, financialYears]);
 
   const loadFinancialYears = async () => {
     try {
+      console.log('Loading financial years...');
       const response = await financialYearAPI.getAllFinancialYears();
       const years = response || [];
+      console.log('Financial years loaded:', years);
       setFinancialYears(years);
       if (years.length > 0) {
-        setSelectedYear(years[0].financialYearId.toString());
+        const defaultYear = years[0].yearId.toString();
+        console.log('Setting default year:', defaultYear);
+        setSelectedYear(defaultYear);
       }
     } catch (error) {
       console.error('Failed to load financial years:', error);
+      console.error('Error details:', error.response?.data);
+      setError('Failed to load financial years');
     }
   };
 
-  const loadBrokerageSummary = async () => {
+  const loadBrokerageSummary = async (yearToUse = null) => {
     try {
       setLoading(true);
       setError(null);
-      const selectedYearObj = financialYears.find(fy => fy.financialYearId.toString() === selectedYear);
-      const yearId = selectedYearObj ? selectedYearObj.yearId : selectedYear;
+      
+      const currentYear = yearToUse || selectedYear;
+      console.log('loadBrokerageSummary called with year:', currentYear);
+      console.log('Available financial years:', financialYears);
+      
+      if (!currentYear) {
+        console.log('No selected year, skipping API call');
+        setLoading(false);
+        return;
+      }
+      
+      const selectedYearObj = financialYears.find(fy => fy.yearId.toString() === currentYear);
+      let yearId = currentYear;
+      if (selectedYearObj) {
+        yearId = selectedYearObj.yearId;
+      }
+      
+      console.log('Selected year object:', selectedYearObj);
+      console.log('Using yearId for API call:', yearId);
+      console.log('Making API call to:', `http://localhost:8080/BrokerHub/Brokerage/summary/${yearId}`);
+      
       const response = await brokerageAPI.getSummary(yearId);
-      setSummary(response.data);
+      console.log('Brokerage summary response:', response);
+      // Extract data from nested response structure
+      const summaryData = response.data || response;
+      console.log('Extracted summary data:', summaryData);
+      setSummary(summaryData);
     } catch (error) {
-      setError('Failed to load brokerage summary');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load brokerage summary';
+      setError(errorMessage);
       console.error('Failed to load summary:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRefresh = async () => {
+    console.log('Refresh button clicked');
+    try {
+      await loadBrokerageSummary();
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    }
+  };
+
+  const handleYearChange = (e) => {
+    const newYear = e.target.value;
+    console.log('Financial year changed to:', newYear);
+    setSelectedYear(newYear);
+  };
+
   const handleExportSummary = async () => {
     try {
-      const selectedYearObj = financialYears.find(fy => fy.financialYearId.toString() === selectedYear);
-      const yearId = selectedYearObj ? selectedYearObj.yearId : selectedYear;
+      const selectedYearObj = financialYears.find(fy => fy.yearId.toString() === selectedYear);
+      let yearId = selectedYear;
+      if (selectedYearObj) {
+        yearId = selectedYearObj.yearId;
+      }
+      console.log('Exporting summary for year:', yearId);
       await brokerageAPI.downloadSummaryExcel(yearId);
     } catch (error) {
       console.error('Failed to export summary:', error);
+      setError('Failed to export summary');
     }
   };
 
@@ -70,334 +123,373 @@ const BrokerageDashboard = () => {
     }).format(amount || 0);
   };
 
-  if (loading) return (
-    <div style={{ background: theme.background, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+  if (loading && !financialYears.length) return (
+    <div style={{ background: theme.background, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: 0 }}>
       <LoadingSpinner />
     </div>
   );
 
   return (
-    <div style={{ background: theme.background, minHeight: '100vh', padding: '1rem' }}>
+    <div style={{ background: theme.background, minHeight: '100vh', margin: 0, padding: 0 }}>
+      <div className="modern-container" style={{ color: theme.textPrimary }}>
         {/* Header */}
-        <div style={{ 
-          background: `linear-gradient(135deg, ${theme.buttonPrimary}, ${theme.buttonPrimaryHover})`,
-          borderRadius: '16px',
-          padding: '2rem',
-          marginBottom: '2rem',
-          color: 'white',
-          boxShadow: theme.shadowModal
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>💰 Brokerage Dashboard</h1>
-              <p style={{ margin: 0, opacity: 0.9, fontSize: '1.1rem' }}>Manage your brokerage earnings and reports</p>
-            </div>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <select 
-                value={selectedYear} 
-                onChange={(e) => setSelectedYear(e.target.value)}
-                style={{ 
-                  padding: '0.75rem 1rem', 
-                  border: 'none', 
-                  borderRadius: '12px', 
-                  fontSize: '1rem', 
-                  background: 'rgba(255,255,255,0.2)', 
-                  color: 'white',
-                  backdropFilter: 'blur(10px)',
-                  cursor: 'pointer'
-                }}
-              >
-                {financialYears.map(year => (
-                  <option key={year.financialYearId} value={year.financialYearId} style={{ color: theme.textPrimary, background: theme.cardBackground }}>
-                    {year.financialYearName}
-                  </option>
-                ))}
-              </select>
-              <button 
-                onClick={loadBrokerageSummary} 
-                style={{ 
-                  padding: '0.75rem 1.5rem', 
-                  background: 'rgba(255,255,255,0.2)', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '12px', 
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(10px)',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                🔄 Refresh
-              </button>
-            </div>
+        <div className="modern-header animate-fade-in" style={{ background: theme.background, borderBottom: `1px solid ${theme.border}` }}>
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '2.25rem', 
+              fontWeight: '600', 
+              marginBottom: 'var(--space-2)',
+              color: theme.textPrimary,
+              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+              letterSpacing: '-0.025em'
+            }}>Brokerage Dashboard</h1>
+            <p style={{ 
+              margin: 0, 
+              color: theme.textSecondary, 
+              fontSize: '0.95rem',
+              fontWeight: '400',
+              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
+            }}>Manage your brokerage earnings and comprehensive reports</p>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.textSecondary} strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <select 
+              value={selectedYear} 
+              onChange={handleYearChange}
+              disabled={loading}
+              className="modern-select"
+              style={{ minWidth: '160px', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}`, opacity: loading ? 0.6 : 1 }}
+            >
+              {financialYears.map(year => (
+                <option key={year.yearId} value={year.yearId} style={{ background: theme.cardBackground, color: theme.textPrimary }}>
+                  {year.financialYearName}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-8)' }}>
+          <button 
+            onClick={handleRefresh}
+            disabled={loading}
+            className={`modern-button modern-button-outline ${loading ? 'opacity-50' : ''}`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M23 4v6h-6M1 20v-6h6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </svg>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <button 
+            onClick={() => loadBrokerageSummary()}
+            className="modern-button modern-button-primary"
+          >
+            Load Summary
+          </button>
         </div>
 
         {error && (
           <div style={{ 
-            background: `linear-gradient(135deg, ${theme.error}, #c0392b)`, 
+            background: theme.error, 
             color: 'white', 
-            padding: '1rem 1.5rem', 
-            borderRadius: '12px', 
-            marginBottom: '2rem',
-            boxShadow: theme.shadow
+            padding: 'var(--space-4) var(--space-6)', 
+            borderRadius: 'var(--radius-xl)', 
+            marginBottom: 'var(--space-8)',
+            boxShadow: theme.shadow,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)'
           }}>
-            ⚠️ {error}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            {error}
           </div>
         )}
 
-        {/* Navigation Buttons - Always Visible */}
+        {/* Navigation Buttons */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '1rem', 
-          marginBottom: '2rem'
-        }}>
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: 'var(--space-4)', 
+          marginBottom: 'var(--space-12)'
+        }} className="animate-slide-in">
           <button 
             onClick={handleExportSummary} 
-            style={{ 
-              padding: '1rem 2rem', 
-              border: 'none', 
-              borderRadius: '16px', 
-              fontSize: '1.1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: 'linear-gradient(135deg, #27ae60, #2ecc71)', 
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(39, 174, 96, 0.3)',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
+            className="modern-button modern-button-accent"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            📊 Export Summary
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Summary
           </button>
           <button 
             onClick={() => navigate('/brokerage/users')} 
-            style={{ 
-              padding: '1rem 2rem', 
-              border: 'none', 
-              borderRadius: '16px', 
-              fontSize: '1.1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: 'linear-gradient(135deg, #3498db, #5dade2)', 
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(52, 152, 219, 0.3)',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
+            className="modern-button modern-button-secondary"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            👥 User Management
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            User Management
           </button>
           <button 
             onClick={() => navigate('/brokerage/bulk')} 
-            style={{ 
-              padding: '1rem 2rem', 
-              border: 'none', 
-              borderRadius: '16px', 
-              fontSize: '1.1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: 'linear-gradient(135deg, #e67e22, #f39c12)', 
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(230, 126, 34, 0.3)',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
+            className="modern-button modern-button-primary"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            🚀 Bulk Operations
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <rect x="7" y="7" width="10" height="10" rx="1" ry="1"/>
+            </svg>
+            Bulk Operations
           </button>
           <button 
             onClick={() => navigate('/dashboard')} 
-            style={{ 
-              padding: '1rem 2rem', 
-              border: `2px solid ${theme.border}`, 
-              borderRadius: '16px', 
-              fontSize: '1.1rem', 
-              fontWeight: '600',
-              cursor: 'pointer', 
-              background: theme.cardBackground, 
-              color: theme.textPrimary,
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem'
-            }}
+            className="modern-button modern-button-outline"
+            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
           >
-            🏠 Main Dashboard
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9,22 9,12 15,12 15,22"/>
+            </svg>
+            Main Dashboard
           </button>
         </div>
 
         {summary && (
           <>
             {/* Stats Cards */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-              gap: '1.5rem', 
-              marginBottom: '3rem' 
-            }}>
-              <div style={{ 
-                background: theme.cardBackground, 
-                padding: '2rem', 
-                borderRadius: '20px', 
-                boxShadow: theme.shadowHover,
-                border: `1px solid ${theme.border}`,
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'linear-gradient(90deg, #27ae60, #2ecc71)' }}></div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, color: theme.textSecondary, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>Total Earned</h3>
-                  <div style={{ background: 'rgba(39, 174, 96, 0.1)', padding: '0.5rem', borderRadius: '10px' }}>💰</div>
+            <div className="modern-stats-grid animate-fade-in">
+              <div className="modern-stat-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: theme.textSecondary, 
+                    fontSize: '0.875rem', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em', 
+                    fontWeight: '600' 
+                  }}>Total Earned</h3>
+                  <div style={{ 
+                    background: 'var(--color-accent)', 
+                    padding: 'var(--space-3)', 
+                    borderRadius: 'var(--radius-lg)',
+                    color: 'white'
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="1" x2="12" y2="23"/>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                  </div>
                 </div>
-                <div style={{ fontSize: '2.2rem', fontWeight: '800', color: theme.textPrimary, marginBottom: '0.5rem' }}>
+                <div style={{ 
+                  fontSize: '2.5rem', 
+                  fontWeight: '800', 
+                  color: theme.textPrimary, 
+                  marginBottom: 'var(--space-2)',
+                  fontFamily: 'var(--font-mono)'
+                }}>
                   {formatCurrency(summary.totalBrokerageEarned)}
                 </div>
-                <div style={{ fontSize: '0.9rem', color: theme.textSecondary }}>Total commission earned</div>
+                <div style={{ fontSize: '0.875rem', color: theme.textMuted }}>Total commission earned</div>
               </div>
 
-              <div style={{ 
-                background: theme.cardBackground, 
-                padding: '2rem', 
-                borderRadius: '20px', 
-                boxShadow: theme.shadowHover,
-                border: `1px solid ${theme.border}`,
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'linear-gradient(90deg, #3498db, #5dade2)' }}></div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, color: theme.textSecondary, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>From Sellers</h3>
-                  <div style={{ background: 'rgba(52, 152, 219, 0.1)', padding: '0.5rem', borderRadius: '10px' }}>📤</div>
+              <div className="modern-stat-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: theme.textSecondary, 
+                    fontSize: '0.875rem', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em', 
+                    fontWeight: '600' 
+                  }}>From Sellers</h3>
+                  <div style={{ 
+                    background: 'var(--color-secondary)', 
+                    padding: 'var(--space-3)', 
+                    borderRadius: 'var(--radius-lg)',
+                    color: 'white'
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 16l2-2 2 2"/>
+                      <path d="M21 14v4a2 2 0 0 1-2 2h-4"/>
+                      <path d="M8 8l-2 2-2-2"/>
+                      <path d="M3 10V6a2 2 0 0 1 2-2h4"/>
+                    </svg>
+                  </div>
                 </div>
-                <div style={{ fontSize: '2.2rem', fontWeight: '800', color: theme.textPrimary, marginBottom: '0.5rem' }}>
+                <div style={{ 
+                  fontSize: '2.5rem', 
+                  fontWeight: '800', 
+                  color: theme.textPrimary, 
+                  marginBottom: 'var(--space-2)',
+                  fontFamily: 'var(--font-mono)'
+                }}>
                   {formatCurrency(summary.totalBrokerageFromSellers)}
                 </div>
-                <div style={{ fontSize: '0.9rem', color: theme.textSecondary }}>Commission from sellers</div>
+                <div style={{ fontSize: '0.875rem', color: theme.textMuted }}>Commission from sellers</div>
               </div>
 
-              <div style={{ 
-                background: theme.cardBackground, 
-                padding: '2rem', 
-                borderRadius: '20px', 
-                boxShadow: theme.shadowHover,
-                border: `1px solid ${theme.border}`,
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: 'linear-gradient(90deg, #e67e22, #f39c12)' }}></div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, color: theme.textSecondary, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '600' }}>From Buyers</h3>
-                  <div style={{ background: 'rgba(230, 126, 34, 0.1)', padding: '0.5rem', borderRadius: '10px' }}>📥</div>
+              <div className="modern-stat-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: theme.textSecondary, 
+                    fontSize: '0.875rem', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em', 
+                    fontWeight: '600' 
+                  }}>From Buyers</h3>
+                  <div style={{ 
+                    background: 'var(--color-warning)', 
+                    padding: 'var(--space-3)', 
+                    borderRadius: 'var(--radius-lg)',
+                    color: 'white'
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M8 8l-2-2-2 2"/>
+                      <path d="M3 10v4a2 2 0 0 0 2 2h4"/>
+                      <path d="M16 16l2 2 2-2"/>
+                      <path d="M21 14V10a2 2 0 0 0-2-2h-4"/>
+                    </svg>
+                  </div>
                 </div>
-                <div style={{ fontSize: '2.2rem', fontWeight: '800', color: theme.textPrimary, marginBottom: '0.5rem' }}>
+                <div style={{ 
+                  fontSize: '2.5rem', 
+                  fontWeight: '800', 
+                  color: theme.textPrimary, 
+                  marginBottom: 'var(--space-2)',
+                  fontFamily: 'var(--font-mono)'
+                }}>
                   {formatCurrency(summary.totalBrokerageFromBuyers)}
                 </div>
-                <div style={{ fontSize: '0.9rem', color: theme.textSecondary }}>Commission from buyers</div>
+                <div style={{ fontSize: '0.875rem', color: theme.textMuted }}>Commission from buyers</div>
               </div>
             </div>
 
             {/* Breakdown Section */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-              <div style={{ 
-                background: theme.cardBackground, 
-                borderRadius: '20px', 
-                boxShadow: theme.shadowHover,
-                border: `1px solid ${theme.border}`,
-                overflow: 'hidden'
-              }}>
-                <div style={{ padding: '1.5rem', borderBottom: `1px solid ${theme.border}` }}>
-                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '1.3rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    🏙️ City-wise Breakdown
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: 'var(--space-8)', marginBottom: 'var(--space-12)' }} className="animate-slide-in">
+              <div className="modern-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+                <div style={{ padding: 'var(--space-6)', borderBottom: `1px solid ${theme.border}` }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: theme.textPrimary, 
+                    fontSize: '1.25rem', 
+                    fontWeight: '700', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 'var(--space-3)' 
+                  }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                      <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    City-wise Breakdown
                   </h3>
                 </div>
-                <div style={{ maxHeight: '350px', overflowY: 'auto', padding: '1rem' }}>
+                <div style={{ maxHeight: '400px', overflowY: 'auto', padding: 'var(--space-4)' }}>
                   {summary.cityWiseBrokerage?.map((city, index) => (
-                    <div key={city.city} style={{ 
+                    <div key={city.city} className="modern-table-row" style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      padding: '1rem', 
-                      marginBottom: '0.5rem',
-                      background: theme.hoverBg,
-                      borderRadius: '12px',
-                      transition: 'all 0.3s ease'
+                      alignItems: 'center',
+                      margin: '0 -var(--space-4)',
+                      borderRadius: 'var(--radius-lg)'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
                         <div style={{ 
-                          width: '40px', 
-                          height: '40px', 
-                          borderRadius: '10px', 
-                          background: `linear-gradient(135deg, ${['#3498db', '#e67e22', '#27ae60', '#9b59b6'][index % 4]}, ${['#5dade2', '#f39c12', '#2ecc71', '#bb8fce'][index % 4]})`,
+                          width: '48px', 
+                          height: '48px', 
+                          borderRadius: 'var(--radius-lg)', 
+                          background: `var(--color-${['secondary', 'warning', 'accent', 'primary'][index % 4]})`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: 'white',
-                          fontWeight: 'bold'
+                          fontWeight: '700',
+                          fontSize: '1.125rem'
                         }}>
                           {city.city.charAt(0)}
                         </div>
-                        <span style={{ fontWeight: '600', color: theme.textPrimary, fontSize: '1.1rem' }}>{city.city}</span>
+                        <span style={{ fontWeight: '600', color: theme.textPrimary, fontSize: '1rem' }}>{city.city}</span>
                       </div>
-                      <span style={{ fontWeight: '700', color: '#27ae60', fontSize: '1.1rem' }}>{formatCurrency(city.totalBrokerage)}</span>
+                      <span style={{ 
+                        fontWeight: '700', 
+                        color: 'var(--color-accent)', 
+                        fontSize: '1rem',
+                        fontFamily: 'var(--font-mono)'
+                      }}>{formatCurrency(city.totalBrokerage)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div style={{ 
-                background: theme.cardBackground, 
-                borderRadius: '20px', 
-                boxShadow: theme.shadowHover,
-                border: `1px solid ${theme.border}`,
-                overflow: 'hidden'
-              }}>
-                <div style={{ padding: '1.5rem', borderBottom: `1px solid ${theme.border}` }}>
-                  <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '1.3rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    📦 Product-wise Breakdown
+              <div className="modern-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
+                <div style={{ padding: 'var(--space-6)', borderBottom: `1px solid ${theme.border}` }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: theme.textPrimary, 
+                    fontSize: '1.25rem', 
+                    fontWeight: '700', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 'var(--space-3)' 
+                  }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <rect x="7" y="7" width="10" height="10" rx="1" ry="1"/>
+                    </svg>
+                    Product-wise Breakdown
                   </h3>
                 </div>
-                <div style={{ maxHeight: '350px', overflowY: 'auto', padding: '1rem' }}>
+                <div style={{ maxHeight: '400px', overflowY: 'auto', padding: 'var(--space-4)' }}>
                   {summary.productWiseBrokerage?.map((product, index) => (
-                    <div key={product.productName} style={{ 
+                    <div key={product.productName} className="modern-table-row" style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
-                      alignItems: 'center', 
-                      padding: '1rem', 
-                      marginBottom: '0.5rem',
-                      background: theme.hoverBg,
-                      borderRadius: '12px',
-                      transition: 'all 0.3s ease'
+                      alignItems: 'center',
+                      margin: '0 -var(--space-4)',
+                      borderRadius: 'var(--radius-lg)'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
                         <div style={{ 
-                          width: '40px', 
-                          height: '40px', 
-                          borderRadius: '10px', 
-                          background: `linear-gradient(135deg, ${['#e67e22', '#27ae60', '#3498db', '#9b59b6'][index % 4]}, ${['#f39c12', '#2ecc71', '#5dade2', '#bb8fce'][index % 4]})`,
+                          width: '48px', 
+                          height: '48px', 
+                          borderRadius: 'var(--radius-lg)', 
+                          background: `var(--color-${['warning', 'accent', 'secondary', 'primary'][index % 4]})`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: 'white',
-                          fontWeight: 'bold'
+                          fontWeight: '700',
+                          fontSize: '1.125rem'
                         }}>
                           {product.productName.charAt(0)}
                         </div>
-                        <span style={{ fontWeight: '600', color: theme.textPrimary, fontSize: '1.1rem' }}>{product.productName}</span>
+                        <span style={{ fontWeight: '600', color: theme.textPrimary, fontSize: '1rem' }}>{product.productName}</span>
                       </div>
-                      <span style={{ fontWeight: '700', color: '#27ae60', fontSize: '1.1rem' }}>{formatCurrency(product.totalBrokerage)}</span>
+                      <span style={{ 
+                        fontWeight: '700', 
+                        color: 'var(--color-accent)', 
+                        fontSize: '1rem',
+                        fontFamily: 'var(--font-mono)'
+                      }}>{formatCurrency(product.totalBrokerage)}</span>
                     </div>
                   ))}
                 </div>
@@ -407,6 +499,7 @@ const BrokerageDashboard = () => {
 
           </>
         )}
+      </div>
     </div>
   );
 };

@@ -6,6 +6,7 @@ import useResponsive from '../hooks/useResponsive';
 
 const GlobalNavigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [expandedSection, setExpandedSection] = useState(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,10 +14,15 @@ const GlobalNavigation = () => {
   const { logout } = useAuth();
   const { isMobile } = useResponsive();
 
+  // Hide navigation on auth pages
+  const authPages = ['/login', '/signup', '/forgot-password', '/verify-otp', '/create-password', '/verify-account'];
+  const shouldHideNavigation = authPages.includes(location.pathname);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
+        setExpandedSection(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -32,23 +38,65 @@ const GlobalNavigation = () => {
   const navigateTo = (path) => {
     navigate(path);
     setIsOpen(false);
+    setExpandedSection(null);
   };
 
-  const navigationItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
-    { path: '/ledger-management', label: 'Ledger Management', icon: '📋' },
-    { path: '/daily-ledger', label: 'Daily Ledger', icon: '📊' },
-    { path: '/calendar-view', label: 'Calendar View', icon: '📅' },
-    { path: '/brokerage', label: 'Brokerage Dashboard', icon: '💰' },
-    { path: '/brokerage/users', label: 'User Brokerage', icon: '👥' },
-    { path: '/brokerage/bulk', label: 'Bulk Operations', icon: '🚀' },
-    { path: '/products', label: 'Products', icon: '🌾' },
-    { path: '/merchants', label: 'Merchants', icon: '🏢' },
-    { path: '/financial-years', label: 'Financial Years', icon: '📈' },
-    { path: '/create-merchant', label: 'Create Merchant', icon: '👤' },
+  const toggleSection = (index) => {
+    setExpandedSection(expandedSection === index ? null : index);
+  };
+
+  const navigationSections = [
+    {
+      label: 'Dashboard',
+      icon: '🏠',
+      items: [
+        { path: '/dashboard', label: 'Main Dashboard', icon: '🏠' },
+        { path: '/brokerage', label: 'Brokerage Dashboard', icon: '💰' }
+      ]
+    },
+    {
+      label: 'Profile Settings',
+      icon: '👤',
+      items: [
+        { path: '/change-password', label: 'Change Password', icon: '🔑' },
+        { path: '/update-profile', label: 'Update Profile', icon: '✏️' }
+      ]
+    },
+    {
+      label: 'Brokerage',
+      icon: '💰',
+      items: [
+        { path: '/brokerage/users', label: 'User Brokerage', icon: '👥' },
+        { path: '/brokerage/bulk', label: 'Bulk Operations', icon: '🚀' }
+      ]
+    },
+    {
+      label: 'Ledger',
+      icon: '📋',
+      items: [
+        { path: '/ledger-management', label: 'Ledger Management', icon: '📋' },
+        { path: '/daily-ledger', label: 'Daily Ledger', icon: '📊' },
+        { path: '/calendar-view', label: 'Calendar View', icon: '📅' }
+      ]
+    },
+    {
+      label: 'Entities',
+      icon: '🏢',
+      items: [
+        { path: '/products', label: 'Products', icon: '🌾' },
+        { path: '/merchants', label: 'Merchants', icon: '🏢' },
+        { path: '/financial-years', label: 'Financial Years', icon: '📈' },
+        { path: '/create-merchant', label: 'Create Merchant', icon: '👤' }
+      ]
+    }
   ];
 
   const isCurrentPage = (path) => location.pathname === path;
+  const isCurrentSection = (section) => section.items.some(item => location.pathname === item.path);
+
+  if (shouldHideNavigation) {
+    return null;
+  }
 
   return (
     <div ref={dropdownRef} style={{
@@ -108,8 +156,8 @@ const GlobalNavigation = () => {
           border: `1px solid ${theme.border}`,
           borderRadius: '8px',
           boxShadow: theme.shadowModal,
-          minWidth: '240px',
-          overflow: 'hidden'
+          minWidth: '280px',
+          overflow: 'visible'
         }}>
           <div style={{ padding: '8px 0' }}>
             <div style={{
@@ -121,52 +169,94 @@ const GlobalNavigation = () => {
               marginBottom: '4px'
             }}>NAVIGATION</div>
             
-            {navigationItems.map(item => (
-              <button key={item.path} onClick={() => navigateTo(item.path)} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                width: '100%',
-                padding: '12px 16px',
-                border: 'none',
-                backgroundColor: isCurrentPage(item.path) ? theme.hoverBg : 'transparent',
-                color: isCurrentPage(item.path) ? theme.buttonPrimary : theme.textPrimary,
-                fontSize: '14px',
-                cursor: 'pointer',
-                textAlign: 'left'
-              }}>
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
+            {navigationSections.map((section, index) => (
+              <div key={section.label}>
+                <button
+                  onClick={() => toggleSection(index)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    backgroundColor: isCurrentSection(section) || expandedSection === index ? theme.hoverBg : 'transparent',
+                    color: isCurrentSection(section) ? theme.buttonPrimary : theme.textPrimary,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (expandedSection !== index && !isCurrentSection(section)) {
+                      e.target.style.backgroundColor = theme.hoverBg;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (expandedSection !== index && !isCurrentSection(section)) {
+                      e.target.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span>{section.icon}</span>
+                    <span>{section.label}</span>
+                  </div>
+                  <span style={{ 
+                    fontSize: '10px', 
+                    opacity: 0.6,
+                    transform: expandedSection === index ? 'rotate(90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }}>▶</span>
+                </button>
+                
+                {expandedSection === index && (
+                  <div style={{
+                    background: theme.hoverBg,
+                    borderRadius: '4px',
+                    margin: '4px 8px',
+                    overflow: 'hidden'
+                  }}>
+                    {section.items.map(item => (
+                      <button
+                        key={item.path}
+                        onClick={() => navigateTo(item.path)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          width: '100%',
+                          padding: '10px 16px',
+                          border: 'none',
+                          backgroundColor: isCurrentPage(item.path) ? theme.buttonPrimary : 'transparent',
+                          color: isCurrentPage(item.path) ? 'white' : theme.textPrimary,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isCurrentPage(item.path)) {
+                            e.target.style.backgroundColor = theme.border;
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isCurrentPage(item.path)) {
+                            e.target.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <span>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
           <div style={{ borderTop: `1px solid ${theme.border}`, padding: '8px 0' }}>
-            <div style={{
-              padding: '8px 16px',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: theme.textSecondary,
-              marginBottom: '4px'
-            }}>SETTINGS</div>
-            
-            <button onClick={() => navigateTo('/change-password')} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              width: '100%',
-              padding: '12px 16px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: theme.textPrimary,
-              fontSize: '14px',
-              cursor: 'pointer',
-              textAlign: 'left'
-            }}>
-              <span>🔑</span>
-              <span>Change Password</span>
-            </button>
-
             <button onClick={handleLogout} style={{
               display: 'flex',
               alignItems: 'center',
@@ -178,8 +268,12 @@ const GlobalNavigation = () => {
               color: theme.error,
               fontSize: '14px',
               cursor: 'pointer',
-              textAlign: 'left'
-            }}>
+              textAlign: 'left',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
               <span>🚪</span>
               <span>Logout</span>
             </button>
