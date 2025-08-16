@@ -84,6 +84,7 @@ export const transformFinancialYearAnalytics = (apiData) => {
       totalQuantity: apiData.totalQuantity || 0,
       totalTransactions: apiData.totalTransactions || 0,
       totalBrokerage: apiData.totalBrokerage || 0,
+      totalTransactionValue: apiData.totalTransactionValue || 0,
       monthlyGrowth: calculateMonthlyGrowth(monthlySales),
       monthlySales
     },

@@ -341,8 +341,12 @@ export const productAPI = {
 // Analytics API functions
 export const analyticsAPI = {
   // Get financial year analytics
-  getFinancialYearAnalytics: async (brokerId, financialYearId) => {
+  getFinancialYearAnalytics: async (financialYearId) => {
     try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
       const response = await api.get(`/Dashboard/${brokerId}/getFinancialYearAnalytics/${financialYearId}`);
       return response.data;
     } catch (error) {
@@ -351,9 +355,75 @@ export const analyticsAPI = {
   },
 
   // Get top performers
-  getTopPerformers: async (brokerId, financialYearId) => {
+  getTopPerformers: async (financialYearId) => {
     try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
       const response = await api.get(`/Dashboard/${brokerId}/getTopPerformers/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top 5 buyers by quantity
+  getTop5BuyersByQuantity: async (financialYearId) => {
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
+      const response = await api.get(`/Dashboard/${brokerId}/getTop5BuyersByQuantity/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top 5 sellers by quantity
+  getTop5SellersByQuantity: async (financialYearId) => {
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
+      const response = await api.get(`/Dashboard/${brokerId}/getTop5SellersByQuantity/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top 5 merchants by brokerage
+  getTop5MerchantsByBrokerage: async (financialYearId) => {
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
+      const response = await api.get(`/Dashboard/${brokerId}/getTop5MerchantsByBrokerage/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Refresh analytics cache
+  refreshCache: async (financialYearId) => {
+    try {
+      const response = await api.post(`/Dashboard/refreshCache/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Refresh all analytics cache
+  refreshAllCache: async () => {
+    try {
+      const response = await api.post('/Dashboard/refreshAllCache');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

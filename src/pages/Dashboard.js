@@ -21,6 +21,7 @@ import AnalyticsControls from '../components/AnalyticsControls';
 import TodayMarket from '../components/TodayMarket';
 import ProductBulkUpload from '../components/ProductBulkUpload';
 import MerchantDetailModal from '../components/MerchantDetailModal';
+import ChartErrorState from '../components/ChartErrorState';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -71,6 +72,16 @@ const Dashboard = () => {
   const [topBuyersByQuantity, setTopBuyersByQuantity] = useState([]);
   const [topMerchantsByBrokerage, setTopMerchantsByBrokerage] = useState([]);
   const [topPerformersLoading, setTopPerformersLoading] = useState(false);
+  const [refreshingCache, setRefreshingCache] = useState(false);
+
+  // Individual API error states
+  const [apiErrors, setApiErrors] = useState({
+    financialYearAnalytics: null,
+    topPerformers: null,
+    topBuyers: null,
+    topSellers: null,
+    topMerchants: null
+  });
 
   // Payments state
   const [activePaymentTab, setActivePaymentTab] = useState('brokerage');
@@ -193,37 +204,33 @@ const Dashboard = () => {
     if (!selectedFinancialYear) return;
 
     setAnalyticsLoading(true);
+    
+    // Load main analytics data
     try {
       console.log('Loading analytics for financial year:', selectedFinancialYear.yearId);
-
       const apiData = await analyticsAPI.getFinancialYearAnalytics(selectedFinancialYear.yearId);
-      console.log('Raw analytics API response:', apiData);
-
       const transformedData = transformFinancialYearAnalytics(apiData);
-      console.log('Transformed analytics data:', transformedData);
-
+      
       if (transformedData) {
         setRealAnalyticsData(transformedData);
         setAnalyticsData(transformedData);
       }
-
-      // Load top performers data
-      await loadTopPerformersData();
-
-      // Load comparison data if needed
-      if (showComparison && compareFinancialYear) {
-        await loadComparisonData();
-      }
+      
+      setApiErrors(prev => ({ ...prev, financialYearAnalytics: null }));
     } catch (error) {
-      console.error('Error loading real analytics data:', error);
-      // Don't fall back to mock data when real data is selected
-      // Show error state instead
-      setRealAnalyticsData(null);
-      setAnalyticsData(null);
-      alert(`Failed to fetch real analytics data: ${error.message || 'Server error occurred'}`);
-    } finally {
-      setAnalyticsLoading(false);
+      console.error('Error loading financial year analytics:', error);
+      setApiErrors(prev => ({ ...prev, financialYearAnalytics: error.message || 'Failed to load analytics data' }));
     }
+
+    // Load top performers data independently - this will update the analytics data with real buyer/seller names
+    await loadTopPerformersData();
+
+    // Load comparison data if needed
+    if (showComparison && compareFinancialYear) {
+      await loadComparisonData();
+    }
+    
+    setAnalyticsLoading(false);
   };
 
   const loadComparisonData = async () => {
@@ -265,6 +272,14 @@ const Dashboard = () => {
   const handleDataSourceToggle = (useReal) => {
     setUseRealData(useReal);
     if (useReal && selectedFinancialYear) {
+      // Clear previous errors
+      setApiErrors({
+        financialYearAnalytics: null,
+        topPerformers: null,
+        topBuyers: null,
+        topSellers: null,
+        topMerchants: null
+      });
       loadRealAnalyticsData();
       loadTopPerformersData();
     } else {
@@ -279,10 +294,17 @@ const Dashboard = () => {
       setRealAnalyticsData(null);
       setCompareAnalyticsData(null);
       setComparisonMetrics(null);
-      // Reset top performers data
       setTopPerformersData(null);
       setTopBuyersByQuantity([]);
       setTopMerchantsByBrokerage([]);
+      // Clear errors when switching to mock data
+      setApiErrors({
+        financialYearAnalytics: null,
+        topPerformers: null,
+        topBuyers: null,
+        topSellers: null,
+        topMerchants: null
+      });
     }
   };
 
@@ -373,38 +395,118 @@ const Dashboard = () => {
     }
   };
 
-  // Load top performers data
+  // Load top performers data independently
   const loadTopPerformersData = async () => {
     if (!useRealData || !selectedFinancialYear) return;
 
     setTopPerformersLoading(true);
+    
+    // Load each API independently
+    const loadPromises = [
+      // Top Performers
+      analyticsAPI.getTopPerformers(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopPerformersData(data);
+          setApiErrors(prev => ({ ...prev, topPerformers: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top performers:', error);
+          setApiErrors(prev => ({ ...prev, topPerformers: error.message || 'Failed to load top performers' }));
+          setTopPerformersData(null);
+        }),
+      
+      // Top Buyers - Update analytics data with real buyer data
+      analyticsAPI.getTop5BuyersByQuantity(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopBuyersByQuantity(data);
+          // Update the main analytics data with real top buyers
+          setAnalyticsData(prev => ({
+            ...prev,
+            topBuyers: data || []
+          }));
+          setApiErrors(prev => ({ ...prev, topBuyers: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top buyers:', error);
+          setApiErrors(prev => ({ ...prev, topBuyers: error.message || 'Failed to load top buyers' }));
+          setTopBuyersByQuantity([]);
+        }),
+      
+      // Top Sellers - Update analytics data with real seller data
+      analyticsAPI.getTop5SellersByQuantity(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopPerformersData(prev => ({ ...prev, topSellersByQuantity: data }));
+          // Update the main analytics data with real top sellers
+          setAnalyticsData(prev => ({
+            ...prev,
+            topSellers: data || []
+          }));
+          setApiErrors(prev => ({ ...prev, topSellers: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top sellers:', error);
+          setApiErrors(prev => ({ ...prev, topSellers: error.message || 'Failed to load top sellers' }));
+        }),
+      
+      // Top Merchants
+      analyticsAPI.getTop5MerchantsByBrokerage(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopMerchantsByBrokerage(data);
+          setApiErrors(prev => ({ ...prev, topMerchants: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top merchants:', error);
+          setApiErrors(prev => ({ ...prev, topMerchants: error.message || 'Failed to load top merchants' }));
+          setTopMerchantsByBrokerage([]);
+        })
+    ];
+
+    await Promise.allSettled(loadPromises);
+    setTopPerformersLoading(false);
+  };
+
+  // Refresh analytics cache
+  const handleRefreshCache = async () => {
+    if (!selectedFinancialYear) {
+      alert('Please select a financial year first');
+      return;
+    }
+
+    setRefreshingCache(true);
     try {
-      console.log('Loading top performers data for financial year:', selectedFinancialYear.yearId);
-
-      // Load all top performers data in parallel
-      const [topPerformersResponse, topBuyersResponse, topMerchantsResponse] = await Promise.all([
-        analyticsAPI.getTopPerformers(selectedFinancialYear.yearId),
-        analyticsAPI.getTop5BuyersByQuantity(selectedFinancialYear.yearId),
-        analyticsAPI.getTop5MerchantsByBrokerage(selectedFinancialYear.yearId)
-      ]);
-
-      console.log('Top performers response:', topPerformersResponse);
-      console.log('Top buyers response:', topBuyersResponse);
-      console.log('Top merchants response:', topMerchantsResponse);
-
-      setTopPerformersData(topPerformersResponse);
-      setTopBuyersByQuantity(topBuyersResponse);
-      setTopMerchantsByBrokerage(topMerchantsResponse);
-
+      await analyticsAPI.refreshCache(selectedFinancialYear.yearId);
+      alert('Analytics cache refreshed successfully!');
+      
+      // Reload data after cache refresh
+      if (useRealData) {
+        await loadRealAnalyticsData();
+        await loadTopPerformersData();
+      }
     } catch (error) {
-      console.error('Error loading top performers data:', error);
-      alert(`Failed to fetch top performers data: ${error.message || 'Server error occurred'}`);
-      // Reset to empty arrays on error
-      setTopPerformersData(null);
-      setTopBuyersByQuantity([]);
-      setTopMerchantsByBrokerage([]);
+      console.error('Error refreshing cache:', error);
+      alert(`Failed to refresh cache: ${error.message || 'Server error occurred'}`);
     } finally {
-      setTopPerformersLoading(false);
+      setRefreshingCache(false);
+    }
+  };
+
+  // Refresh all analytics cache
+  const handleRefreshAllCache = async () => {
+    setRefreshingCache(true);
+    try {
+      await analyticsAPI.refreshAllCache();
+      alert('All analytics cache refreshed successfully!');
+      
+      // Reload data after cache refresh
+      if (useRealData && selectedFinancialYear) {
+        await loadRealAnalyticsData();
+        await loadTopPerformersData();
+      }
+    } catch (error) {
+      console.error('Error refreshing all cache:', error);
+      alert(`Failed to refresh all cache: ${error.message || 'Server error occurred'}`);
+    } finally {
+      setRefreshingCache(false);
     }
   };
 
@@ -1063,6 +1165,9 @@ const Dashboard = () => {
           showComparison={showComparison}
           onToggleComparison={handleToggleComparison}
           loading={analyticsLoading}
+          onRefreshCache={handleRefreshCache}
+          onRefreshAllCache={handleRefreshAllCache}
+          refreshingCache={refreshingCache}
         />
       )}
 
@@ -1250,7 +1355,7 @@ const Dashboard = () => {
                 <div>
                   <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Sales</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {formatCurrency(analyticsData.sales.totalSales)}
+                    {formatCurrency(analyticsData.sales?.totalSales || 0)}
                   </h3>
                 </div>
                 <div style={{
@@ -1264,7 +1369,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <p style={{ margin: '8px 0 0 0', color: theme.success, fontSize: '12px' }}>
-                +{analyticsData.sales.monthlyGrowth}% from last month
+                +{analyticsData.sales?.monthlyGrowth || 0}% from last month
               </p>
             </div>
 
@@ -1280,7 +1385,7 @@ const Dashboard = () => {
                 <div>
                   <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Quantity</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {formatNumber(analyticsData.sales.totalQuantity)} Tons
+                    {formatNumber(analyticsData.sales?.totalQuantity || 0)} Tons
                   </h3>
                 </div>
                 <div style={{
@@ -1307,7 +1412,7 @@ const Dashboard = () => {
                 <div>
                   <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Transactions</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {formatNumber(analyticsData.sales.totalTransactions)}
+                    {formatNumber(analyticsData.sales?.totalTransactions || 0)}
                   </h3>
                 </div>
                 <div style={{
@@ -1332,31 +1437,81 @@ const Dashboard = () => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>
-                    {useRealData && analyticsData.sales.totalBrokerage ? 'Total Brokerage' : 'Active Merchants'}
-                  </p>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Brokerage Earned</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {useRealData && analyticsData.sales.totalBrokerage
-                      ? formatCurrency(analyticsData.sales.totalBrokerage)
-                      : merchants.length
-                    }
+                    {formatCurrency(analyticsData.sales?.totalBrokerage || 0)}
                   </h3>
                 </div>
                 <div style={{
-                  backgroundColor: useRealData && analyticsData.sales.totalBrokerage ? '#fef3c7' : '#ede9fe',
+                  backgroundColor: '#fef3c7',
                   padding: '12px',
                   borderRadius: '8px',
-                  color: useRealData && analyticsData.sales.totalBrokerage ? '#f59e0b' : '#8b5cf6',
+                  color: '#f59e0b',
                   fontSize: '24px'
                 }}>
-                  {useRealData && analyticsData.sales.totalBrokerage ? '💸' : '👥'}
+                  💸
                 </div>
               </div>
-              {useRealData && analyticsData.sales.totalBrokerage && (
-                <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '12px' }}>
-                  Earned from {analyticsData.sales.totalTransactions} transactions
-                </p>
-              )}
+              <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '12px' }}>
+                Earned from {analyticsData.sales?.totalTransactions || 0} transactions
+              </p>
+            </div>
+
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Transaction Value</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {formatCurrency(analyticsData.sales?.totalTransactionValue || 0)}
+                  </h3>
+                </div>
+                <div style={{
+                  backgroundColor: '#dcfce7',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  color: '#16a34a',
+                  fontSize: '24px'
+                }}>
+                  💰
+                </div>
+              </div>
+              <p style={{ margin: '8px 0 0 0', color: theme.success, fontSize: '12px' }}>
+                Total value of all transactions
+              </p>
+            </div>
+
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Active Merchants</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {merchants.length}
+                  </h3>
+                </div>
+                <div style={{
+                  backgroundColor: '#ede9fe',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  color: '#8b5cf6',
+                  fontSize: '24px'
+                }}>
+                  👥
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1371,14 +1526,34 @@ const Dashboard = () => {
               title="Monthly Sales Performance"
               height={isMobile ? '300px' : '400px'}
             >
-              <SalesChart data={analyticsData.sales.monthlySales} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="Sales Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (
+                <SalesChart data={analyticsData.sales?.monthlySales || []} animated={true} />
+              )}
             </AnimatedChartWrapper>
 
             <AnimatedChartWrapper
               title="Product Distribution"
               height={isMobile ? '300px' : '400px'}
             >
-              <ProductPieChart data={analyticsData.productAnalytics} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="Product Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (analyticsData.productAnalytics && analyticsData.productAnalytics.length > 0) ? (
+                <ProductPieChart data={analyticsData.productAnalytics} animated={true} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  No product data available
+                </div>
+              )}
             </AnimatedChartWrapper>
           </div>
 
@@ -1397,8 +1572,8 @@ const Dashboard = () => {
             }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>Top Buyers</h3>
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {analyticsData.topBuyers.slice(0, 5).map((buyer, index) => (
-                  <div key={buyer.id} style={{
+                {(analyticsData.topBuyers || []).slice(0, 5).map((buyer, index) => (
+                  <div key={buyer.id || index} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -1406,19 +1581,24 @@ const Dashboard = () => {
                     borderBottom: index < 4 ? '1px solid #f1f5f9' : 'none'
                   }}>
                     <div>
-                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{buyer.name}</p>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{buyer.city} • {buyer.type}</p>
+                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{buyer.firmName || buyer.buyerName || 'Unknown Buyer'}</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{buyer.city || 'Unknown City'} • {buyer.userType || buyer.type || 'BUYER'}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>
-                        {formatCurrency(buyer.totalPurchases)}
+                        {formatCurrency(buyer.totalAmountSpent || 0)}
                       </p>
                       <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                        {buyer.quantity} tons
+                        {buyer.totalQuantityBought || buyer.quantity || buyer.totalQuantity || 0} tons
                       </p>
                     </div>
                   </div>
                 ))}
+                {(!analyticsData.topBuyers || analyticsData.topBuyers.length === 0) && (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    No buyer data available
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1431,8 +1611,8 @@ const Dashboard = () => {
             }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>Top Sellers</h3>
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {analyticsData.topSellers.slice(0, 5).map((seller, index) => (
-                  <div key={seller.id} style={{
+                {(analyticsData.topSellers || []).slice(0, 5).map((seller, index) => (
+                  <div key={seller.id || index} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -1440,19 +1620,24 @@ const Dashboard = () => {
                     borderBottom: index < 4 ? '1px solid #f1f5f9' : 'none'
                   }}>
                     <div>
-                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{seller.name}</p>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{seller.city} • {seller.type}</p>
+                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{seller.firmName || seller.sellerName || 'Unknown Seller'}</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{seller.city || 'Unknown City'} • {seller.userType || seller.type || 'SELLER'}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>
-                        {formatCurrency(seller.totalSales)}
+                        {formatCurrency(seller.totalAmountReceived || 0)}
                       </p>
                       <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                        {seller.quantity} tons
+                        {seller.totalQuantitySold || seller.quantity || seller.totalQuantity || 0} tons
                       </p>
                     </div>
                   </div>
                 ))}
+                {(!analyticsData.topSellers || analyticsData.topSellers.length === 0) && (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    No seller data available
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1508,14 +1693,30 @@ const Dashboard = () => {
               title="Monthly Quantity Sold"
               height={isMobile ? '300px' : '400px'}
             >
-              <QuantityChart data={analyticsData.sales.monthlySales} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="Quantity Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (
+                <QuantityChart data={analyticsData.sales.monthlySales} animated={true} />
+              )}
             </AnimatedChartWrapper>
 
             <AnimatedChartWrapper
               title="City-wise Buyers vs Sellers"
               height={isMobile ? '300px' : '400px'}
             >
-              <CityChart data={analyticsData.cityAnalytics} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="City Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (
+                <CityChart data={analyticsData.cityAnalytics} animated={true} />
+              )}
             </AnimatedChartWrapper>
           </div>
 
@@ -1552,7 +1753,7 @@ const Dashboard = () => {
           )}
 
           {/* Top Performers Charts - Show only with real data */}
-          {useRealData && (topBuyersByQuantity.length > 0 || topMerchantsByBrokerage.length > 0 || (topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0)) && (
+          {useRealData && (
             <div>
               <h3 style={{
                 margin: '30px 0 20px 0',
@@ -1567,56 +1768,88 @@ const Dashboard = () => {
               </h3>
 
               {/* Top Buyers and Sellers by Quantity */}
-              {(topBuyersByQuantity.length > 0 || (topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0)) && (
-                <div className="dashboard-analytics-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                  gap: isMobile ? '16px' : '20px',
-                  marginBottom: '30px'
-                }}>
-                  {topBuyersByQuantity.length > 0 && (
-                    <AnimatedChartWrapper
-                      title="Top 5 Buyers by Quantity"
-                      height={isMobile ? '300px' : '400px'}
-                    >
-                      <TopBuyersByQuantityChart data={topBuyersByQuantity} animated={true} />
-                    </AnimatedChartWrapper>
+              <div className="dashboard-analytics-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: isMobile ? '16px' : '20px',
+                marginBottom: '30px'
+              }}>
+                <AnimatedChartWrapper
+                  title="Top 5 Buyers by Quantity"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topBuyers ? (
+                    <ChartErrorState 
+                      error={apiErrors.topBuyers} 
+                      title="Top Buyers Data"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topBuyersByQuantity.length > 0 ? (
+                    <TopBuyersByQuantityChart data={topBuyersByQuantity} animated={true} />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No buyer data available</div>
                   )}
+                </AnimatedChartWrapper>
 
-                  {topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0 && (
-                    <AnimatedChartWrapper
-                      title="Top Sellers by Quantity"
-                      height={isMobile ? '300px' : '400px'}
-                    >
-                      <TopSellersByQuantityChart data={topPerformersData.topSellersByQuantity} animated={true} />
-                    </AnimatedChartWrapper>
+                <AnimatedChartWrapper
+                  title="Top Sellers by Quantity"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topSellers ? (
+                    <ChartErrorState 
+                      error={apiErrors.topSellers} 
+                      title="Top Sellers Data"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topPerformersData?.topSellersByQuantity?.length > 0 ? (
+                    <TopSellersByQuantityChart data={topPerformersData.topSellersByQuantity} animated={true} />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No seller data available</div>
                   )}
-                </div>
-              )}
+                </AnimatedChartWrapper>
+              </div>
 
               {/* Top Merchants by Brokerage and Distribution */}
-              {topMerchantsByBrokerage.length > 0 && (
-                <div className="dashboard-analytics-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
-                  gap: isMobile ? '16px' : '20px',
-                  marginBottom: '30px'
-                }}>
-                  <AnimatedChartWrapper
-                    title="Top 5 Merchants by Brokerage"
-                    height={isMobile ? '300px' : '400px'}
-                  >
+              <div className="dashboard-analytics-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
+                gap: isMobile ? '16px' : '20px',
+                marginBottom: '30px'
+              }}>
+                <AnimatedChartWrapper
+                  title="Top 5 Merchants by Brokerage"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topMerchants ? (
+                    <ChartErrorState 
+                      error={apiErrors.topMerchants} 
+                      title="Top Merchants Data"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topMerchantsByBrokerage.length > 0 ? (
                     <TopMerchantsByBrokerageChart data={topMerchantsByBrokerage} animated={true} />
-                  </AnimatedChartWrapper>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No merchant data available</div>
+                  )}
+                </AnimatedChartWrapper>
 
-                  <AnimatedChartWrapper
-                    title="Brokerage Distribution"
-                    height={isMobile ? '300px' : '400px'}
-                  >
+                <AnimatedChartWrapper
+                  title="Brokerage Distribution"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topMerchants ? (
+                    <ChartErrorState 
+                      error={apiErrors.topMerchants} 
+                      title="Brokerage Distribution"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topMerchantsByBrokerage.length > 0 ? (
                     <BrokerageDistributionPieChart data={topMerchantsByBrokerage} animated={true} />
-                  </AnimatedChartWrapper>
-                </div>
-              )}
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No brokerage data available</div>
+                  )}
+                </AnimatedChartWrapper>
+              </div>
             </div>
           )}
 

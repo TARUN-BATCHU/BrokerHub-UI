@@ -5,6 +5,7 @@ import { brokerageAPI } from '../services/brokerageAPI';
 import { financialYearAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import UserDetailModal from '../components/UserDetailModal';
+import CustomBrokerageModal from '../components/CustomBrokerageModal';
 import '../styles/modern-ui.css';
 
 const BrokerageUsers = () => {
@@ -19,6 +20,7 @@ const BrokerageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [cities, setCities] = useState([]);
+  const [customBrokerageModal, setCustomBrokerageModal] = useState({ isOpen: false, userId: null, format: null });
 
   useEffect(() => {
     loadInitialData();
@@ -106,39 +108,44 @@ const BrokerageUsers = () => {
     }
   };
 
-  const handleDownloadBill = async (userId, format = 'html') => {
+  const handleDownloadBill = (userId, format = 'html') => {
+    setCustomBrokerageModal({ isOpen: true, userId, format });
+  };
+
+  const handleCustomBrokerageConfirm = async (customBrokerage) => {
+    const { userId, format } = customBrokerageModal;
     try {
-      if (format === 'excel') {
-        await brokerageAPI.downloadUserExcel(userId, selectedYear);
+      if (format === 'bulk-bills') {
+        await brokerageAPI.bulkBillsByUsers(selectedUsers, selectedYear, customBrokerage);
+        alert('Bulk bill generation started. Check document status for progress.');
+      } else if (format === 'bulk-excel') {
+        await brokerageAPI.bulkExcelByUsers(selectedUsers, selectedYear, customBrokerage);
+        alert('Bulk Excel generation started. Check document status for progress.');
+      } else if (format === 'excel') {
+        await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage);
       } else {
-        await brokerageAPI.downloadUserBill(userId, selectedYear);
+        await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage);
       }
     } catch (error) {
-      console.error('Failed to download bill:', error);
+      console.error('Failed to download/generate:', error);
     }
   };
 
-  const handleBulkBills = async () => {
-    if (selectedUsers.length === 0) return;
-    
-    try {
-      await brokerageAPI.bulkBillsByUsers(selectedUsers, selectedYear);
-      alert('Bulk bill generation started. Check document status for progress.');
-    } catch (error) {
-      console.error('Failed to start bulk generation:', error);
-    }
+  const handleCustomBrokerageClose = () => {
+    setCustomBrokerageModal({ isOpen: false, userId: null, format: null });
   };
 
-  const handleBulkExcel = async () => {
+  const handleBulkBills = () => {
     if (selectedUsers.length === 0) return;
-    
-    try {
-      await brokerageAPI.bulkExcelByUsers(selectedUsers, selectedYear);
-      alert('Bulk Excel generation started. Check document status for progress.');
-    } catch (error) {
-      console.error('Failed to start bulk generation:', error);
-    }
+    setCustomBrokerageModal({ isOpen: true, userId: 'bulk-bills', format: 'bulk-bills' });
   };
+
+  const handleBulkExcel = () => {
+    if (selectedUsers.length === 0) return;
+    setCustomBrokerageModal({ isOpen: true, userId: 'bulk-excel', format: 'bulk-excel' });
+  };
+
+
 
   if (loading) return (
     <div style={{ background: theme.background, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: 0 }}>
@@ -279,7 +286,7 @@ const BrokerageUsers = () => {
                 isSelected={selectedUsers.includes(user.userId)}
                 onSelect={() => handleUserSelect(user.userId)}
                 onViewDetails={() => handleViewDetails(user)}
-                onDownloadBill={(format) => handleDownloadBill(user.userId, format)}
+                onDownloadBill={handleDownloadBill}
                 index={index}
               />
             ))}
@@ -325,6 +332,7 @@ const BrokerageUsers = () => {
               <button 
                 onClick={handleBulkBills} 
                 className="modern-button modern-button-primary"
+                title="Generate bulk bills with custom brokerage option"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -338,6 +346,7 @@ const BrokerageUsers = () => {
               <button 
                 onClick={handleBulkExcel} 
                 className="modern-button modern-button-accent"
+                title="Generate bulk Excel reports with custom brokerage option"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -410,6 +419,17 @@ const BrokerageUsers = () => {
             onClose={() => setSelectedUser(null)}
           />
         )}
+
+        <CustomBrokerageModal
+          isOpen={customBrokerageModal.isOpen}
+          onClose={handleCustomBrokerageClose}
+          onConfirm={handleCustomBrokerageConfirm}
+          title={
+            customBrokerageModal.format === 'bulk-bills' ? 'Bulk Bills Generation' :
+            customBrokerageModal.format === 'bulk-excel' ? 'Bulk Excel Generation' :
+            `Download ${customBrokerageModal.format === 'excel' ? 'Excel' : 'Bill'}`
+          }
+        />
       </div>
     </div>
   );
@@ -537,10 +557,10 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
           </svg>
         </button>
         <button 
-          onClick={() => onDownloadBill('html')} 
+          onClick={() => onDownloadBill(user.userId, 'html')} 
           className="modern-button modern-button-primary"
           style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
-          title="Download Bill"
+          title="Download Bill with Custom Brokerage Option"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -548,10 +568,10 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
           </svg>
         </button>
         <button 
-          onClick={() => onDownloadBill('excel')} 
+          onClick={() => onDownloadBill(user.userId, 'excel')} 
           className="modern-button modern-button-accent"
           style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
-          title="Download Excel"
+          title="Download Excel with Custom Brokerage Option"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

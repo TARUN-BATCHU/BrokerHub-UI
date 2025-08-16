@@ -28,28 +28,32 @@ export const brokerageAPI = {
   },
 
   // Document Generation APIs
-  downloadUserBill: async (userId, financialYear) => {
-    const response = await api.get(`/Brokerage/bill/${userId}/${financialYear}`, {
+  downloadUserBill: async (userId, financialYear, customBrokerage = null) => {
+    const url = `/Brokerage/bill/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.get(url, {
       responseType: 'blob'
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `bill_${userId}.html`;
+    link.href = downloadUrl;
+    const filename = customBrokerage ? `bill_${userId}_custom_${customBrokerage}.html` : `bill_${userId}.html`;
+    link.download = filename;
     link.click();
-    window.URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(downloadUrl);
   },
 
-  downloadUserExcel: async (userId, financialYear) => {
-    const response = await api.get(`/Brokerage/excel/user/${userId}/${financialYear}`, {
+  downloadUserExcel: async (userId, financialYear, customBrokerage = null) => {
+    const url = `/Brokerage/excel/user/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.get(url, {
       responseType: 'blob'
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `bill_${userId}.xlsx`;
+    link.href = downloadUrl;
+    const filename = customBrokerage ? `bill_${userId}_custom_${customBrokerage}.xlsx` : `bill_${userId}.xlsx`;
+    link.download = filename;
     link.click();
-    window.URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(downloadUrl);
   },
 
   downloadSummaryExcel: async (financialYear) => {
@@ -82,8 +86,9 @@ export const brokerageAPI = {
     return response.data;
   },
 
-  bulkBillsByUsers: async (userIds, financialYear) => {
-    const response = await api.post(`/Brokerage/bulk-bills/users/${financialYear}`, userIds);
+  bulkBillsByUsers: async (userIds, financialYear, customBrokerage = null) => {
+    const url = `/Brokerage/bulk-bills/users/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.post(url, userIds);
     return response.data;
   },
 
@@ -92,8 +97,9 @@ export const brokerageAPI = {
     return response.data;
   },
 
-  bulkExcelByUsers: async (userIds, financialYear) => {
-    const response = await api.post(`/Brokerage/bulk-excel/users/${financialYear}`, userIds);
+  bulkExcelByUsers: async (userIds, financialYear, customBrokerage = null) => {
+    const url = `/Brokerage/bulk-excel/users/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.post(url, userIds);
     return response.data;
   },
 
