@@ -9,7 +9,8 @@ const ConfirmationModal = ({
   message = "Are you sure you want to proceed?",
   confirmText = "Confirm",
   cancelText = "Cancel",
-  type = "danger" // danger, warning, info
+  type = "danger", // danger, warning, info
+  loading = false
 }) => {
   const { theme } = useTheme();
 
@@ -127,6 +128,7 @@ const ConfirmationModal = ({
           </button>
           <button
             onClick={onConfirm}
+            disabled={loading}
             style={{
               padding: '10px 16px',
               border: 'none',
@@ -135,16 +137,30 @@ const ConfirmationModal = ({
               color: 'white',
               fontSize: '14px',
               fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1,
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = typeColors.confirmHover;
+              if (!loading) e.target.style.backgroundColor = typeColors.confirmHover;
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = typeColors.confirmBg;
+              if (!loading) e.target.style.backgroundColor = typeColors.confirmBg;
             }}
           >
+            {loading && (
+              <div style={{
+                width: '16px',
+                height: '16px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTop: '2px solid white',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+            )}
             {confirmText}
           </button>
         </div>
@@ -160,6 +176,10 @@ const ConfirmationModal = ({
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

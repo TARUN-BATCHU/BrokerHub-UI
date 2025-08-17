@@ -4,6 +4,8 @@ export const mockSalesData = {
   totalSales: 2450000,
   totalQuantity: 15600,
   totalTransactions: 342,
+  totalBrokerage: 245000,
+  totalTransactionValue: 2450000,
   monthlyGrowth: 12.5,
   monthlySales: [
     { month: 'Jan', sales: 180000, quantity: 1200 },

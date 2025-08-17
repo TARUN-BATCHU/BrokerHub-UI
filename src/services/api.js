@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Base API configuration
+// Base API configuration - Updated for BrokerHub
 const API_BASE_URL = 'http://localhost:8080/BrokerHub';
 
 const api = axios.create({
@@ -10,53 +10,16 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor for authentication
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
-
-    // For specific endpoints that require Basic Auth, use hardcoded credentials
-    const basicAuthEndpoints = [
-      '/Broker/getBroker/',
-      '/user/allUsers',
-      '/user/updateUser',
-      '/user/bulkUpload',
-      '/user/downloadTemplate',
-      '/FinancialYear/create',
-      '/FinancialYear/getAllFinancialYears',
-      '/Product/createProduct',
-      '/Product/allProducts',
-      '/Product/updateProduct',
-      '/Product/deleteProduct',
-      '/Address/getAllAddresses',
-      '/Address/createAddress',
-      '/Address/updateAddress',
-      '/Dashboard/',
-      '/DailyLedger/',
-      '/LedgerDetail/',
-      '/LedgerRecord/'
-    ];
-
-    const needsBasicAuth = basicAuthEndpoints.some(endpoint =>
-      config.url.includes(endpoint)
-    );
-
-    if (needsBasicAuth) {
-      // Use Basic Authentication with hardcoded credentials
-      const username = 'tarun';
-      const password = 'securePassword123';
-      const basicAuth = btoa(`${username}:${password}`);
-      config.headers.Authorization = `Basic ${basicAuth}`;
-      console.log('Using Basic Auth for:', config.url);
-    } else if (token) {
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor for error handling
@@ -64,21 +27,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
+      // Token expired or invalid
       localStorage.removeItem('authToken');
-      localStorage.removeItem('brokerData');
+      localStorage.removeItem('brokerId');
+      localStorage.removeItem('brokerName');
+      localStorage.removeItem('userName');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-// Auth API functions
+// Auth API functions - Updated for multi-tenant
 export const authAPI = {
-  // Create new broker account
-  createBroker: async (brokerData) => {
+  // Register new broker
+  registerBroker: async (brokerData) => {
     try {
-      const response = await api.post('/Broker/createBroker', brokerData);
+      const response = await api.post('/auth/register', brokerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -89,164 +54,93 @@ export const authAPI = {
   loginBroker: async (credentials) => {
     try {
       const response = await api.post('/Broker/login', credentials);
-
-      console.log('Login API Response:', response);
-      console.log('Response Status:', response.status);
-      console.log('Response Data:', response.data);
-
-      // If response is successful (200)
-      if (response.status === 200) {
-        console.log('Login successful, processing response...');
-
-        // Extract broker ID from response message
-        let brokerId = null;
-
-        // Check if response has a message like "Login successful 8"
-        if (response.data && typeof response.data === 'string') {
-          const match = response.data.match(/Login successful\s+(\d+)/i);
-          if (match) {
-            brokerId = match[1];
-            console.log('Extracted broker ID from message:', brokerId);
-          }
-        }
-
-        // Check if response has message property
-        if (!brokerId && response.data && response.data.message) {
-          const match = response.data.message.match(/Login successful\s+(\d+)/i);
-          if (match) {
-            brokerId = match[1];
-            console.log('Extracted broker ID from message property:', brokerId);
-          }
-        }
-
-        // Check if broker ID is directly in response
-        if (!brokerId && response.data && response.data.brokerId) {
-          brokerId = response.data.brokerId.toString();
-          console.log('Found broker ID in response data:', brokerId);
-        }
-
-        // Handle different token scenarios
-        if (response.data.token) {
-          // If token is directly in response.data
-          localStorage.setItem('authToken', response.data.token);
-          localStorage.setItem('brokerData', JSON.stringify(response.data.broker || response.data));
-        } else if (response.data.data && response.data.data.token) {
-          // If token is nested in response.data.data
-          localStorage.setItem('authToken', response.data.data.token);
-          localStorage.setItem('brokerData', JSON.stringify(response.data.data.broker || response.data.data));
-        } else {
-          // If no token but successful response, create a temporary token
-          const tempToken = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          localStorage.setItem('authToken', tempToken);
-          console.log('Created temporary token for session');
-        }
-
-        // Store broker ID if found
-        if (brokerId) {
-          localStorage.setItem('brokerId', brokerId);
-          console.log('Stored broker ID:', brokerId);
-        } else {
-          console.warn('No broker ID found in response, using default for testing');
-          localStorage.setItem('brokerId', '8'); // Default for testing
-        }
-
-        console.log('Token stored:', localStorage.getItem('authToken'));
-        console.log('Broker ID stored:', localStorage.getItem('brokerId'));
+      
+      if (response.status === 200 && response.data) {
+        // Store JWT token and user info
+        localStorage.setItem('authToken', response.data.token);
+        localStorage.setItem('brokerId', response.data.brokerId);
+        localStorage.setItem('brokerName', response.data.brokerName);
+        localStorage.setItem('userName', response.data.username);
       }
 
       return response.data;
     } catch (error) {
-      console.error('Login API Error:', error);
-      console.error('Error Response:', error.response);
-
-      // Add status code to the error object for better error handling
-      const errorToThrow = error.response?.data || { message: error.message };
-      errorToThrow.status = error.response?.status;
-      throw errorToThrow;
-    }
-  },
-
-
-
-  // Create password
-  createPassword: async (passwordData) => {
-    try {
-      const response = await api.put('/Broker/createPassword', passwordData);
-      return response.data;
-    } catch (error) {
+      console.error('Login error:', error);
       throw error.response?.data || error.message;
     }
   },
+
+
 
   // Change password
   changePassword: async (passwordData) => {
     try {
-      const response = await api.put('/Broker/changePassword', passwordData);
+      const response = await api.put('/auth/password', passwordData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Generate OTP
-  generateOTP: async (email) => {
+  // Request password reset
+  requestPasswordReset: async (email) => {
     try {
-      const response = await api.put(`/Broker/regenerate-otp?email=${encodeURIComponent(email)}`);
+      const response = await api.post('/auth/password-reset/request', { email });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Verify account
-  verifyAccount: async (userName, otp) => {
+  // Reset password with token
+  resetPassword: async (token, newPassword) => {
     try {
-      const response = await api.post(`/Broker/verify-account?userName=${encodeURIComponent(userName)}&otp=${encodeURIComponent(otp)}`);
+      const response = await api.post('/auth/password-reset/confirm', {
+        token,
+        newPassword
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Forgot password
-  forgotPassword: async (userName) => {
+  // Verify email
+  verifyEmail: async (token) => {
     try {
-      const response = await api.get(`/Broker/forgotPassword?userName=${encodeURIComponent(userName)}`);
+      const response = await api.post('/auth/verify-email', { token });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update broker profile
-  updateBroker: async (brokerData) => {
+  // Check username availability
+  checkUsernameExists: async (username) => {
     try {
-      const response = await api.put('/Broker/update', brokerData);
-      return response.data;
+      const response = await api.get(`/Broker/UserNameExists/${encodeURIComponent(username)}`);
+      return response.data || false;
     } catch (error) {
+      console.error('Username check error:', error);
       throw error.response?.data || error.message;
     }
   },
 
-  // Get broker profile by ID
-  getBrokerProfile: async (brokerId) => {
+  // Check broker firm name availability
+  checkBrokerFirmNameExists: async (firmName) => {
     try {
-      console.log('Fetching broker profile for ID:', brokerId);
-      const response = await api.get(`/Broker/getBroker/${brokerId}`);
-      console.log('Broker profile response:', response);
-      console.log('Broker profile data:', response.data);
-      return response.data;
+      const response = await api.get(`/Broker/BrokerFirmNameExists/${encodeURIComponent(firmName)}`);
+      return response.data || false;
     } catch (error) {
-      console.error('Error fetching broker profile:', error);
-      console.error('Error response:', error.response);
+      console.error('Firm name check error:', error);
       throw error.response?.data || error.message;
     }
   },
 
-  // Update broker profile
-  updateBrokerProfile: async (brokerData) => {
+  // Create broker (for signup)
+  createBroker: async (brokerData) => {
     try {
-      const response = await api.put('/Broker/updateBroker', brokerData);
+      const response = await api.post('/Broker/createBroker', brokerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -256,59 +150,56 @@ export const authAPI = {
   // Logout
   logout: () => {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('brokerData');
     localStorage.removeItem('brokerId');
+    localStorage.removeItem('brokerName');
+    localStorage.removeItem('userName');
   }
 };
 
-// Merchant API functions
-export const merchantAPI = {
-  // Create merchant/user
+// User/Merchant API functions
+export const userAPI = {
+  // Create user
   createUser: async (userData) => {
     try {
       const response = await api.post('/user/createUser', userData);
       return response.data;
     } catch (error) {
-      console.error('Create user API Error:', error);
-      console.error('Error Response:', error.response);
-
-      // Add status code to the error object for better error handling
-      const errorToThrow = error.response?.data || { message: error.message };
-      errorToThrow.status = error.response?.status;
-      throw errorToThrow;
-    }
-  },
-
-  // Get all merchants/users
-  getAllMerchants: async () => {
-    try {
-      console.log('Fetching all merchants/users...');
-      const response = await api.get('/user/allUsers');
-      console.log('All merchants response:', response);
-      console.log('All merchants data:', response.data);
-      console.log('Response status:', response.status);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching all merchants:', error);
-      console.error('Error response:', error.response);
-      console.error('Error status:', error.response?.status);
-      console.error('Error data:', error.response?.data);
       throw error.response?.data || error.message;
     }
   },
 
-  // Get merchant by ID
-  getMerchantById: async (id) => {
+  // Get user summary with pagination
+  getUserSummary: async (page = 0, size = 10, sort = 'firmName,asc') => {
     try {
-      const response = await api.get(`/user/merchant/${id}`);
+      const response = await api.get(`/user/getUserSummary?page=${page}&size=${size}&sort=${sort}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update merchant/user
-  updateMerchant: async (userData) => {
+  // Get firm names, IDs and cities
+  getFirmNamesIdsAndCities: async () => {
+    try {
+      const response = await api.get('/user/getFirmNamesIdsAndCities');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get users by city
+  getUsersByCity: async (cityName) => {
+    try {
+      const response = await api.get(`/user/getUsersByCity/${encodeURIComponent(cityName)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update user
+  updateUser: async (userData) => {
     try {
       const response = await api.put('/user/updateUser', userData);
       return response.data;
@@ -317,50 +208,129 @@ export const merchantAPI = {
     }
   },
 
-  // Download Excel template for bulk upload
-  downloadTemplate: async () => {
+  // Bulk upload users
+  bulkUpload: async (file) => {
     try {
-      console.log('Downloading Excel template...');
-      const response = await api.get('/user/downloadTemplate', {
-        responseType: 'blob',
-      });
-
-      console.log('Template download response:', response);
-      return response.data;
-    } catch (error) {
-      console.error('Error downloading template:', error);
-      console.error('Error response:', error.response);
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Bulk upload merchants via Excel
-  bulkUploadMerchants: async (file) => {
-    try {
-      console.log('Uploading bulk merchants file:', file.name);
       const formData = new FormData();
       formData.append('file', file);
-
       const response = await api.post('/user/bulkUpload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+          'Content-Type': 'multipart/form-data'
+        }
       });
-
-      console.log('Bulk upload response:', response);
-      console.log('Upload result:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error uploading bulk merchants:', error);
-      console.error('Error response:', error.response);
       throw error.response?.data || error.message;
     }
   },
 
-  // Delete merchant
-  deleteMerchant: async (id) => {
+  // Download user template
+  downloadTemplate: async () => {
     try {
-      const response = await api.delete(`/user/merchant/${id}`);
+      const response = await api.get('/user/downloadTemplate', {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Product API functions
+export const productAPI = {
+  // Create product
+  createProduct: async (productData) => {
+    try {
+      const response = await api.post('/Product/createProduct', productData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all products
+  getAllProducts: async (page = 0, size = 10) => {
+    try {
+      const response = await api.get('/Product/allProducts');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get products by name
+  getProductsByName: async (productName) => {
+    try {
+      const response = await api.get(`/Product/getProductsByName/${encodeURIComponent(productName)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get product names
+  getProductNames: async () => {
+    try {
+      const response = await api.get('/Product/getProductNames');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get product names, qualities and quantities with ID
+  getProductNamesAndQualitiesAndQuantitesWithId: async () => {
+    try {
+      const response = await api.get('/Product/getProductNamesAndQualitiesAndQuantitesWithId');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update product
+  updateProduct: async (productData) => {
+    try {
+      const response = await api.put('/Product/updateProduct', productData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete product
+  deleteProduct: async (productId) => {
+    try {
+      const response = await api.delete(`/Product/deleteProduct/${productId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Bulk upload products
+  bulkUpload: async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/Product/bulkUpload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download product template
+  downloadTemplate: async () => {
+    try {
+      const response = await api.get('/Product/downloadTemplate', {
+        responseType: 'blob'
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -371,29 +341,27 @@ export const merchantAPI = {
 // Analytics API functions
 export const analyticsAPI = {
   // Get financial year analytics
-  getFinancialYearAnalytics: async (brokerId, financialYearId) => {
+  getFinancialYearAnalytics: async (financialYearId) => {
     try {
-      const response = await api.get(`/Dashboard/${brokerId}/getFinancialYearAnalytics/${financialYearId}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
+      const response = await api.get(`/Dashboard/${brokerId}/getFinancialYearAnalytics/${financialYearId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get top performers (comprehensive data)
-  getTopPerformers: async (brokerId, financialYearId) => {
+  // Get top performers
+  getTopPerformers: async (financialYearId) => {
     try {
-      const response = await api.get(`/Dashboard/${brokerId}/getTopPerformers/${financialYearId}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
+      const response = await api.get(`/Dashboard/${brokerId}/getTopPerformers/${financialYearId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -401,8 +369,12 @@ export const analyticsAPI = {
   },
 
   // Get top 5 buyers by quantity
-  getTop5BuyersByQuantity: async (brokerId, financialYearId) => {
+  getTop5BuyersByQuantity: async (financialYearId) => {
     try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
       const response = await api.get(`/Dashboard/${brokerId}/getTop5BuyersByQuantity/${financialYearId}`);
       return response.data;
     } catch (error) {
@@ -410,9 +382,27 @@ export const analyticsAPI = {
     }
   },
 
-  // Get top 5 merchants by brokerage
-  getTop5MerchantsByBrokerage: async (brokerId, financialYearId) => {
+  // Get top 5 sellers by quantity
+  getTop5SellersByQuantity: async (financialYearId) => {
     try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
+      const response = await api.get(`/Dashboard/${brokerId}/getTop5SellersByQuantity/${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get top 5 merchants by brokerage
+  getTop5MerchantsByBrokerage: async (financialYearId) => {
+    try {
+      const brokerId = localStorage.getItem('brokerId');
+      if (!brokerId) {
+        throw new Error('Broker ID not found. Please login again.');
+      }
       const response = await api.get(`/Dashboard/${brokerId}/getTop5MerchantsByBrokerage/${financialYearId}`);
       return response.data;
     } catch (error) {
@@ -420,50 +410,20 @@ export const analyticsAPI = {
     }
   },
 
-  // Get sales analytics (legacy)
-  getSalesAnalytics: async () => {
+  // Refresh analytics cache
+  refreshCache: async (financialYearId) => {
     try {
-      const response = await api.get('/analytics/sales');
+      const response = await api.post(`/Dashboard/refreshCache/${financialYearId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get top buyers (legacy)
-  getTopBuyers: async () => {
+  // Refresh all analytics cache
+  refreshAllCache: async () => {
     try {
-      const response = await api.get('/analytics/top-buyers');
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Get top sellers (legacy)
-  getTopSellers: async () => {
-    try {
-      const response = await api.get('/analytics/top-sellers');
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Get city-wise analytics (legacy)
-  getCityAnalytics: async () => {
-    try {
-      const response = await api.get('/analytics/cities');
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Get product analytics (legacy)
-  getProductAnalytics: async () => {
-    try {
-      const response = await api.get('/analytics/products');
+      const response = await api.post('/Dashboard/refreshAllCache');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -491,45 +451,217 @@ export const financialYearAPI = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Set current financial year
+  setCurrentFinancialYear: async (financialYearId) => {
+    try {
+      const response = await api.post(`/FinancialYear/setCurrentFinancialYear?financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get current financial year
+  getCurrentFinancialYear: async () => {
+    try {
+      const response = await api.get('/FinancialYear/getCurrentFinancialYear');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 
-// Product API functions
-export const productAPI = {
-  // Create product
-  createProduct: async (productData) => {
+// Daily Ledger API functions
+export const dailyLedgerAPI = {
+  // Get optimized daily ledger by date
+  getOptimizedDailyLedger: async (date) => {
     try {
-      const response = await api.post('/Product/createProduct', productData);
+      const response = await api.get(`/DailyLedger/getOptimizedDailyLedger?date=${date}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get all products
-  getAllProducts: async (page = 0, size = 10) => {
+  // Get optimized daily ledger with pagination
+  getOptimizedDailyLedgerWithPagination: async (date, page = 0, size = 10, sortBy = 'ledgerDetailsId', sortDir = 'asc') => {
     try {
-      const response = await api.get(`/Product/allProducts?page=${page}&size=${size}`);
+      const response = await api.get(`/DailyLedger/getOptimizedDailyLedgerWithPagination?date=${date}&page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Ledger Details API functions
+export const ledgerDetailsAPI = {
+  // Create ledger details
+  createLedgerDetails: async (ledgerData) => {
+    try {
+      const response = await api.post('/LedgerDetails/createLedgerDetails', ledgerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update product
-  updateProduct: async (productData) => {
+  // Get all ledger details
+  getAllLedgerDetails: async (brokerId) => {
     try {
-      const response = await api.put('/Product/updateProduct', productData);
+      const response = await api.post('/LedgerDetails/getAllLedgerDetails', brokerId);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Delete product
-  deleteProduct: async (productId) => {
+  // Get ledger details by ID
+  getLedgerDetailsById: async (ledgerDetailId, brokerId) => {
     try {
-      const response = await api.delete(`/Product/deleteProduct?productId=${productId}`);
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsById?ledgerDetailId=${ledgerDetailId}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by transaction number
+  getLedgerDetailsByTransactionNumber: async (transactionNumber, brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get optimized ledger details by ID
+  getOptimizedLedgerDetailsById: async (ledgerDetailId, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getOptimizedLedgerDetailsById?ledgerDetailId=${ledgerDetailId}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get optimized ledger details by transaction number
+  getOptimizedLedgerDetailsByTransactionNumber: async (transactionNumber, brokerId, financialYearId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getOptimizedLedgerDetailsByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by date
+  getLedgerDetailsByDate: async (date, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsByDate?date=${date}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get ledger details by seller
+  getLedgerDetailsBySeller: async (sellerId, brokerId) => {
+    try {
+      const response = await api.get(`/LedgerDetails/getLedgerDetailsBySeller?sellerId=${sellerId}&brokerId=${brokerId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update ledger detail by transaction number
+  updateLedgerDetailByTransactionNumber: async (transactionNumber, brokerId, financialYearId, ledgerData) => {
+    try {
+      const response = await api.put(`/LedgerDetails/updateLedgerDetailByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`, ledgerData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Bank Details API functions - New for multi-tenant
+export const bankDetailsAPI = {
+  // Create bank details
+  createBankDetails: async (bankDetailsData) => {
+    try {
+      const response = await api.post('/bank-details', bankDetailsData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get bank details by account number
+  getBankDetailsByAccountNumber: async (accountNumber) => {
+    try {
+      const response = await api.get(`/bank-details/account/${encodeURIComponent(accountNumber)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Payment System API functions - New for multi-tenant
+export const paymentAPI = {
+  // Get brokerage payments
+  getBrokeragePayments: async () => {
+    try {
+      const response = await api.get('/payments/brokerage');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get pending payments
+  getPendingPayments: async () => {
+    try {
+      const response = await api.get('/payments/pending');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get receivable payments
+  getReceivablePayments: async () => {
+    try {
+      const response = await api.get('/payments/receivable');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Cache API functions - New for multi-tenant
+export const cacheAPI = {
+  // Get product names cache
+  getProductNames: async () => {
+    try {
+      const response = await api.get('/cache/products/names');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get user names cache
+  getUserNames: async () => {
+    try {
+      const response = await api.get('/cache/users/names');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -567,95 +699,113 @@ export const addressAPI = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Delete address
+  deleteAddress: async (addressId) => {
+    try {
+      const response = await api.delete(`/Address/deleteAddress/${addressId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get cities along route
+  getCitiesAlongRoute: async (source, destination) => {
+    try {
+      const response = await api.get(`/Address/getCitiesAlongRoute?source=${encodeURIComponent(source)}&destination=${encodeURIComponent(destination)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get merchants in city
+  getMerchantsInCity: async (city) => {
+    try {
+      const response = await api.get(`/Address/getMerchantsInCity/${encodeURIComponent(city)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 
-// Daily Ledger API functions
-export const dailyLedgerAPI = {
-  // Create daily ledger
-  createDailyLedger: async (financialYearId, date) => {
+// Merchant API functions
+export const merchantAPI = {
+  // Get merchant summary
+  getMerchantSummary: async (page = 0, size = 10, sort = 'firmName,asc') => {
     try {
-      const response = await api.post(`/DailyLedger/create?financialYearId=${financialYearId}&date=${date}`);
+      const response = await api.get(`/user/getUserSummary?page=${page}&size=${size}&sort=${sort}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Get daily ledger by date
-  getDailyLedger: async (date) => {
+  // Create merchant
+  createMerchant: async (merchantData) => {
     try {
-      const response = await api.get(`/DailyLedger/getDailyLedger?date=${date}`);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-  
-  // Get daily ledger with pagination
-  getDailyLedgerWithPagination: async (date, page = 0, size = 20, sortBy = 'ledgerDetailsId', sortDir = 'asc') => {
-    try {
-      const response = await api.get(`/DailyLedger/getOptimizedDailyLedgerWithPagination?date=${date}&page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+      const response = await api.post('/user/createUser', merchantData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Create ledger detail
-  createLedgerDetail: async (ledgerDetailData) => {
+  // Update merchant
+  updateMerchant: async (merchantData) => {
     try {
-      const response = await api.post('/LedgerDetail/create', ledgerDetailData);
+      const response = await api.put('/user/updateUser', merchantData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update ledger detail
-  updateLedgerDetail: async (ledgerDetailData) => {
+  // Delete merchant
+  deleteMerchant: async (merchantId) => {
     try {
-      const response = await api.put('/LedgerDetail/update', ledgerDetailData);
+      const response = await api.delete(`/user/deleteUser/${merchantId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Delete ledger detail
-  deleteLedgerDetail: async (id) => {
+  // Get merchant by ID
+  getMerchantById: async (merchantId) => {
     try {
-      const response = await api.delete(`/LedgerDetail/delete/${id}`);
+      const response = await api.get(`/user/getUserById/${merchantId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Create ledger record
-  createLedgerRecord: async (ledgerRecordData) => {
+  // Bulk upload merchants
+  bulkUploadMerchants: async (file) => {
     try {
-      const response = await api.post('/LedgerRecord/create', ledgerRecordData);
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/user/bulkUpload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Update ledger record
-  updateLedgerRecord: async (ledgerRecordData) => {
+  // Download merchant template
+  downloadTemplate: async () => {
     try {
-      const response = await api.put('/LedgerRecord/update', ledgerRecordData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Delete ledger record
-  deleteLedgerRecord: async (id) => {
-    try {
-      const response = await api.delete(`/LedgerRecord/delete/${id}`);
+      const response = await api.get('/user/downloadTemplate', {
+        responseType: 'blob'
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -664,6 +814,3 @@ export const dailyLedgerAPI = {
 };
 
 export default api;
-
-
-
