@@ -1,0 +1,54 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
+import {
+  SalesChart,
+  QuantityChart,
+  ProductPieChart,
+  CityChart,
+  TopPerformersChart,
+  MerchantTypeChart,
+  BrokerageChart,
+  TopBuyersByQuantityChart,
+  TopSellersByQuantityChart,
+  TopMerchantsByBrokerageChart,
+  BrokerageDistributionPieChart
+} from '../components/Charts';
+import AddressModal from '../components/AddressModal';
+import ProductEditModal from '../components/ProductEditModal';
+import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
+import AnalyticsControls from '../components/AnalyticsControls';
+import useResponsive from '../hooks/useResponsive';
+import { useTheme } from '../contexts/ThemeContext';
+import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
+import {
+  mockSalesData,
+  mockTopBuyers,
+  mockTopSellers,
+  mockCityAnalytics,
+  mockProductAnalytics
+} from '../utils/mockData';
+import {
+  mockBrokeragePayments,
+  mockPendingPayments,
+  mockReceivablePayments
+} from '../utils/mockPaymentData';
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isMobile, isTablet } = useResponsive();
+  const { theme } = useTheme();
+  const [brokerData, setBrokerData] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [activeAddressSubMenu, setActiveAddressSubMenu] = useState('addresses');
+  const [analyticsData, setAnalyticsData] = useState({
+    sales: mockSalesData,
+    topBuyers: mockTopBuyers,
+    topSellers: mockTopSellers,
+    cityAnalytics: mockCityAnalytics,
+    productAnalytics: mockProductAnalytics
+  });
+
+  // ... rest of the file content ...

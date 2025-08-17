@@ -262,3 +262,117 @@
     width: 100%;
   }
 }
+
+/* Availability checking animations */
+.availability-checking {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.availability-available {
+  animation: slideInSuccess 0.3s ease-out;
+}
+
+.availability-taken {
+  animation: shakeError 0.5s ease-out;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes slideInSuccess {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shakeError {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Highlighted field styling */
+.highlighted-field {
+  position: relative;
+  overflow: hidden;
+}
+
+.highlighted-field::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Password input styling */
+.password-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.password-toggle:hover {
+  color: #4b5563;
+}
+
+.password-toggle:focus {
+  outline: none;
+  color: #3b82f6;
+}
+
+[data-theme="dark"] .password-toggle {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .password-toggle:hover {
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .password-toggle:focus {
+  color: #60a5fa;
+}

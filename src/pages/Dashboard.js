@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { authAPI, merchantAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
+import { authAPI, userAPI, productAPI, addressAPI, analyticsAPI, financialYearAPI, dailyLedgerAPI } from '../services/api';
 import {
   SalesChart,
   QuantityChart,
@@ -18,8 +18,13 @@ import AddressModal from '../components/AddressModal';
 import ProductEditModal from '../components/ProductEditModal';
 import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
 import AnalyticsControls from '../components/AnalyticsControls';
+import TodayMarket from '../components/TodayMarket';
+import ProductBulkUpload from '../components/ProductBulkUpload';
+import MerchantDetailModal from '../components/MerchantDetailModal';
+import ChartErrorState from '../components/ChartErrorState';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
 import {
   mockSalesData,
@@ -39,7 +44,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { isMobile, isTablet } = useResponsive();
   const { theme } = useTheme();
-  const [brokerData, setBrokerData] = useState(null);
+  const { user } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [analyticsData, setAnalyticsData] = useState({
@@ -67,6 +72,16 @@ const Dashboard = () => {
   const [topBuyersByQuantity, setTopBuyersByQuantity] = useState([]);
   const [topMerchantsByBrokerage, setTopMerchantsByBrokerage] = useState([]);
   const [topPerformersLoading, setTopPerformersLoading] = useState(false);
+  const [refreshingCache, setRefreshingCache] = useState(false);
+
+  // Individual API error states
+  const [apiErrors, setApiErrors] = useState({
+    financialYearAnalytics: null,
+    topPerformers: null,
+    topBuyers: null,
+    topSellers: null,
+    topMerchants: null
+  });
 
   // Payments state
   const [activePaymentTab, setActivePaymentTab] = useState('brokerage');
@@ -119,58 +134,16 @@ const Dashboard = () => {
   const [expandedCities, setExpandedCities] = useState({});
   const [showProductEditModal, setShowProductEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [showProductBulkUpload, setShowProductBulkUpload] = useState(false);
+  const [showMerchantDetailModal, setShowMerchantDetailModal] = useState(false);
+  const [selectedMerchantId, setSelectedMerchantId] = useState(null);
+  const [financialYears, setFinancialYears] = useState([]);
+  const [currentFinancialYearId, setCurrentFinancialYearId] = useState('');
+  const [settingFY, setSettingFY] = useState(false);
 
   useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('authToken');
-    const savedBrokerData = localStorage.getItem('brokerData');
-
-    console.log('Dashboard - Token:', token);
-    console.log('Dashboard - Saved broker data:', savedBrokerData);
-
-    if (!token) {
-      console.log('No token found, redirecting to login');
-      navigate('/login');
-      return;
-    }
-
-    if (savedBrokerData) {
-      try {
-        const parsedData = JSON.parse(savedBrokerData);
-        console.log('Dashboard - Parsed broker data:', parsedData);
-        setBrokerData(parsedData);
-      } catch (error) {
-        console.error('Error parsing broker data:', error);
-        // If parsing fails, create a default broker data structure
-        setBrokerData({
-          brokerName: 'Broker User',
-          userName: 'user',
-          brokerageFirmName: 'BrokerHub',
-          email: 'user@brokerhub.com',
-          phoneNumber: 'N/A',
-          pincode: 'N/A',
-          BankName: 'N/A',
-          Branch: 'N/A',
-          AccountNumber: 'N/A',
-          IfscCode: 'N/A'
-        });
-      }
-    } else {
-      // If no broker data, create a default structure
-      console.log('No broker data found, using default');
-      setBrokerData({
-        brokerName: 'Broker User',
-        userName: 'user',
-        brokerageFirmName: 'BrokerHub',
-        email: 'user@brokerhub.com',
-        phoneNumber: 'N/A',
-        pincode: 'N/A',
-        BankName: 'N/A',
-        Branch: 'N/A',
-        AccountNumber: 'N/A',
-        IfscCode: 'N/A'
-      });
-    }
+    // User authentication is handled by AuthContext and ProtectedRoute
+    console.log('Dashboard - User data:', user);
 
     // Check for success message from navigation state
     if (location.state?.message) {
@@ -184,12 +157,9 @@ const Dashboard = () => {
     // Load analytics data (using mock data for now)
     loadAnalyticsData();
 
-    // Load real broker data (only if not already loaded during login)
-    if (!savedBrokerData || savedBrokerData === 'null') {
-      console.log('No broker data found, attempting to load...');
-      loadBrokerData();
-    } else {
-      console.log('Broker data already available from login');
+    // Load real broker data if needed
+    if (user && user.brokerId) {
+      console.log('User data available from auth context');
     }
 
     // Load merchants data
@@ -203,7 +173,13 @@ const Dashboard = () => {
 
     // Load payment data
     loadPaymentData();
-  }, [navigate, location]);
+
+    // Load financial years
+    loadFinancialYears();
+
+    // Load current financial year
+    loadCurrentFinancialYear();
+  }, [navigate, location, user]);
 
   const loadAnalyticsData = async () => {
     try {
@@ -228,53 +204,40 @@ const Dashboard = () => {
     if (!selectedFinancialYear) return;
 
     setAnalyticsLoading(true);
+    
+    // Load main analytics data
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) {
-        console.error('No broker ID found');
-        return;
-      }
-
-      console.log('Loading analytics for broker:', brokerId, 'financial year:', selectedFinancialYear.yearId);
-
-      const apiData = await analyticsAPI.getFinancialYearAnalytics(brokerId, selectedFinancialYear.yearId);
-      console.log('Raw analytics API response:', apiData);
-
+      console.log('Loading analytics for financial year:', selectedFinancialYear.yearId);
+      const apiData = await analyticsAPI.getFinancialYearAnalytics(selectedFinancialYear.yearId);
       const transformedData = transformFinancialYearAnalytics(apiData);
-      console.log('Transformed analytics data:', transformedData);
-
+      
       if (transformedData) {
         setRealAnalyticsData(transformedData);
         setAnalyticsData(transformedData);
       }
-
-      // Load top performers data
-      await loadTopPerformersData();
-
-      // Load comparison data if needed
-      if (showComparison && compareFinancialYear) {
-        await loadComparisonData();
-      }
+      
+      setApiErrors(prev => ({ ...prev, financialYearAnalytics: null }));
     } catch (error) {
-      console.error('Error loading real analytics data:', error);
-      // Don't fall back to mock data when real data is selected
-      // Show error state instead
-      setRealAnalyticsData(null);
-      setAnalyticsData(null);
-      alert(`Failed to fetch real analytics data: ${error.message || 'Server error occurred'}`);
-    } finally {
-      setAnalyticsLoading(false);
+      console.error('Error loading financial year analytics:', error);
+      setApiErrors(prev => ({ ...prev, financialYearAnalytics: error.message || 'Failed to load analytics data' }));
     }
+
+    // Load top performers data independently - this will update the analytics data with real buyer/seller names
+    await loadTopPerformersData();
+
+    // Load comparison data if needed
+    if (showComparison && compareFinancialYear) {
+      await loadComparisonData();
+    }
+    
+    setAnalyticsLoading(false);
   };
 
   const loadComparisonData = async () => {
     if (!compareFinancialYear || !selectedFinancialYear) return;
 
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) return;
-
-      const compareApiData = await analyticsAPI.getFinancialYearAnalytics(brokerId, compareFinancialYear.yearId);
+      const compareApiData = await analyticsAPI.getFinancialYearAnalytics(compareFinancialYear.yearId);
       const compareTransformedData = transformFinancialYearAnalytics(compareApiData);
 
       if (compareTransformedData && realAnalyticsData) {
@@ -309,6 +272,14 @@ const Dashboard = () => {
   const handleDataSourceToggle = (useReal) => {
     setUseRealData(useReal);
     if (useReal && selectedFinancialYear) {
+      // Clear previous errors
+      setApiErrors({
+        financialYearAnalytics: null,
+        topPerformers: null,
+        topBuyers: null,
+        topSellers: null,
+        topMerchants: null
+      });
       loadRealAnalyticsData();
       loadTopPerformersData();
     } else {
@@ -323,10 +294,17 @@ const Dashboard = () => {
       setRealAnalyticsData(null);
       setCompareAnalyticsData(null);
       setComparisonMetrics(null);
-      // Reset top performers data
       setTopPerformersData(null);
       setTopBuyersByQuantity([]);
       setTopMerchantsByBrokerage([]);
+      // Clear errors when switching to mock data
+      setApiErrors({
+        financialYearAnalytics: null,
+        topPerformers: null,
+        topBuyers: null,
+        topSellers: null,
+        topMerchants: null
+      });
     }
   };
 
@@ -341,18 +319,12 @@ const Dashboard = () => {
 
   const loadBrokerData = async () => {
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (brokerId) {
-        console.log('Loading broker data for ID:', brokerId);
-        const brokerData = await authAPI.getBrokerProfile(brokerId);
-        console.log('Loaded broker data:', brokerData);
-        setBrokerData(brokerData);
-        // Update localStorage with fresh data
-        localStorage.setItem('brokerData', JSON.stringify(brokerData));
-      }
+      console.log('Refreshing broker profile data...');
+      // Just refresh the page or show a message since we don't have a specific broker profile API
+      alert('Profile data refreshed from current session!');
     } catch (error) {
-      console.error('Error loading broker data:', error);
-      alert(`Failed to fetch broker profile: ${error.message || 'Server error occurred'}`);
+      console.error('Error refreshing broker data:', error);
+      alert(`Failed to refresh broker profile: ${error.message || 'Server error occurred'}`);
     }
   };
 
@@ -360,28 +332,18 @@ const Dashboard = () => {
     setLoading(true);
     try {
       console.log('Loading merchants data...');
-      const merchantsData = await merchantAPI.getAllMerchants();
+      const merchantsData = await userAPI.getUserSummary(0, 100, 'firmName,asc');
+      // Extract content from paginated response
+      const merchants = merchantsData.content || merchantsData;
       console.log('Loaded merchants data:', merchantsData);
       console.log('Type of merchants data:', typeof merchantsData);
       console.log('Is array:', Array.isArray(merchantsData));
 
-      // Ensure we always set an array
-      if (Array.isArray(merchantsData)) {
-        setMerchants(merchantsData);
-      } else if (merchantsData && typeof merchantsData === 'object') {
-        // If it's an object, try to extract array from common properties
-        if (Array.isArray(merchantsData.data)) {
-          setMerchants(merchantsData.data);
-        } else if (Array.isArray(merchantsData.users)) {
-          setMerchants(merchantsData.users);
-        } else if (Array.isArray(merchantsData.merchants)) {
-          setMerchants(merchantsData.merchants);
-        } else {
-          console.warn('Merchants data is not an array and no array found in object:', merchantsData);
-          setMerchants([]);
-        }
+      // Set merchants from the extracted data
+      if (Array.isArray(merchants)) {
+        setMerchants(merchants);
       } else {
-        console.warn('Merchants data is not an array or object:', merchantsData);
+        console.warn('Merchants data is not an array:', merchants);
         setMerchants([]);
       }
     } catch (error) {
@@ -433,44 +395,118 @@ const Dashboard = () => {
     }
   };
 
-  // Load top performers data
+  // Load top performers data independently
   const loadTopPerformersData = async () => {
     if (!useRealData || !selectedFinancialYear) return;
 
     setTopPerformersLoading(true);
+    
+    // Load each API independently
+    const loadPromises = [
+      // Top Performers
+      analyticsAPI.getTopPerformers(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopPerformersData(data);
+          setApiErrors(prev => ({ ...prev, topPerformers: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top performers:', error);
+          setApiErrors(prev => ({ ...prev, topPerformers: error.message || 'Failed to load top performers' }));
+          setTopPerformersData(null);
+        }),
+      
+      // Top Buyers - Update analytics data with real buyer data
+      analyticsAPI.getTop5BuyersByQuantity(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopBuyersByQuantity(data);
+          // Update the main analytics data with real top buyers
+          setAnalyticsData(prev => ({
+            ...prev,
+            topBuyers: data || []
+          }));
+          setApiErrors(prev => ({ ...prev, topBuyers: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top buyers:', error);
+          setApiErrors(prev => ({ ...prev, topBuyers: error.message || 'Failed to load top buyers' }));
+          setTopBuyersByQuantity([]);
+        }),
+      
+      // Top Sellers - Update analytics data with real seller data
+      analyticsAPI.getTop5SellersByQuantity(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopPerformersData(prev => ({ ...prev, topSellersByQuantity: data }));
+          // Update the main analytics data with real top sellers
+          setAnalyticsData(prev => ({
+            ...prev,
+            topSellers: data || []
+          }));
+          setApiErrors(prev => ({ ...prev, topSellers: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top sellers:', error);
+          setApiErrors(prev => ({ ...prev, topSellers: error.message || 'Failed to load top sellers' }));
+        }),
+      
+      // Top Merchants
+      analyticsAPI.getTop5MerchantsByBrokerage(selectedFinancialYear.yearId)
+        .then(data => {
+          setTopMerchantsByBrokerage(data);
+          setApiErrors(prev => ({ ...prev, topMerchants: null }));
+        })
+        .catch(error => {
+          console.error('Error loading top merchants:', error);
+          setApiErrors(prev => ({ ...prev, topMerchants: error.message || 'Failed to load top merchants' }));
+          setTopMerchantsByBrokerage([]);
+        })
+    ];
+
+    await Promise.allSettled(loadPromises);
+    setTopPerformersLoading(false);
+  };
+
+  // Refresh analytics cache
+  const handleRefreshCache = async () => {
+    if (!selectedFinancialYear) {
+      alert('Please select a financial year first');
+      return;
+    }
+
+    setRefreshingCache(true);
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) {
-        console.error('No broker ID found');
-        return;
+      await analyticsAPI.refreshCache(selectedFinancialYear.yearId);
+      alert('Analytics cache refreshed successfully!');
+      
+      // Reload data after cache refresh
+      if (useRealData) {
+        await loadRealAnalyticsData();
+        await loadTopPerformersData();
       }
-
-      console.log('Loading top performers data for broker:', brokerId, 'financial year:', selectedFinancialYear.yearId);
-
-      // Load all top performers data in parallel
-      const [topPerformersResponse, topBuyersResponse, topMerchantsResponse] = await Promise.all([
-        analyticsAPI.getTopPerformers(brokerId, selectedFinancialYear.yearId),
-        analyticsAPI.getTop5BuyersByQuantity(brokerId, selectedFinancialYear.yearId),
-        analyticsAPI.getTop5MerchantsByBrokerage(brokerId, selectedFinancialYear.yearId)
-      ]);
-
-      console.log('Top performers response:', topPerformersResponse);
-      console.log('Top buyers response:', topBuyersResponse);
-      console.log('Top merchants response:', topMerchantsResponse);
-
-      setTopPerformersData(topPerformersResponse);
-      setTopBuyersByQuantity(topBuyersResponse);
-      setTopMerchantsByBrokerage(topMerchantsResponse);
-
     } catch (error) {
-      console.error('Error loading top performers data:', error);
-      alert(`Failed to fetch top performers data: ${error.message || 'Server error occurred'}`);
-      // Reset to empty arrays on error
-      setTopPerformersData(null);
-      setTopBuyersByQuantity([]);
-      setTopMerchantsByBrokerage([]);
+      console.error('Error refreshing cache:', error);
+      alert(`Failed to refresh cache: ${error.message || 'Server error occurred'}`);
     } finally {
-      setTopPerformersLoading(false);
+      setRefreshingCache(false);
+    }
+  };
+
+  // Refresh all analytics cache
+  const handleRefreshAllCache = async () => {
+    setRefreshingCache(true);
+    try {
+      await analyticsAPI.refreshAllCache();
+      alert('All analytics cache refreshed successfully!');
+      
+      // Reload data after cache refresh
+      if (useRealData && selectedFinancialYear) {
+        await loadRealAnalyticsData();
+        await loadTopPerformersData();
+      }
+    } catch (error) {
+      console.error('Error refreshing all cache:', error);
+      alert(`Failed to refresh all cache: ${error.message || 'Server error occurred'}`);
+    } finally {
+      setRefreshingCache(false);
     }
   };
 
@@ -484,6 +520,54 @@ const Dashboard = () => {
       console.log('Payment data loaded successfully');
     } catch (error) {
       console.error('Error loading payment data:', error);
+    }
+  };
+
+  // Load financial years
+  const loadFinancialYears = async () => {
+    try {
+      console.log('Loading financial years...');
+      const fyData = await financialYearAPI.getAllFinancialYears();
+      setFinancialYears(fyData || []);
+      console.log('Financial years loaded:', fyData);
+    } catch (error) {
+      console.error('Error loading financial years:', error);
+      setFinancialYears([]);
+    }
+  };
+
+  // Load current financial year
+  const loadCurrentFinancialYear = async () => {
+    try {
+      const currentFY = await financialYearAPI.getCurrentFinancialYear();
+      if (currentFY && currentFY.financialYearName) {
+        setCurrentFinancialYearId(currentFY.financialYearName);
+      }
+    } catch (error) {
+      console.log('No current financial year set or error loading:', error);
+    }
+  };
+
+  // Set current financial year
+  const handleSetCurrentFinancialYear = async () => {
+    if (!currentFinancialYearId) return;
+    
+    setSettingFY(true);
+    try {
+      const selectedFY = financialYears.find(fy => fy.financialYearName === currentFinancialYearId);
+      const fyId = selectedFY?.yearId;
+      if (!fyId) {
+        alert('Financial Year ID not found');
+        return;
+      }
+      console.log('Sending financialYearId to API:', fyId, typeof fyId);
+      await financialYearAPI.setCurrentFinancialYear(parseInt(fyId));
+      alert(`Financial Year set to ${currentFinancialYearId}`);
+    } catch (error) {
+      console.error('Error setting financial year:', error);
+      alert('Failed to set financial year');
+    } finally {
+      setSettingFY(false);
     }
   };
 
@@ -674,8 +758,8 @@ const Dashboard = () => {
   };
 
   const handleViewMerchant = (merchant) => {
-    setSelectedMerchant(merchant);
-    setShowMerchantModal(true);
+    setSelectedMerchantId(merchant.userId);
+    setShowMerchantDetailModal(true);
   };
 
   const handleEditMerchant = (merchant) => {
@@ -770,7 +854,7 @@ const Dashboard = () => {
     setUploadMessage('⏳ Uploading and processing file...');
 
     try {
-      const result = await merchantAPI.bulkUploadMerchants(uploadFile);
+      const result = await userAPI.bulkUpload(uploadFile);
       console.log('Upload result:', result);
 
       // Handle the detailed response from backend
@@ -836,7 +920,7 @@ const Dashboard = () => {
       console.log('Downloading Excel template from backend...');
       setUploadMessage('📥 Downloading template...');
 
-      const blob = await merchantAPI.downloadTemplate();
+      const blob = await userAPI.downloadTemplate();
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -937,8 +1021,8 @@ const Dashboard = () => {
     return grouped;
   };
 
-  // Show loading only briefly, then show dashboard with default data
-  if (!brokerData) {
+  // Show loading only briefly, then show dashboard with user data
+  if (!user) {
     return (
       <div style={{
         display: 'flex',
@@ -985,7 +1069,7 @@ const Dashboard = () => {
             color: theme.textSecondary,
             fontSize: isMobile ? '14px' : '16px'
           }}>
-            Welcome back, {brokerData?.brokerName || 'Broker User'}!
+            Welcome back, {user?.brokerName || 'Broker User'}!
           </p>
         </div>
         {/* Settings dropdown will be positioned here by App.js */}
@@ -1026,6 +1110,7 @@ const Dashboard = () => {
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'analytics', label: 'Analytics' },
+            { id: 'todaymarket', label: 'Today Market' },
             { id: 'payments', label: 'Payments' },
             { id: 'merchants', label: 'Merchants' },
             { id: 'products', label: 'Products' },
@@ -1080,6 +1165,9 @@ const Dashboard = () => {
           showComparison={showComparison}
           onToggleComparison={handleToggleComparison}
           loading={analyticsLoading}
+          onRefreshCache={handleRefreshCache}
+          onRefreshAllCache={handleRefreshAllCache}
+          refreshingCache={refreshingCache}
         />
       )}
 
@@ -1171,37 +1259,70 @@ const Dashboard = () => {
               </div>
 
               <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
-                <Link
-                  to="/daily-ledger"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '16px 24px',
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    transition: 'all 0.3s ease',
-                    backdropFilter: 'blur(10px)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <span style={{ fontSize: '18px' }}>🚀</span>
-                  Open Daily Ledger
-                </Link>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <Link
+                    to="/financial-years"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '16px 24px',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '12px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>🚀</span>
+                    Open Ledger Detail
+                  </Link>
+                  <Link
+                    to="/brokerage"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '16px 24px',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '12px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>💰</span>
+                    Brokerage Dashboard
+                  </Link>
+                </div>
                 <p style={{
                   margin: '8px 0 0 0',
                   color: 'rgba(255,255,255,0.7)',
@@ -1234,7 +1355,7 @@ const Dashboard = () => {
                 <div>
                   <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Sales</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {formatCurrency(analyticsData.sales.totalSales)}
+                    {formatCurrency(analyticsData.sales?.totalSales || 0)}
                   </h3>
                 </div>
                 <div style={{
@@ -1248,7 +1369,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <p style={{ margin: '8px 0 0 0', color: theme.success, fontSize: '12px' }}>
-                +{analyticsData.sales.monthlyGrowth}% from last month
+                +{analyticsData.sales?.monthlyGrowth || 0}% from last month
               </p>
             </div>
 
@@ -1264,7 +1385,7 @@ const Dashboard = () => {
                 <div>
                   <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Quantity</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {formatNumber(analyticsData.sales.totalQuantity)} Tons
+                    {formatNumber(analyticsData.sales?.totalQuantity || 0)} Tons
                   </h3>
                 </div>
                 <div style={{
@@ -1291,7 +1412,7 @@ const Dashboard = () => {
                 <div>
                   <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Transactions</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {formatNumber(analyticsData.sales.totalTransactions)}
+                    {formatNumber(analyticsData.sales?.totalTransactions || 0)}
                   </h3>
                 </div>
                 <div style={{
@@ -1316,31 +1437,81 @@ const Dashboard = () => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>
-                    {useRealData && analyticsData.sales.totalBrokerage ? 'Total Brokerage' : 'Active Merchants'}
-                  </p>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Brokerage Earned</p>
                   <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
-                    {useRealData && analyticsData.sales.totalBrokerage
-                      ? formatCurrency(analyticsData.sales.totalBrokerage)
-                      : merchants.length
-                    }
+                    {formatCurrency(analyticsData.sales?.totalBrokerage || 0)}
                   </h3>
                 </div>
                 <div style={{
-                  backgroundColor: useRealData && analyticsData.sales.totalBrokerage ? '#fef3c7' : '#ede9fe',
+                  backgroundColor: '#fef3c7',
                   padding: '12px',
                   borderRadius: '8px',
-                  color: useRealData && analyticsData.sales.totalBrokerage ? '#f59e0b' : '#8b5cf6',
+                  color: '#f59e0b',
                   fontSize: '24px'
                 }}>
-                  {useRealData && analyticsData.sales.totalBrokerage ? '💸' : '👥'}
+                  💸
                 </div>
               </div>
-              {useRealData && analyticsData.sales.totalBrokerage && (
-                <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '12px' }}>
-                  Earned from {analyticsData.sales.totalTransactions} transactions
-                </p>
-              )}
+              <p style={{ margin: '8px 0 0 0', color: theme.textSecondary, fontSize: '12px' }}>
+                Earned from {analyticsData.sales?.totalTransactions || 0} transactions
+              </p>
+            </div>
+
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Total Transaction Value</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {formatCurrency(analyticsData.sales?.totalTransactionValue || 0)}
+                  </h3>
+                </div>
+                <div style={{
+                  backgroundColor: '#dcfce7',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  color: '#16a34a',
+                  fontSize: '24px'
+                }}>
+                  💰
+                </div>
+              </div>
+              <p style={{ margin: '8px 0 0 0', color: theme.success, fontSize: '12px' }}>
+                Total value of all transactions
+              </p>
+            </div>
+
+            <div style={{
+              backgroundColor: theme.cardBackground,
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: theme.shadow,
+              border: `1px solid ${theme.border}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>Active Merchants</p>
+                  <h3 style={{ margin: '4px 0 0 0', color: theme.textPrimary, fontSize: '24px', fontWeight: '700' }}>
+                    {merchants.length}
+                  </h3>
+                </div>
+                <div style={{
+                  backgroundColor: '#ede9fe',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  color: '#8b5cf6',
+                  fontSize: '24px'
+                }}>
+                  👥
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1355,14 +1526,34 @@ const Dashboard = () => {
               title="Monthly Sales Performance"
               height={isMobile ? '300px' : '400px'}
             >
-              <SalesChart data={analyticsData.sales.monthlySales} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="Sales Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (
+                <SalesChart data={analyticsData.sales?.monthlySales || []} animated={true} />
+              )}
             </AnimatedChartWrapper>
 
             <AnimatedChartWrapper
               title="Product Distribution"
               height={isMobile ? '300px' : '400px'}
             >
-              <ProductPieChart data={analyticsData.productAnalytics} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="Product Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (analyticsData.productAnalytics && analyticsData.productAnalytics.length > 0) ? (
+                <ProductPieChart data={analyticsData.productAnalytics} animated={true} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  No product data available
+                </div>
+              )}
             </AnimatedChartWrapper>
           </div>
 
@@ -1381,8 +1572,8 @@ const Dashboard = () => {
             }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>Top Buyers</h3>
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {analyticsData.topBuyers.slice(0, 5).map((buyer, index) => (
-                  <div key={buyer.id} style={{
+                {(analyticsData.topBuyers || []).slice(0, 5).map((buyer, index) => (
+                  <div key={buyer.id || index} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -1390,19 +1581,24 @@ const Dashboard = () => {
                     borderBottom: index < 4 ? '1px solid #f1f5f9' : 'none'
                   }}>
                     <div>
-                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{buyer.name}</p>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{buyer.city} • {buyer.type}</p>
+                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{buyer.firmName || buyer.buyerName || 'Unknown Buyer'}</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{buyer.city || 'Unknown City'} • {buyer.userType || buyer.type || 'BUYER'}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>
-                        {formatCurrency(buyer.totalPurchases)}
+                        {formatCurrency(buyer.totalAmountSpent || 0)}
                       </p>
                       <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                        {buyer.quantity} tons
+                        {buyer.totalQuantityBought || buyer.quantity || buyer.totalQuantity || 0} tons
                       </p>
                     </div>
                   </div>
                 ))}
+                {(!analyticsData.topBuyers || analyticsData.topBuyers.length === 0) && (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    No buyer data available
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1415,8 +1611,8 @@ const Dashboard = () => {
             }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#1e293b' }}>Top Sellers</h3>
               <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {analyticsData.topSellers.slice(0, 5).map((seller, index) => (
-                  <div key={seller.id} style={{
+                {(analyticsData.topSellers || []).slice(0, 5).map((seller, index) => (
+                  <div key={seller.id || index} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -1424,19 +1620,24 @@ const Dashboard = () => {
                     borderBottom: index < 4 ? '1px solid #f1f5f9' : 'none'
                   }}>
                     <div>
-                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{seller.name}</p>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{seller.city} • {seller.type}</p>
+                      <p style={{ margin: 0, fontWeight: '500', color: '#1e293b' }}>{seller.firmName || seller.sellerName || 'Unknown Seller'}</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>{seller.city || 'Unknown City'} • {seller.userType || seller.type || 'SELLER'}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ margin: 0, fontWeight: '600', color: '#1e293b' }}>
-                        {formatCurrency(seller.totalSales)}
+                        {formatCurrency(seller.totalAmountReceived || 0)}
                       </p>
                       <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                        {seller.quantity} tons
+                        {seller.totalQuantitySold || seller.quantity || seller.totalQuantity || 0} tons
                       </p>
                     </div>
                   </div>
                 ))}
+                {(!analyticsData.topSellers || analyticsData.topSellers.length === 0) && (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    No seller data available
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1492,14 +1693,30 @@ const Dashboard = () => {
               title="Monthly Quantity Sold"
               height={isMobile ? '300px' : '400px'}
             >
-              <QuantityChart data={analyticsData.sales.monthlySales} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="Quantity Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (
+                <QuantityChart data={analyticsData.sales.monthlySales} animated={true} />
+              )}
             </AnimatedChartWrapper>
 
             <AnimatedChartWrapper
               title="City-wise Buyers vs Sellers"
               height={isMobile ? '300px' : '400px'}
             >
-              <CityChart data={analyticsData.cityAnalytics} animated={true} />
+              {useRealData && apiErrors.financialYearAnalytics ? (
+                <ChartErrorState 
+                  error={apiErrors.financialYearAnalytics} 
+                  title="City Data"
+                  onRetry={() => loadRealAnalyticsData()}
+                />
+              ) : (
+                <CityChart data={analyticsData.cityAnalytics} animated={true} />
+              )}
             </AnimatedChartWrapper>
           </div>
 
@@ -1536,7 +1753,7 @@ const Dashboard = () => {
           )}
 
           {/* Top Performers Charts - Show only with real data */}
-          {useRealData && (topBuyersByQuantity.length > 0 || topMerchantsByBrokerage.length > 0 || (topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0)) && (
+          {useRealData && (
             <div>
               <h3 style={{
                 margin: '30px 0 20px 0',
@@ -1551,56 +1768,88 @@ const Dashboard = () => {
               </h3>
 
               {/* Top Buyers and Sellers by Quantity */}
-              {(topBuyersByQuantity.length > 0 || (topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0)) && (
-                <div className="dashboard-analytics-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                  gap: isMobile ? '16px' : '20px',
-                  marginBottom: '30px'
-                }}>
-                  {topBuyersByQuantity.length > 0 && (
-                    <AnimatedChartWrapper
-                      title="Top 5 Buyers by Quantity"
-                      height={isMobile ? '300px' : '400px'}
-                    >
-                      <TopBuyersByQuantityChart data={topBuyersByQuantity} animated={true} />
-                    </AnimatedChartWrapper>
+              <div className="dashboard-analytics-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: isMobile ? '16px' : '20px',
+                marginBottom: '30px'
+              }}>
+                <AnimatedChartWrapper
+                  title="Top 5 Buyers by Quantity"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topBuyers ? (
+                    <ChartErrorState 
+                      error={apiErrors.topBuyers} 
+                      title="Top Buyers Data"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topBuyersByQuantity.length > 0 ? (
+                    <TopBuyersByQuantityChart data={topBuyersByQuantity} animated={true} />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No buyer data available</div>
                   )}
+                </AnimatedChartWrapper>
 
-                  {topPerformersData && topPerformersData.topSellersByQuantity && topPerformersData.topSellersByQuantity.length > 0 && (
-                    <AnimatedChartWrapper
-                      title="Top Sellers by Quantity"
-                      height={isMobile ? '300px' : '400px'}
-                    >
-                      <TopSellersByQuantityChart data={topPerformersData.topSellersByQuantity} animated={true} />
-                    </AnimatedChartWrapper>
+                <AnimatedChartWrapper
+                  title="Top Sellers by Quantity"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topSellers ? (
+                    <ChartErrorState 
+                      error={apiErrors.topSellers} 
+                      title="Top Sellers Data"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topPerformersData?.topSellersByQuantity?.length > 0 ? (
+                    <TopSellersByQuantityChart data={topPerformersData.topSellersByQuantity} animated={true} />
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No seller data available</div>
                   )}
-                </div>
-              )}
+                </AnimatedChartWrapper>
+              </div>
 
               {/* Top Merchants by Brokerage and Distribution */}
-              {topMerchantsByBrokerage.length > 0 && (
-                <div className="dashboard-analytics-grid" style={{
-                  display: 'grid',
-                  gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
-                  gap: isMobile ? '16px' : '20px',
-                  marginBottom: '30px'
-                }}>
-                  <AnimatedChartWrapper
-                    title="Top 5 Merchants by Brokerage"
-                    height={isMobile ? '300px' : '400px'}
-                  >
+              <div className="dashboard-analytics-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
+                gap: isMobile ? '16px' : '20px',
+                marginBottom: '30px'
+              }}>
+                <AnimatedChartWrapper
+                  title="Top 5 Merchants by Brokerage"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topMerchants ? (
+                    <ChartErrorState 
+                      error={apiErrors.topMerchants} 
+                      title="Top Merchants Data"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topMerchantsByBrokerage.length > 0 ? (
                     <TopMerchantsByBrokerageChart data={topMerchantsByBrokerage} animated={true} />
-                  </AnimatedChartWrapper>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No merchant data available</div>
+                  )}
+                </AnimatedChartWrapper>
 
-                  <AnimatedChartWrapper
-                    title="Brokerage Distribution"
-                    height={isMobile ? '300px' : '400px'}
-                  >
+                <AnimatedChartWrapper
+                  title="Brokerage Distribution"
+                  height={isMobile ? '300px' : '400px'}
+                >
+                  {apiErrors.topMerchants ? (
+                    <ChartErrorState 
+                      error={apiErrors.topMerchants} 
+                      title="Brokerage Distribution"
+                      onRetry={() => loadTopPerformersData()}
+                    />
+                  ) : topMerchantsByBrokerage.length > 0 ? (
                     <BrokerageDistributionPieChart data={topMerchantsByBrokerage} animated={true} />
-                  </AnimatedChartWrapper>
-                </div>
-              )}
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No brokerage data available</div>
+                  )}
+                </AnimatedChartWrapper>
+              </div>
             </div>
           )}
 
@@ -2570,7 +2819,7 @@ const Dashboard = () => {
             <div style={{ marginBottom: '20px' }}>
               <input
                 type="text"
-                placeholder="Search merchants by name, firm, email, or city..."
+                placeholder="Search merchants by firm name or city..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="merchant-search-input"
@@ -2604,12 +2853,10 @@ const Dashboard = () => {
                 <thead>
                   <tr style={{ backgroundColor: theme.background }}>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Firm Name</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Owner</th>
-                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Type</th>
                     <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>City</th>
+                    <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Bags</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Rate (₹/bag)</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Sold</th>
-                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bags Bought</th>
+                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Brokerage</th>
                     <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Actions</th>
                   </tr>
                 </thead>
@@ -2620,107 +2867,50 @@ const Dashboard = () => {
                       const search = searchTerm.toLowerCase();
                       return (
                         merchant.firmName?.toLowerCase().includes(search) ||
-                        merchant.ownerName?.toLowerCase().includes(search) ||
-                        merchant.email?.toLowerCase().includes(search) ||
-                        merchant.address?.city?.toLowerCase().includes(search) ||
-                        merchant.userType?.toLowerCase().includes(search)
+                        merchant.city?.toLowerCase().includes(search)
                       );
                     })
                     .map((merchant) => (
                     <tr key={merchant.userId}>
                       <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.gstNumber || 'N/A'}</p>
-                        </div>
+                        <p style={{ margin: 0, fontWeight: '500', color: theme.textPrimary }}>{merchant.firmName}</p>
                       </td>
                       <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.ownerName || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>{merchant.email || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
-                            {merchant.phoneNumbers && merchant.phoneNumbers.length > 0 ? merchant.phoneNumbers[0] : 'N/A'}
-                          </p>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          backgroundColor: merchant.userType === 'Miller' ? theme.infoBg : theme.successBg,
-                          color: merchant.userType === 'Miller' ? theme.info : theme.success
-                        }}>
-                          {merchant.userType || 'User'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div>
-                          <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.address?.city || 'N/A'}</p>
-                          <p style={{ margin: 0, fontSize: '12px', color: theme.textSecondary }}>
-                            {merchant.address?.area || ''} {merchant.address?.pincode || ''}
-                          </p>
-                        </div>
+                        <p style={{ margin: 0, color: theme.textPrimary }}>{merchant.city}</p>
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        ₹{merchant.brokerageRate || 0}
+                        {formatNumber((merchant.totalBagsSold || 0) + (merchant.totalBagsBought || 0))}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {formatNumber(merchant.totalBagsSold || 0)}
+                      <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                        ₹{merchant.brokeragePerBag?.toFixed(2) || '0.00'}
                       </td>
-                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                        {formatNumber(merchant.totalBagsBought || 0)}
+                      <td style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.borderLight}`, color: theme.success }}>
+                        ₹{merchant.totalPayableBrokerage?.toFixed(2) || '0.00'}
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button
-                            onClick={() => handleViewMerchant(merchant)}
-                            style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${theme.info}`,
-                              borderRadius: '4px',
-                              backgroundColor: theme.infoBg,
-                              color: theme.info,
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.info;
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.infoBg;
-                              e.currentTarget.style.color = theme.info;
-                            }}
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleEditMerchant(merchant)}
-                            style={{
-                              padding: '4px 8px',
-                              border: `1px solid ${theme.warning}`,
-                              borderRadius: '4px',
-                              backgroundColor: theme.warningBg,
-                              color: theme.warning,
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.warning;
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = theme.warningBg;
-                              e.currentTarget.style.color = theme.warning;
-                            }}
-                          >
-                            Edit
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleViewMerchant(merchant)}
+                          style={{
+                            padding: '4px 8px',
+                            border: `1px solid ${theme.info}`,
+                            borderRadius: '4px',
+                            backgroundColor: theme.infoBg,
+                            color: theme.info,
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = theme.info;
+                            e.currentTarget.style.color = 'white';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = theme.infoBg;
+                            e.currentTarget.style.color = theme.info;
+                          }}
+                        >
+                          View
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -2766,6 +2956,49 @@ const Dashboard = () => {
                   <p style={{ color: theme.textPrimary }}>Loading merchants...</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Today Market Tab */}
+      {activeTab === 'todaymarket' && (
+        <div>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px'
+            }}>
+              <h2 style={{
+                margin: 0,
+                color: theme.textPrimary,
+                fontSize: '24px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                📈 Today's Market
+              </h2>
+            </div>
+            
+            {/* Import and use TodayMarket component */}
+            <div style={{
+              backgroundColor: theme.background,
+              borderRadius: '12px',
+              padding: '20px',
+              border: `1px solid ${theme.borderLight}`
+            }}>
+              <TodayMarket />
             </div>
           </div>
         </div>
@@ -2817,6 +3050,33 @@ const Dashboard = () => {
                 >
                   🔄 Refresh
                 </button>
+                <Link
+                  to="/route-explorer"
+                  style={{
+                    textDecoration: 'none',
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.info}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.infoBg,
+                    color: theme.info,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.info;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.infoBg;
+                    e.currentTarget.style.color = theme.info;
+                  }}
+                >
+                  🗺️ Route Explorer
+                </Link>
                 <button
                   onClick={() => setShowAddressModal(true)}
                   style={{
@@ -3002,7 +3262,7 @@ const Dashboard = () => {
                 boxShadow: theme.shadowHover,
                 flexShrink: 0
               }}>
-                {(brokerData?.brokerName || 'B').charAt(0).toUpperCase()}
+                {(user?.brokerName || 'B').charAt(0).toUpperCase()}
               </div>
 
               {/* Profile Info */}
@@ -3013,14 +3273,14 @@ const Dashboard = () => {
                   fontSize: '32px',
                   fontWeight: '700'
                 }}>
-                  {brokerData?.brokerName || 'Broker User'}
+                  {user?.brokerName || 'Broker User'}
                 </h2>
                 <p style={{
                   margin: '0 0 12px 0',
                   color: theme.textSecondary,
                   fontSize: '18px'
                 }}>
-                  {brokerData?.brokerageFirmName || 'BrokerHub'}
+                  {user?.brokerName || 'BrokerHub'}
                 </p>
                 <div style={{
                   display: 'flex',
@@ -3046,7 +3306,7 @@ const Dashboard = () => {
                     fontSize: '14px',
                     fontWeight: '500'
                   }}>
-                    📧 {brokerData?.email || 'N/A'}
+                    📧 {user?.email || 'N/A'}
                   </span>
                 </div>
               </div>
@@ -3105,27 +3365,27 @@ const Dashboard = () => {
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Broker ID:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerId || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerId || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Name:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Username:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.userName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.userName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Firm Name:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.brokerageFirmName || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.brokerName || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${theme.borderLight}` }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Phone:</span>
-                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{brokerData?.phoneNumber || 'N/A'}</span>
+                  <span style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.phoneNumber || 'N/A'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
                   <span style={{ color: theme.textSecondary, fontWeight: '500' }}>Total Brokerage:</span>
-                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(brokerData?.totalBrokerage || 0)}</span>
+                  <span style={{ color: theme.success, fontWeight: '700', fontSize: '16px' }}>{formatCurrency(user?.totalBrokerage || 0)}</span>
                 </div>
               </div>
             </div>
@@ -3154,19 +3414,19 @@ const Dashboard = () => {
                   <span style={{ fontSize: '16px' }}>📍</span>
                   <span style={{ fontWeight: '600', color: theme.textPrimary }}>Address Information</span>
                 </div>
-                {brokerData?.address ? (
+                {user?.address ? (
                   <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>City:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.city || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.city || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Area:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.area || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.area || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Pincode:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.address.pincode || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.address.pincode || 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
@@ -3187,23 +3447,23 @@ const Dashboard = () => {
                   <span style={{ fontSize: '16px' }}>🏦</span>
                   <span style={{ fontWeight: '600', color: theme.textPrimary }}>Banking Details</span>
                 </div>
-                {brokerData?.bankDetails ? (
+                {user?.bankDetails ? (
                   <div style={{ marginLeft: '12px', display: 'grid', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Bank:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.bankName || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.bankName || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Branch:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.branch || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.branch || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>Account:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.accountNumber || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.accountNumber || 'N/A'}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: theme.textSecondary }}>IFSC:</span>
-                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{brokerData.bankDetails.ifscCode || 'N/A'}</span>
+                      <span style={{ color: theme.textPrimary, fontWeight: '500' }}>{user.bankDetails.ifscCode || 'N/A'}</span>
                     </div>
                   </div>
                 ) : (
@@ -3221,7 +3481,59 @@ const Dashboard = () => {
             border: `1px solid ${theme.border}`,
             transition: 'all 0.3s ease'
           }}>
-            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚡ Quick Actions</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>⚙️ Settings & Actions</h3>
+            
+            {/* Current Financial Year Setting */}
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: theme.background, borderRadius: '8px', border: `1px solid ${theme.borderLight}` }}>
+              <h4 style={{ margin: '0 0 12px 0', color: theme.textPrimary, fontSize: '14px', fontWeight: '600' }}>📅 Current Financial Year</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ color: theme.textSecondary, fontSize: '14px' }}>Active FY:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <select
+                    value={currentFinancialYearId || ''}
+                    onChange={(e) => setCurrentFinancialYearId(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: '4px',
+                      backgroundColor: theme.cardBackground,
+                      color: theme.textPrimary,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      minWidth: '120px'
+                    }}
+                  >
+                    <option value="">Select Financial Year</option>
+                    {financialYears.map(fy => (
+                      <option key={fy.financialYearId} value={fy.financialYearName}>
+                        {fy.financialYearName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSetCurrentFinancialYear}
+                    disabled={!currentFinancialYearId || settingFY}
+                    style={{
+                      padding: '4px 12px',
+                      border: 'none',
+                      borderRadius: '4px',
+                      backgroundColor: theme.primary || '#007bff',
+                      color: 'white',
+                      fontSize: '12px',
+                      cursor: (!currentFinancialYearId || settingFY) ? 'not-allowed' : 'pointer',
+                      opacity: (!currentFinancialYearId || settingFY) ? 0.6 : 1
+                    }}
+                  >
+                    {settingFY ? 'Setting...' : 'Set'}
+                  </button>
+                </div>
+              </div>
+              <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: theme.textSecondary, fontStyle: 'italic' }}>
+                All new transactions will use this financial year
+              </p>
+            </div>
+            
+            <h4 style={{ margin: '0 0 12px 0', color: theme.textPrimary, fontSize: '16px', fontWeight: '600' }}>⚡ Quick Actions</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button
                 onClick={() => alert('Update Profile functionality coming soon!')}
@@ -3353,6 +3665,20 @@ const Dashboard = () => {
                   }}
                 >
                   🔄 Refresh
+                </button>
+                <button
+                  onClick={() => setShowProductBulkUpload(true)}
+                  style={{
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.success}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.successBg,
+                    color: theme.success,
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📊 Bulk Upload
                 </button>
                 <button
                   onClick={() => alert('Add Product functionality coming soon!')}
@@ -4616,6 +4942,23 @@ const Dashboard = () => {
         onClose={closeProductEditModal}
         product={editingProduct}
         onSuccess={loadProductsData}
+      />
+
+      {/* Product Bulk Upload Modal */}
+      <ProductBulkUpload
+        isOpen={showProductBulkUpload}
+        onClose={() => setShowProductBulkUpload(false)}
+        onSuccess={loadProductsData}
+      />
+
+      {/* Merchant Detail Modal */}
+      <MerchantDetailModal
+        isOpen={showMerchantDetailModal}
+        onClose={() => {
+          setShowMerchantDetailModal(false);
+          setSelectedMerchantId(null);
+        }}
+        merchantId={selectedMerchantId}
       />
 
       {/* Payment Detail Modal */}

@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingSpinner from './LoadingSpinner';
 
 const LoadingButton = ({
   children,
@@ -19,8 +20,8 @@ const LoadingButton = ({
     >
       {loading ? (
         <>
-          <span className="loading" style={{ marginRight: '8px' }}></span>
-          Loading...
+          <LoadingSpinner size="20px" />
+          <span style={{ marginLeft: '8px' }}>Loading...</span>
         </>
       ) : (
         children

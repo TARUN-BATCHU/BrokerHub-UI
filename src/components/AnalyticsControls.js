@@ -12,7 +12,10 @@ const AnalyticsControls = ({
   onDataSourceToggle,
   showComparison,
   onToggleComparison,
-  loading = false
+  loading = false,
+  onRefreshCache,
+  onRefreshAllCache,
+  refreshingCache = false
 }) => {
   const { theme } = useTheme();
   const { isMobile } = useResponsive();
@@ -200,71 +203,149 @@ const AnalyticsControls = ({
           )}
         </div>
 
-        {/* Right side - Data Source Toggle */}
+        {/* Right side - Data Source Toggle and Cache Controls */}
         <div style={{
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: isMobile ? 'column' : 'row',
           gap: '12px',
-          padding: '8px 12px',
-          backgroundColor: theme.background,
-          borderRadius: '8px',
-          border: `1px solid ${theme.border}`
+          alignItems: isMobile ? 'stretch' : 'center'
         }}>
-          <span style={{
-            color: theme.textSecondary,
-            fontSize: '12px',
-            fontWeight: '500',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
+          {/* Data Source Toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '8px 12px',
+            backgroundColor: theme.background,
+            borderRadius: '8px',
+            border: `1px solid ${theme.border}`
           }}>
-            Data Source
-          </span>
-          <label style={{
-            position: 'relative',
-            display: 'inline-block',
-            width: '50px',
-            height: '24px',
-            cursor: 'pointer'
-          }}>
-            <input
-              type="checkbox"
-              checked={useRealData}
-              onChange={(e) => onDataSourceToggle(e.target.checked)}
-              style={{ display: 'none' }}
-            />
             <span style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: useRealData ? '#3b82f6' : '#cbd5e1',
-              borderRadius: '12px',
-              transition: 'all 0.3s ease',
+              color: theme.textSecondary,
+              fontSize: '12px',
+              fontWeight: '500',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              Data Source
+            </span>
+            <label style={{
+              position: 'relative',
+              display: 'inline-block',
+              width: '50px',
+              height: '24px',
               cursor: 'pointer'
             }}>
+              <input
+                type="checkbox"
+                checked={useRealData}
+                onChange={(e) => onDataSourceToggle(e.target.checked)}
+                style={{ display: 'none' }}
+              />
               <span style={{
                 position: 'absolute',
-                content: '',
-                height: '18px',
-                width: '18px',
-                left: useRealData ? '29px' : '3px',
-                bottom: '3px',
-                backgroundColor: 'white',
-                borderRadius: '50%',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: useRealData ? '#3b82f6' : '#cbd5e1',
+                borderRadius: '12px',
                 transition: 'all 0.3s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }} />
+                cursor: 'pointer'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  content: '',
+                  height: '18px',
+                  width: '18px',
+                  left: useRealData ? '29px' : '3px',
+                  bottom: '3px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }} />
+              </span>
+            </label>
+            <span style={{
+              color: theme.textPrimary,
+              fontSize: '14px',
+              fontWeight: '500',
+              minWidth: '60px'
+            }}>
+              {useRealData ? 'Real Data' : 'Demo Data'}
             </span>
-          </label>
-          <span style={{
-            color: theme.textPrimary,
-            fontSize: '14px',
-            fontWeight: '500',
-            minWidth: '60px'
-          }}>
-            {useRealData ? 'Real Data' : 'Demo Data'}
-          </span>
+          </div>
+
+          {/* Cache Refresh Controls - Only show when using real data */}
+          {useRealData && (
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              alignItems: 'center'
+            }}>
+              <button
+                onClick={onRefreshCache}
+                disabled={!selectedFinancialYear || refreshingCache || loading}
+                style={{
+                  padding: '8px 12px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '12px',
+                  cursor: (!selectedFinancialYear || refreshingCache || loading) ? 'not-allowed' : 'pointer',
+                  opacity: (!selectedFinancialYear || refreshingCache || loading) ? 0.6 : 1,
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                onMouseEnter={(e) => {
+                  if (!refreshingCache && !loading && selectedFinancialYear) {
+                    e.currentTarget.style.backgroundColor = theme.hoverBg;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.cardBackground;
+                }}
+              >
+                {refreshingCache ? '🔄' : '🔄'}
+                Refresh Cache
+              </button>
+              <button
+                onClick={onRefreshAllCache}
+                disabled={refreshingCache || loading}
+                style={{
+                  padding: '8px 12px',
+                  border: `1px solid ${theme.warning}`,
+                  borderRadius: '6px',
+                  backgroundColor: theme.warningBg,
+                  color: theme.warning,
+                  fontSize: '12px',
+                  cursor: (refreshingCache || loading) ? 'not-allowed' : 'pointer',
+                  opacity: (refreshingCache || loading) ? 0.6 : 1,
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                onMouseEnter={(e) => {
+                  if (!refreshingCache && !loading) {
+                    e.currentTarget.style.backgroundColor = theme.warning;
+                    e.currentTarget.style.color = 'white';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.warningBg;
+                  e.currentTarget.style.color = theme.warning;
+                }}
+              >
+                {refreshingCache ? '🔄' : '🗑️'}
+                Refresh All
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
