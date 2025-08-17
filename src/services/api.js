@@ -813,4 +813,49 @@ export const merchantAPI = {
   }
 };
 
+// Grain Costs API functions
+export const grainCostsAPI = {
+  // Add grain cost entry
+  addGrainCost: async (brokerId, grainCostData) => {
+    try {
+      const response = await api.post(`/grain-costs/${brokerId}`, grainCostData, {
+        headers: {
+          'Authorization': 'Basic dGFydW46c2VjdXJlUGFzc3dvcmQxMjM='
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all grain costs for a broker
+  getAllGrainCosts: async (brokerId) => {
+    try {
+      const response = await api.get(`/grain-costs/${brokerId}`, {
+        headers: {
+          'Authorization': 'Basic dGFydW46c2VjdXJlUGFzc3dvcmQxMjM='
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Delete grain cost entry
+  deleteGrainCost: async (brokerId, grainCostId) => {
+    try {
+      const response = await api.delete(`/grain-costs/${brokerId}/${grainCostId}`, {
+        headers: {
+          'Authorization': 'Basic dGFydW46c2VjdXJlUGFzc3dvcmQxMjM='
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
 export default api;

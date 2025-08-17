@@ -22,6 +22,7 @@ import TodayMarket from '../components/TodayMarket';
 import ProductBulkUpload from '../components/ProductBulkUpload';
 import MerchantDetailModal from '../components/MerchantDetailModal';
 import ChartErrorState from '../components/ChartErrorState';
+import GrainAnalytics from '../components/GrainAnalytics';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -1110,6 +1111,7 @@ const Dashboard = () => {
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'analytics', label: 'Analytics' },
+            { id: 'grainanalytics', label: 'Grain Analytics' },
             { id: 'todaymarket', label: 'Today Market' },
             { id: 'payments', label: 'Payments' },
             { id: 'merchants', label: 'Merchants' },
@@ -2957,6 +2959,22 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grain Analytics Tab */}
+      {activeTab === 'grainanalytics' && (
+        <div>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <GrainAnalytics />
           </div>
         </div>
       )}
