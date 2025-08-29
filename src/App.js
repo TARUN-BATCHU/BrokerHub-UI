@@ -24,6 +24,8 @@ import Merchants from './pages/Merchants';
 import BrokerageDashboard from './pages/BrokerageDashboard';
 import BrokerageUsers from './pages/BrokerageUsers';
 import BulkOperations from './pages/BulkOperations';
+import PaymentManagement from './pages/PaymentManagement';
+import PaymentDemo from './pages/PaymentDemo';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -223,6 +225,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <BulkOperations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute>
+                    <PaymentManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment-demo"
+                element={
+                  <ProtectedRoute>
+                    <PaymentDemo />
                   </ProtectedRoute>
                 }
               />

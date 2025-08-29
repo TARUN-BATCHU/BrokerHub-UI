@@ -95,12 +95,12 @@
 
 /* Dark theme support */
 [data-theme="dark"] .auth-container {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
 [data-theme="dark"] .auth-card {
   background: #1e293b;
-  border: 1px solid #374151;
+  border: 1px solid #334155;
 }
 
 [data-theme="dark"] .auth-header h1 {
@@ -117,7 +117,7 @@
 }
 
 [data-theme="dark"] .auth-divider::before {
-  background: #374151;
+  background: #334155;
 }
 
 [data-theme="dark"] .auth-link {
@@ -126,6 +126,18 @@
 
 [data-theme="dark"] .auth-link:hover {
   color: #3b82f6;
+}
+
+[data-theme="dark"] .error-message {
+  background-color: #450a0a;
+  border-color: #dc2626;
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .success-message {
+  background-color: #064e3b;
+  border-color: #166534;
+  color: #86efac;
 }
 
 /* Theme toggle positioning */
@@ -375,4 +387,486 @@
 
 [data-theme="dark"] .password-toggle:focus {
   color: #60a5fa;
+}
+
+/* Enhanced CreateMerchant Styles */
+.enhanced-merchant-card {
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.enhanced-merchant-card:hover {
+  transform: translateY(-2px);
+}
+
+.merchant-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 20px;
+  margin: 0 auto 20px;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .merchant-icon {
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  box-shadow: 0 8px 25px rgba(30, 64, 175, 0.4);
+}
+
+.enhanced-form {
+  position: relative;
+}
+
+.form-section {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .form-section {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.form-section:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .form-section:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid;
+}
+
+.section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .section-icon {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.address-selection-container {
+  transition: all 0.3s ease;
+}
+
+.address-selection-container:hover {
+  transform: translateY(-1px);
+}
+
+.search-input-container input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+.create-address-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.selected-address-display {
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.divider {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Enhanced form inputs */
+.form-input:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.form-input:disabled {
+  background-color: rgba(156, 163, 175, 0.1);
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .form-input:disabled {
+  background-color: rgba(75, 85, 99, 0.3);
+}
+
+/* Enhanced buttons */
+.btn {
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+/* Loading states */
+.form-section.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Success states */
+.form-section.success {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+/* Error states */
+.form-section.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Mobile enhancements */
+@media (max-width: 768px) {
+  .enhanced-merchant-card {
+    margin: 10px;
+    padding: 20px;
+  }
+
+  .merchant-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+  }
+
+  .form-section {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .section-header h3 {
+    font-size: 16px;
+  }
+
+  .section-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .address-selection-container {
+    padding: 16px;
+  }
+
+  .auth-actions {
+    padding: 16px 0;
+  }
+}
+
+/* Accessibility improvements */
+.btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.form-input:focus {
+  outline: none;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .form-section {
+    border-width: 2px;
+  }
+
+  .section-icon {
+    border-width: 2px;
+  }
+
+  .btn {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .enhanced-merchant-card,
+  .form-section,
+  .btn,
+  .form-input,
+  .create-address-btn {
+    transition: none;
+  }
+
+  .enhanced-merchant-card:hover,
+  .form-section:hover,
+  .btn:hover,
+  .form-input:focus,
+  .create-address-btn:hover {
+    transform: none;
+  }
+
+  .selected-address-display {
+    animation: none;
+  }
+}
+
+/* Compact Tab Layout */
+.tab-navigation {
+  flex-shrink: 0;
+}
+
+.tab-navigation button {
+  transition: all 0.2s ease;
+  font-size: 12px;
+  text-align: center;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.tab-navigation button:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.tab-content {
+  min-height: 0;
+}
+
+.tab-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-navigation {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  margin: 12px -40px -40px;
+  padding: 16px 40px;
+  border-radius: 0 0 16px 16px;
+}
+
+[data-theme="dark"] .form-navigation {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+}
+
+/* Compact form groups */
+.tab-panel .form-group {
+  margin-bottom: 16px;
+}
+
+.tab-panel .form-label {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.tab-panel .form-input {
+  padding: 10px 12px;
+  font-size: 14px;
+  min-height: 44px; /* Better touch target */
+}
+
+.tab-panel select.form-input {
+  min-height: 44px;
+}
+
+/* Mobile tab adjustments */
+@media (max-width: 768px) {
+  .enhanced-merchant-card {
+    height: 95vh;
+    margin: 0;
+    padding: 12px;
+    border-radius: 0;
+  }
+
+  .auth-container {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .tab-navigation {
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+  }
+
+  .tab-navigation button {
+    font-size: 10px;
+    min-height: 50px;
+    padding: 4px 2px;
+    min-width: 50px;
+  }
+
+  .tab-content {
+    padding-right: 0;
+  }
+
+  .form-navigation {
+    margin: 12px -12px -12px;
+    padding: 12px;
+    border-radius: 0;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .nav-buttons,
+  .action-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tab-panel .form-group {
+    margin-bottom: 12px;
+  }
+
+  .tab-panel .form-input {
+    padding: 12px;
+    font-size: 16px; /* Prevents zoom on iOS */
+    border-radius: 8px;
+  }
+
+  .tab-panel .form-label {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .address-selection-container {
+    padding: 12px;
+  }
+
+  .search-input-container input {
+    padding: 12px 16px 12px 36px;
+    font-size: 16px;
+  }
+
+  .selected-address-display {
+    padding: 10px;
+  }
+
+  .theme-toggle-container {
+    top: 10px;
+    right: 10px;
+  }
+
+  .merchant-icon {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 8px;
+  }
+
+  .auth-header h1 {
+    font-size: 20px;
+  }
+
+  .auth-header p {
+    font-size: 13px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .tab-navigation button {
+    font-size: 9px;
+    min-height: 45px;
+    padding: 3px 1px;
+  }
+
+  .tab-navigation button div:first-child {
+    font-size: 12px;
+  }
+
+  .enhanced-merchant-card {
+    height: 100vh;
+    padding: 8px;
+  }
+
+  .form-navigation {
+    margin: 4px -8px -8px;
+    padding: 8px;
+  }
 }

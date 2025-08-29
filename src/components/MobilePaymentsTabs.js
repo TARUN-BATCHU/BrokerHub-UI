@@ -1,182 +1,66 @@
 import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
 
-const MobilePaymentsTabs = ({
-  activeTab,
-  onTabChange,
-  brokeragePayments,
-  pendingPayments,
-  receivablePayments,
-  onViewDetails
+const MobilePaymentsTabs = ({ 
+  activeTab, 
+  setActiveTab, 
+  brokerageCount, 
+  pendingCount, 
+  receivableCount 
 }) => {
-  const { theme } = useTheme();
-
-  const renderBrokeragePayments = () => (
-    <div className="payments-list">
-      {brokeragePayments.map((payment) => (
-        <div
-          key={payment.id}
-          className="payment-item"
-          style={{
-            padding: '12px',
-            borderBottom: `1px solid ${theme.border}`,
-            backgroundColor: theme.cardBackground
-          }}
-          onClick={() => onViewDetails(payment, 'brokerage')}
-        >
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: '8px' 
-          }}>
-            <div style={{ fontWeight: 600, color: theme.textPrimary }}>
-              {payment.firmName}
-            </div>
-            <div style={{ 
-              color: theme.textSecondary, 
-              fontSize: '14px' 
-            }}>
-              {payment.totalBags} bags
-            </div>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            fontSize: '14px',
-            color: theme.textSecondary
-          }}>
-            <div>Rate: ₹{payment.rate}</div>
-            <div>Brokerage: ₹{payment.brokerage}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderPendingPayments = () => (
-    <div className="payments-list">
-      {pendingPayments.map((payment) => (
-        <div
-          key={payment.id}
-          className="payment-item"
-          style={{
-            padding: '12px',
-            borderBottom: `1px solid ${theme.border}`,
-            backgroundColor: theme.cardBackground
-          }}
-          onClick={() => onViewDetails(payment, 'pending')}
-        >
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: '4px' 
-          }}>
-            <div style={{ fontWeight: 600, color: theme.textPrimary }}>
-              {payment.buyerFirm}
-            </div>
-            <div style={{ 
-              color: theme.error,
-              fontWeight: 500
-            }}>
-              ₹{payment.pendingAmount}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderReceivablePayments = () => (
-    <div className="payments-list">
-      {receivablePayments.map((payment) => (
-        <div
-          key={payment.id}
-          className="payment-item"
-          style={{
-            padding: '12px',
-            borderBottom: `1px solid ${theme.border}`,
-            backgroundColor: theme.cardBackground
-          }}
-          onClick={() => onViewDetails(payment, 'receivable')}
-        >
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: '4px' 
-          }}>
-            <div style={{ fontWeight: 600, color: theme.textPrimary }}>
-              {payment.sellerFirm}
-            </div>
-            <div style={{ 
-              color: theme.success,
-              fontWeight: 500
-            }}>
-              ₹{payment.receivableAmount}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  const tabs = [
+    { id: 'brokerage', label: 'Brokerage', icon: '💰', count: brokerageCount },
+    { id: 'pending', label: 'Pending', icon: '⏳', count: pendingCount },
+    { id: 'receivable', label: 'Receivable', icon: '💸', count: receivableCount }
+  ];
 
   return (
-    <div>
-      <div className="payment-tabs" style={{
-        display: 'flex',
-        backgroundColor: theme.cardBackground,
-        borderRadius: '12px',
-        marginBottom: '16px',
-        overflow: 'hidden'
-      }}>
+    <div style={{
+      display: 'flex',
+      backgroundColor: '#f8f9fa',
+      borderRadius: '8px',
+      padding: '4px',
+      marginBottom: '16px',
+      overflowX: 'auto'
+    }}>
+      {tabs.map(tab => (
         <button
-          className={`payment-tab ${activeTab === 'brokerage' ? 'active' : ''}`}
-          onClick={() => onTabChange('brokerage')}
+          key={tab.id}
+          onClick={() => setActiveTab(tab.id)}
           style={{
             flex: 1,
-            padding: '12px',
+            padding: '12px 8px',
             border: 'none',
-            backgroundColor: activeTab === 'brokerage' ? theme.buttonPrimary : 'transparent',
-            color: activeTab === 'brokerage' ? 'white' : theme.textPrimary,
-            cursor: 'pointer'
+            borderRadius: '6px',
+            backgroundColor: activeTab === tab.id ? '#3498db' : 'transparent',
+            color: activeTab === tab.id ? 'white' : '#6c757d',
+            fontSize: '12px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '4px',
+            minWidth: '80px'
           }}
         >
-          Brokerage
+          <span style={{ fontSize: '16px' }}>{tab.icon}</span>
+          <span>{tab.label}</span>
+          {tab.count > 0 && (
+            <span style={{
+              fontSize: '10px',
+              backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.3)' : '#dc3545',
+              color: activeTab === tab.id ? 'white' : 'white',
+              padding: '2px 6px',
+              borderRadius: '10px',
+              minWidth: '16px',
+              textAlign: 'center'
+            }}>
+              {tab.count}
+            </span>
+          )}
         </button>
-        <button
-          className={`payment-tab ${activeTab === 'pending' ? 'active' : ''}`}
-          onClick={() => onTabChange('pending')}
-          style={{
-            flex: 1,
-            padding: '12px',
-            border: 'none',
-            backgroundColor: activeTab === 'pending' ? theme.buttonPrimary : 'transparent',
-            color: activeTab === 'pending' ? 'white' : theme.textPrimary,
-            cursor: 'pointer'
-          }}
-        >
-          Pending
-        </button>
-        <button
-          className={`payment-tab ${activeTab === 'receivable' ? 'active' : ''}`}
-          onClick={() => onTabChange('receivable')}
-          style={{
-            flex: 1,
-            padding: '12px',
-            border: 'none',
-            backgroundColor: activeTab === 'receivable' ? theme.buttonPrimary : 'transparent',
-            color: activeTab === 'receivable' ? 'white' : theme.textPrimary,
-            cursor: 'pointer'
-          }}
-        >
-          Receivable
-        </button>
-      </div>
-
-      <div style={{ marginTop: '16px' }}>
-        {activeTab === 'brokerage' && renderBrokeragePayments()}
-        {activeTab === 'pending' && renderPendingPayments()}
-        {activeTab === 'receivable' && renderReceivablePayments()}
-      </div>
+      ))}
     </div>
   );
 };

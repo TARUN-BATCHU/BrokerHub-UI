@@ -20,6 +20,11 @@ const TransactionDetailEnhanced = () => {
   const rateInputRefs = useRef([]);
   const costInputRefs = useRef([]);
 
+  // Add missing ref for brokerage column
+  const brokerageColumnRefs = useRef([]);
+  const sellerProductRefs = useRef([]);
+  const sellerProductCostRefs = useRef([]);
+
   const initialDate = date || new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
     brokerId: parseInt(localStorage.getItem('brokerId')),
@@ -53,14 +58,18 @@ const TransactionDetailEnhanced = () => {
   const [sellerSearch, setSellerSearch] = useState('');
   const [buyerSearches, setBuyerSearches] = useState({});
   const [productSearches, setProductSearches] = useState({});
+  const [sellerProductSearches, setSellerProductSearches] = useState({});
 
   // Dropdown visibility
   const [showSellerDropdown, setShowSellerDropdown] = useState(false);
   const [showBuyerDropdowns, setShowBuyerDropdowns] = useState({});
   const [showProductDropdowns, setShowProductDropdowns] = useState({});
+  const [showSellerProductDropdowns, setShowSellerProductDropdowns] = useState({});
   const [nextTransactionNumber, setNextTransactionNumber] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [selectedDropdownIndex, setSelectedDropdownIndex] = useState(-1);
+  const [activeDropdownType, setActiveDropdownType] = useState(null); // 'seller', 'buyer', 'product', 'sellerProduct'
+  const [activeRowIndex, setActiveRowIndex] = useState(null);
 
   useEffect(() => {
     loadAllData();
@@ -69,6 +78,10 @@ const TransactionDetailEnhanced = () => {
     if (mode === 'edit' && transactionNumber) {
       fetchTransactionData(transactionNumber);
     }
+    // Auto-focus on date input after data loads
+    setTimeout(() => {
+      dateInputRef.current?.focus();
+    }, 500);
   }, [mode, transactionNumber]);
 
   // Track unsaved changes
@@ -90,26 +103,117 @@ const TransactionDetailEnhanced = () => {
     setHasUnsavedChanges(true);
   }, [formData]);
 
-  // Keyboard navigation
+  // Enhanced keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Tab navigation enhancement
-      if (e.key === 'Tab') {
-        // Let default tab behavior work
-        return;
-      }
-
       // Arrow keys for dropdown navigation
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        // Handle dropdown navigation
-        return;
+        if (showSellerDropdown || Object.values(showBuyerDropdowns).some(Boolean) || Object.values(showProductDropdowns).some(Boolean)) {
+          e.preventDefault();
+          const direction = e.key === 'ArrowDown' ? 1 : -1;
+          
+          if (showSellerDropdown) {
+            const filtered = getFilteredSellers();
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          } else if (activeDropdownType === 'buyer' && activeRowIndex !== null) {
+            const filtered = getFilteredBuyers(buyerSearches[activeRowIndex]);
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          } else if (activeDropdownType === 'product' && activeRowIndex !== null) {
+            const filtered = getFilteredProducts(productSearches[activeRowIndex]);
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          } else if (activeDropdownType === 'sellerProduct' && activeRowIndex !== null) {
+            const filtered = getFilteredProducts(sellerProductSearches[activeRowIndex]);
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          }
+          return;
+        }
       }
 
-      // Enter key to add new record
-      if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        addNewRecord();
-        return;
+      // Enter key handling
+      if (e.key === 'Enter') {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          addNewRecord();
+          return;
+        }
+        
+        // Handle dropdown selection
+        if (showSellerDropdown) {
+          e.preventDefault();
+          const filtered = getFilteredSellers();
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const seller = filtered[selectedDropdownIndex];
+            handleInputChange('fromSeller', seller.id);
+            setSellerSearch(seller.firmName);
+            setShowSellerDropdown(false);
+            setSelectedDropdownIndex(-1);
+            setTimeout(() => brokerageInputRef.current?.focus(), 100);
+          }
+          return;
+        }
+        
+        if (activeDropdownType === 'buyer' && activeRowIndex !== null && showBuyerDropdowns[activeRowIndex]) {
+          e.preventDefault();
+          const filtered = getFilteredBuyers(buyerSearches[activeRowIndex]);
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const buyer = filtered[selectedDropdownIndex];
+            handleRecordChange(activeRowIndex, 'buyerName', buyer.firmName);
+            handleRecordChange(activeRowIndex, 'buyerCity', buyer.city);
+            setBuyerSearches(prev => ({ ...prev, [activeRowIndex]: buyer.firmName }));
+            setShowBuyerDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
+            setSelectedDropdownIndex(-1);
+            
+            // Auto-populate product from seller products if available
+            if (formData.sellerProducts[0]?.productId) {
+              handleRecordChange(activeRowIndex, 'productId', formData.sellerProducts[0].productId);
+              const selectedProduct = products.find(p => Object.values(p)[0] === formData.sellerProducts[0].productId);
+              if (selectedProduct) {
+                const [description] = Object.entries(selectedProduct)[0];
+                setProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
+              }
+              setTimeout(() => quantityInputRefs.current[activeRowIndex]?.focus(), 100);
+            } else {
+              setTimeout(() => productInputRefs.current[activeRowIndex]?.focus(), 100);
+            }
+          }
+          return;
+        }
+        
+        if (activeDropdownType === 'product' && activeRowIndex !== null && showProductDropdowns[activeRowIndex]) {
+          e.preventDefault();
+          const filtered = getFilteredProducts(productSearches[activeRowIndex]);
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const product = filtered[selectedDropdownIndex];
+            const [description, id] = Object.entries(product)[0];
+            handleRecordChange(activeRowIndex, 'productId', id);
+            setProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
+            setShowProductDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
+            setSelectedDropdownIndex(-1);
+            setTimeout(() => quantityInputRefs.current[activeRowIndex]?.focus(), 100);
+          }
+          return;
+        }
+        
+        if (activeDropdownType === 'sellerProduct' && activeRowIndex !== null && showSellerProductDropdowns[activeRowIndex]) {
+          e.preventDefault();
+          const filtered = getFilteredProducts(sellerProductSearches[activeRowIndex]);
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const product = filtered[selectedDropdownIndex];
+            const [description, id] = Object.entries(product)[0];
+            const newProducts = [...formData.sellerProducts];
+            newProducts[activeRowIndex].productId = id;
+            setFormData(prev => ({ ...prev, sellerProducts: newProducts }));
+            setSellerProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
+            setShowSellerProductDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
+            setSelectedDropdownIndex(-1);
+            setTimeout(() => sellerProductCostRefs.current[activeRowIndex]?.focus(), 100);
+          }
+          return;
+        }
       }
 
       // Ctrl+S to save
@@ -124,13 +228,17 @@ const TransactionDetailEnhanced = () => {
         setShowSellerDropdown(false);
         setShowBuyerDropdowns({});
         setShowProductDropdowns({});
+        setShowSellerProductDropdowns({});
+        setSelectedDropdownIndex(-1);
+        setActiveDropdownType(null);
+        setActiveRowIndex(null);
         return;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showSellerDropdown, showBuyerDropdowns, showProductDropdowns, selectedDropdownIndex, activeDropdownType, activeRowIndex, buyerSearches, productSearches]);
 
   const loadCurrentFinancialYear = async () => {
     try {
@@ -544,6 +652,12 @@ const TransactionDetailEnhanced = () => {
                 type="date"
                 value={formData.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sellerInputRef.current?.focus();
+                  }
+                }}
                 style={{
                   padding: '8px 12px',
                   border: `1px solid ${theme.border}`,
@@ -581,9 +695,27 @@ const TransactionDetailEnhanced = () => {
                 onChange={(e) => {
                   setSellerSearch(e.target.value);
                   setShowSellerDropdown(true);
+                  setSelectedDropdownIndex(0);
+                  setActiveDropdownType('seller');
                 }}
-                onFocus={() => setShowSellerDropdown(true)}
-                onBlur={() => setTimeout(() => setShowSellerDropdown(false), 200)}
+                onFocus={() => {
+                  if (sellerSearch) {
+                    setShowSellerDropdown(true);
+                    setSelectedDropdownIndex(0);
+                    setActiveDropdownType('seller');
+                  }
+                }}
+                onBlur={() => setTimeout(() => {
+                  setShowSellerDropdown(false);
+                  setSelectedDropdownIndex(-1);
+                  setActiveDropdownType(null);
+                }, 200)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight' && !showSellerDropdown) {
+                    e.preventDefault();
+                    brokerageInputRef.current?.focus();
+                  }
+                }}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -608,23 +740,25 @@ const TransactionDetailEnhanced = () => {
                   maxHeight: '200px',
                   overflowY: 'auto'
                 }}>
-                  {getFilteredSellers().map(seller => (
+                  {getFilteredSellers().map((seller, index) => (
                     <div
                       key={seller.id}
                       onClick={() => {
                         handleInputChange('fromSeller', seller.id);
                         setSellerSearch(seller.firmName);
                         setShowSellerDropdown(false);
+                        setSelectedDropdownIndex(-1);
+                        setTimeout(() => brokerageInputRef.current?.focus(), 100);
                       }}
                       style={{
                         padding: '10px 12px',
                         cursor: 'pointer',
                         borderBottom: `1px solid ${theme.borderLight}`,
                         color: theme.textPrimary,
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        backgroundColor: index === selectedDropdownIndex ? theme.hoverBg : 'transparent'
                       }}
-                      onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                      onMouseEnter={() => setSelectedDropdownIndex(index)}
                     >
                       <div style={{ fontWeight: '500' }}>{seller.firmName}</div>
                       <div style={{ fontSize: '12px', color: theme.textSecondary }}>{seller.city}</div>
@@ -670,6 +804,15 @@ const TransactionDetailEnhanced = () => {
                 value={formData.sellerBrokerage}
                 onChange={(e) => handleInputChange('sellerBrokerage', e.target.value)}
                 placeholder="e.g., 2"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    sellerProductRefs.current[0]?.focus();
+                  } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    sellerInputRef.current?.focus();
+                  }
+                }}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -696,34 +839,107 @@ const TransactionDetailEnhanced = () => {
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
               {formData.sellerProducts.map((product, index) => (
                 <div key={index} style={{ display: 'flex', gap: '6px', alignItems: 'center', minWidth: '300px' }}>
-                  <select
-                    value={product.productId}
-                    onChange={(e) => {
-                      const newProducts = [...formData.sellerProducts];
-                      newProducts[index].productId = e.target.value;
-                      setFormData(prev => ({ ...prev, sellerProducts: newProducts }));
-                    }}
-                    style={{
-                      flex: 2,
-                      padding: '6px 8px',
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: '4px',
-                      fontSize: '13px',
-                      backgroundColor: theme.inputBackground || theme.cardBackground,
-                      color: theme.textPrimary
-                    }}
-                  >
-                    <option value="">Select Product</option>
-                    {products.map((product) => {
-                      const [description, id] = Object.entries(product)[0];
-                      return (
-                        <option key={id} value={id}>
-                          {description}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  <div style={{ flex: 2, position: 'relative' }}>
+                    <input
+                      ref={el => sellerProductRefs.current[index] = el}
+                      type="text"
+                      placeholder="Type to search product..."
+                      value={sellerProductSearches[index] || ''}
+                      onChange={(e) => {
+                        setSellerProductSearches(prev => ({ ...prev, [index]: e.target.value }));
+                        setShowSellerProductDropdowns(prev => ({ ...prev, [index]: true }));
+                        setSelectedDropdownIndex(0);
+                        setActiveDropdownType('sellerProduct');
+                        setActiveRowIndex(index);
+                      }}
+                      onFocus={() => {
+                        if (sellerProductSearches[index]) {
+                          setShowSellerProductDropdowns(prev => ({ ...prev, [index]: true }));
+                          setSelectedDropdownIndex(0);
+                          setActiveDropdownType('sellerProduct');
+                          setActiveRowIndex(index);
+                        }
+                      }}
+                      onBlur={() => setTimeout(() => {
+                        setShowSellerProductDropdowns(prev => ({ ...prev, [index]: false }));
+                        setSelectedDropdownIndex(-1);
+                        if (activeRowIndex === index) {
+                          setActiveDropdownType(null);
+                          setActiveRowIndex(null);
+                        }
+                      }, 200)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                          e.preventDefault();
+                          brokerageInputRef.current?.focus();
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          sellerProductCostRefs.current[index]?.focus();
+                        } else if (e.key === 'ArrowRight') {
+                          e.preventDefault();
+                          sellerProductCostRefs.current[index]?.focus();
+                        } else if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          buyerInputRefs.current[0]?.focus();
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '6px 8px',
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        backgroundColor: theme.inputBackground || theme.cardBackground,
+                        color: theme.textPrimary
+                      }}
+                    />
+                    {showSellerProductDropdowns[index] && getFilteredProducts(sellerProductSearches[index]).length > 0 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: theme.cardBackground,
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: '4px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 1000,
+                        maxHeight: '200px',
+                        overflowY: 'auto'
+                      }}>
+                        {getFilteredProducts(sellerProductSearches[index]).map((product, productIndex) => {
+                          const [description, id] = Object.entries(product)[0];
+                          return (
+                            <div
+                              key={id}
+                              onClick={() => {
+                                const newProducts = [...formData.sellerProducts];
+                                newProducts[index].productId = id;
+                                setFormData(prev => ({ ...prev, sellerProducts: newProducts }));
+                                setSellerProductSearches(prev => ({ ...prev, [index]: description }));
+                                setShowSellerProductDropdowns(prev => ({ ...prev, [index]: false }));
+                                setSelectedDropdownIndex(-1);
+                                setTimeout(() => sellerProductCostRefs.current[index]?.focus(), 100);
+                              }}
+                              style={{
+                                padding: '8px',
+                                cursor: 'pointer',
+                                borderBottom: `1px solid ${theme.borderLight}`,
+                                color: theme.textPrimary,
+                                fontSize: '12px',
+                                backgroundColor: productIndex === selectedDropdownIndex ? theme.hoverBg : 'transparent'
+                              }}
+                              onMouseEnter={() => setSelectedDropdownIndex(productIndex)}
+                            >
+                              {description}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <input
+                    ref={el => sellerProductCostRefs.current[index] = el}
                     type="number"
                     placeholder="Cost"
                     value={product.productCost}
@@ -731,6 +947,15 @@ const TransactionDetailEnhanced = () => {
                       const newProducts = [...formData.sellerProducts];
                       newProducts[index].productCost = e.target.value;
                       setFormData(prev => ({ ...prev, sellerProducts: newProducts }));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        sellerProductRefs.current[index]?.focus();
+                      } else if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        buyerInputRefs.current[0]?.focus();
+                      }
                     }}
                     style={{
                       flex: 1,
@@ -853,24 +1078,48 @@ const TransactionDetailEnhanced = () => {
                         onChange={(e) => {
                           setBuyerSearches(prev => ({ ...prev, [index]: e.target.value }));
                           setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
+                          setSelectedDropdownIndex(0);
+                          setActiveDropdownType('buyer');
+                          setActiveRowIndex(index);
                         }}
-                        onFocus={() => setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }))}
-                        onBlur={() => setTimeout(() => setShowBuyerDropdowns(prev => ({ ...prev, [index]: false })), 200)}
+                        onFocus={() => {
+                          if (buyerSearches[index]) {
+                            setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
+                            setSelectedDropdownIndex(0);
+                            setActiveDropdownType('buyer');
+                            setActiveRowIndex(index);
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => {
+                          setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
+                          setSelectedDropdownIndex(-1);
+                          if (activeRowIndex === index) {
+                            setActiveDropdownType(null);
+                            setActiveRowIndex(null);
+                          }
+                        }, 200)}
                         onKeyDown={(e) => {
-                          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                          if (e.key === 'ArrowRight' && !showBuyerDropdowns[index]) {
                             e.preventDefault();
-                            // Handle dropdown navigation
-                          } else if (e.key === 'Enter' && showBuyerDropdowns[index]) {
-                            e.preventDefault();
-                            const filtered = getFilteredBuyers(buyerSearches[index]);
-                            if (filtered.length > 0) {
-                              const buyer = filtered[0];
-                              handleRecordChange(index, 'buyerName', buyer.firmName);
-                              handleRecordChange(index, 'buyerCity', buyer.city);
-                              setBuyerSearches(prev => ({ ...prev, [index]: buyer.firmName }));
-                              setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
-                              setTimeout(() => productInputRefs.current[index]?.focus(), 100);
+                            // Check if product is auto-populated, if yes go to quantity, else go to product
+                            if (formData.ledgerRecordDTOList[index].productId) {
+                              quantityInputRefs.current[index]?.focus();
+                            } else {
+                              productInputRefs.current[index]?.focus();
                             }
+                          } else if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            if (index === 0) {
+                              brokerageInputRef.current?.focus();
+                            } else {
+                              rateInputRefs.current[index - 1]?.focus();
+                            }
+                          } else if (e.key === 'ArrowUp' && index > 0) {
+                            e.preventDefault();
+                            buyerInputRefs.current[index - 1]?.focus();
+                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1) {
+                            e.preventDefault();
+                            buyerInputRefs.current[index + 1]?.focus();
                           }
                         }}
                         style={{
@@ -897,7 +1146,7 @@ const TransactionDetailEnhanced = () => {
                           maxHeight: '200px',
                           overflowY: 'auto'
                         }}>
-                          {getFilteredBuyers(buyerSearches[index]).map(buyer => (
+                          {getFilteredBuyers(buyerSearches[index]).map((buyer, buyerIndex) => (
                             <div
                               key={buyer.id}
                               onClick={() => {
@@ -905,18 +1154,30 @@ const TransactionDetailEnhanced = () => {
                                 handleRecordChange(index, 'buyerCity', buyer.city);
                                 setBuyerSearches(prev => ({ ...prev, [index]: buyer.firmName }));
                                 setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
-                                // Focus next input
-                                setTimeout(() => productInputRefs.current[index]?.focus(), 100);
+                                setSelectedDropdownIndex(-1);
+                                
+                                // Auto-populate product from seller products if available
+                                if (formData.sellerProducts[0]?.productId) {
+                                  handleRecordChange(index, 'productId', formData.sellerProducts[0].productId);
+                                  const selectedProduct = products.find(p => Object.values(p)[0] === formData.sellerProducts[0].productId);
+                                  if (selectedProduct) {
+                                    const [description] = Object.entries(selectedProduct)[0];
+                                    setProductSearches(prev => ({ ...prev, [index]: description }));
+                                  }
+                                  setTimeout(() => quantityInputRefs.current[index]?.focus(), 100);
+                                } else {
+                                  setTimeout(() => productInputRefs.current[index]?.focus(), 100);
+                                }
                               }}
                               style={{
                                 padding: '8px',
                                 cursor: 'pointer',
                                 borderBottom: `1px solid ${theme.borderLight}`,
                                 color: theme.textPrimary,
-                                fontSize: '12px'
+                                fontSize: '12px',
+                                backgroundColor: buyerIndex === selectedDropdownIndex ? theme.hoverBg : 'transparent'
                               }}
-                              onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
-                              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                              onMouseEnter={() => setSelectedDropdownIndex(buyerIndex)}
                             >
                               <div style={{ fontWeight: '500' }}>{buyer.firmName}</div>
                               <div style={{ fontSize: '10px', color: theme.textSecondary }}>{buyer.city}</div>
@@ -941,24 +1202,37 @@ const TransactionDetailEnhanced = () => {
                         onChange={(e) => {
                           setProductSearches(prev => ({ ...prev, [index]: e.target.value }));
                           setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
+                          setSelectedDropdownIndex(0);
+                          setActiveDropdownType('product');
+                          setActiveRowIndex(index);
                         }}
-                        onFocus={() => setShowProductDropdowns(prev => ({ ...prev, [index]: true }))}
-                        onBlur={() => setTimeout(() => setShowProductDropdowns(prev => ({ ...prev, [index]: false })), 200)}
+                        onFocus={() => {
+                          setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
+                          setSelectedDropdownIndex(0);
+                          setActiveDropdownType('product');
+                          setActiveRowIndex(index);
+                        }}
+                        onBlur={() => setTimeout(() => {
+                          setShowProductDropdowns(prev => ({ ...prev, [index]: false }));
+                          setSelectedDropdownIndex(-1);
+                          if (activeRowIndex === index) {
+                            setActiveDropdownType(null);
+                            setActiveRowIndex(null);
+                          }
+                        }, 200)}
                         onKeyDown={(e) => {
-                          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                          if (e.key === 'ArrowRight' && !showProductDropdowns[index]) {
                             e.preventDefault();
-                            // Handle dropdown navigation
-                          } else if (e.key === 'Enter' && showProductDropdowns[index]) {
+                            quantityInputRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowLeft') {
                             e.preventDefault();
-                            const filtered = getFilteredProducts(productSearches[index]);
-                            if (filtered.length > 0) {
-                              const product = filtered[0];
-                              const [description, id] = Object.entries(product)[0];
-                              handleRecordChange(index, 'productId', id);
-                              setProductSearches(prev => ({ ...prev, [index]: description }));
-                              setShowProductDropdowns(prev => ({ ...prev, [index]: false }));
-                              setTimeout(() => quantityInputRefs.current[index]?.focus(), 100);
-                            }
+                            buyerInputRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowUp' && index > 0) {
+                            e.preventDefault();
+                            productInputRefs.current[index - 1]?.focus();
+                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1) {
+                            e.preventDefault();
+                            productInputRefs.current[index + 1]?.focus();
                           }
                         }}
                         style={{
@@ -994,7 +1268,7 @@ const TransactionDetailEnhanced = () => {
                                   handleRecordChange(index, 'productId', id);
                                   setProductSearches(prev => ({ ...prev, [index]: description }));
                                   setShowProductDropdowns(prev => ({ ...prev, [index]: false }));
-                                  // Focus next input
+                                  setSelectedDropdownIndex(-1);
                                   setTimeout(() => quantityInputRefs.current[index]?.focus(), 100);
                                 }}
                                 style={{
@@ -1002,10 +1276,10 @@ const TransactionDetailEnhanced = () => {
                                   cursor: 'pointer',
                                   borderBottom: `1px solid ${theme.borderLight}`,
                                   color: theme.textPrimary,
-                                  fontSize: '12px'
+                                  fontSize: '12px',
+                                  backgroundColor: productIndex === selectedDropdownIndex ? theme.hoverBg : 'transparent'
                                 }}
-                                onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
-                                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                onMouseEnter={() => setSelectedDropdownIndex(productIndex)}
                               >
                                 {description}
                               </div>
@@ -1023,8 +1297,18 @@ const TransactionDetailEnhanced = () => {
                         value={record.quantity}
                         onChange={(e) => handleRecordChange(index, 'quantity', e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            rateInputRefs.current[index]?.focus();
+                          if (e.key === 'Enter' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            brokerageColumnRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            productInputRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowUp' && index > 0) {
+                            e.preventDefault();
+                            quantityInputRefs.current[index - 1]?.focus();
+                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1) {
+                            e.preventDefault();
+                            quantityInputRefs.current[index + 1]?.focus();
                           }
                         }}
                         style={{
@@ -1042,9 +1326,25 @@ const TransactionDetailEnhanced = () => {
                     {/* Brokerage */}
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}` }}>
                       <input
+                        ref={el => brokerageColumnRefs.current[index] = el}
                         type="number"
                         value={record.brokerage}
                         onChange={(e) => handleRecordChange(index, 'brokerage', e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            rateInputRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            quantityInputRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowUp' && index > 0) {
+                            e.preventDefault();
+                            brokerageColumnRefs.current[index - 1]?.focus();
+                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1) {
+                            e.preventDefault();
+                            brokerageColumnRefs.current[index + 1]?.focus();
+                          }
+                        }}
                         style={{
                           width: '100%',
                           padding: '8px',
@@ -1066,10 +1366,24 @@ const TransactionDetailEnhanced = () => {
                         onChange={(e) => handleRecordChange(index, 'productCost', e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
+                            e.preventDefault();
                             if (index === formData.ledgerRecordDTOList.length - 1) {
                               addNewRecord();
                             } else {
                               buyerInputRefs.current[index + 1]?.focus();
+                            }
+                          } else if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            brokerageColumnRefs.current[index]?.focus();
+                          } else if (e.key === 'ArrowUp' && index > 0) {
+                            e.preventDefault();
+                            rateInputRefs.current[index - 1]?.focus();
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (index < formData.ledgerRecordDTOList.length - 1) {
+                              rateInputRefs.current[index + 1]?.focus();
+                            } else {
+                              addNewRecord();
                             }
                           }
                         }}

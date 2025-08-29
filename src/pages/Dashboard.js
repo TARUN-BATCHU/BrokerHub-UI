@@ -23,6 +23,8 @@ import ProductBulkUpload from '../components/ProductBulkUpload';
 import MerchantDetailModal from '../components/MerchantDetailModal';
 import ChartErrorState from '../components/ChartErrorState';
 import GrainAnalytics from '../components/GrainAnalytics';
+import PaymentDashboard from '../components/PaymentDashboard';
+import MobilePaymentsTabs from '../components/MobilePaymentsTabs';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,6 +41,7 @@ import {
   mockPendingPayments,
   mockReceivablePayments
 } from '../utils/mockPaymentData';
+import { paymentAPI } from '../services/paymentAPI';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -48,6 +51,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const brokerId = localStorage.getItem('brokerId') || '1';
   const [analyticsData, setAnalyticsData] = useState({
     sales: mockSalesData,
     topBuyers: mockTopBuyers,
@@ -94,6 +98,8 @@ const Dashboard = () => {
   const [showPartPaymentModal, setShowPartPaymentModal] = useState(false);
   const [partPaymentAmount, setPartPaymentAmount] = useState('');
   const [partPaymentMethod, setPartPaymentMethod] = useState('CASH');
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [paymentStatsLoading, setPaymentStatsLoading] = useState(false);
 
   // Search state for payments
   const [brokerageSearchTerm, setBrokerageSearchTerm] = useState('');
@@ -103,8 +109,8 @@ const Dashboard = () => {
   const [showPendingDropdown, setShowPendingDropdown] = useState(false);
   const [showReceivableDropdown, setShowReceivableDropdown] = useState(false);
 
-  // Mock firm names for search dropdown (in real app, this would come from API)
-  const [firmNames] = useState([
+  // Firm names for search dropdown
+  const [firmNames, setFirmNames] = useState([
     'Tarun Traders',
     'Siri Traders',
     'Krishna Mills',
@@ -174,6 +180,11 @@ const Dashboard = () => {
 
     // Load payment data
     loadPaymentData();
+    
+    // Load firm names
+    loadFirmNames();
+
+    // Payment dashboard stats will be loaded by useEffect when tab becomes active
 
     // Load financial years
     loadFinancialYears();
@@ -181,6 +192,26 @@ const Dashboard = () => {
     // Load current financial year
     loadCurrentFinancialYear();
   }, [navigate, location, user]);
+
+  // Load payment dashboard stats when payments tab becomes active
+  useEffect(() => {
+    if (activeTab === 'payments' && !dashboardStats) {
+      loadPaymentDashboardStats();
+    }
+  }, [activeTab]);
+
+  // Load individual payment data when payment sub-tabs become active
+  useEffect(() => {
+    if (activeTab === 'payments') {
+      if (activePaymentTab === 'brokerage' && brokeragePayments.length === 0) {
+        loadBrokeragePayments();
+      } else if (activePaymentTab === 'pending' && pendingPayments.length === 0) {
+        loadPendingPayments();
+      } else if (activePaymentTab === 'receivable' && receivablePayments.length === 0) {
+        loadReceivablePayments();
+      }
+    }
+  }, [activeTab, activePaymentTab]);
 
   const loadAnalyticsData = async () => {
     try {
@@ -511,16 +542,124 @@ const Dashboard = () => {
     }
   };
 
+  // Load firm names
+  const loadFirmNames = async () => {
+    try {
+      console.log('Loading firm names from API...');
+      const response = await paymentAPI.getAllFirms();
+      console.log('Firm names API response:', response);
+      if (response.data && Array.isArray(response.data)) {
+        setFirmNames(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load firm names:', error);
+      alert('API Connection Error: Check if backend is running on correct port');
+    }
+  };
+
   // Load payment data
-  const loadPaymentData = () => {
+  const loadPaymentData = async () => {
     try {
       console.log('Loading payment data...');
-      setBrokeragePayments(mockBrokeragePayments);
-      setPendingPayments(mockPendingPayments);
-      setReceivablePayments(mockReceivablePayments);
+      setLoading(true);
+      
+      // Load real payment data from API
+      console.log('Attempting to load payment data for brokerId:', brokerId);
+      
+      const [brokerageResponse, pendingResponse, receivableResponse] = await Promise.allSettled([
+        paymentAPI.getBrokeragePayments(brokerId),
+        paymentAPI.getPendingPayments(brokerId),
+        paymentAPI.getReceivablePayments(brokerId)
+      ]);
+      
+      // Set brokerage payments
+      if (brokerageResponse.status === 'fulfilled') {
+        console.log('Brokerage API success:', brokerageResponse.value);
+        setBrokeragePayments(brokerageResponse.value.data || []);
+      } else {
+        console.error('Failed to load brokerage payments:', brokerageResponse.reason);
+        alert('API Error: ' + (brokerageResponse.reason?.message || 'Failed to connect to payment API'));
+        setBrokeragePayments([]);
+      }
+      
+      // Set pending payments
+      if (pendingResponse.status === 'fulfilled') {
+        console.log('Pending API success:', pendingResponse.value);
+        setPendingPayments(pendingResponse.value.data || []);
+      } else {
+        console.error('Failed to load pending payments:', pendingResponse.reason);
+        setPendingPayments([]);
+      }
+      
+      // Set receivable payments
+      if (receivableResponse.status === 'fulfilled') {
+        console.log('Receivable API success:', receivableResponse.value);
+        setReceivablePayments(receivableResponse.value.data || []);
+      } else {
+        console.error('Failed to load receivable payments:', receivableResponse.reason);
+        setReceivablePayments([]);
+      }
+      
       console.log('Payment data loaded successfully');
     } catch (error) {
       console.error('Error loading payment data:', error);
+      // Fallback to mock data
+      setBrokeragePayments([]);
+      setPendingPayments([]);
+      setReceivablePayments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load payment dashboard statistics
+  const loadPaymentDashboardStats = async () => {
+    try {
+      console.log('Loading payment dashboard stats...');
+      setPaymentStatsLoading(true);
+      const response = await paymentAPI.getDashboardStats(brokerId);
+      console.log('Payment dashboard stats loaded:', response);
+      setDashboardStats(response.data || response);
+    } catch (error) {
+      console.error('Error loading payment dashboard stats:', error);
+      alert('Failed to load payment dashboard statistics: ' + (error.message || 'Server error'));
+      setDashboardStats(null);
+    } finally {
+      setPaymentStatsLoading(false);
+    }
+  };
+
+  // Load individual payment data
+  const loadBrokeragePayments = async () => {
+    try {
+      console.log('Loading brokerage payments...');
+      const response = await paymentAPI.getBrokeragePayments(brokerId);
+      setBrokeragePayments(response.data || []);
+    } catch (error) {
+      console.error('Error loading brokerage payments:', error);
+      setBrokeragePayments([]);
+    }
+  };
+
+  const loadPendingPayments = async () => {
+    try {
+      console.log('Loading pending payments...');
+      const response = await paymentAPI.getPendingPayments(brokerId);
+      setPendingPayments(response.data || []);
+    } catch (error) {
+      console.error('Error loading pending payments:', error);
+      setPendingPayments([]);
+    }
+  };
+
+  const loadReceivablePayments = async () => {
+    try {
+      console.log('Loading receivable payments...');
+      const response = await paymentAPI.getReceivablePayments(brokerId);
+      setReceivablePayments(response.data || []);
+    } catch (error) {
+      console.error('Error loading receivable payments:', error);
+      setReceivablePayments([]);
     }
   };
 
@@ -617,40 +756,72 @@ const Dashboard = () => {
     );
   };
 
-  const handleFirmSelect = (firmName, section) => {
+  const handleFirmSelect = async (firmName, section) => {
     switch(section) {
       case 'brokerage':
         setBrokerageSearchTerm(firmName);
         setShowBrokerageDropdown(false);
+        try {
+          const response = await paymentAPI.searchBrokeragePayments(brokerId, firmName);
+          setBrokeragePayments(response.data || []);
+        } catch (error) {
+          console.error('Search failed:', error);
+        }
         break;
       case 'pending':
         setPendingSearchTerm(firmName);
         setShowPendingDropdown(false);
+        try {
+          const response = await paymentAPI.searchPendingPayments(brokerId, firmName);
+          setPendingPayments(response.data || []);
+        } catch (error) {
+          console.error('Search failed:', error);
+        }
         break;
       case 'receivable':
         setReceivableSearchTerm(firmName);
         setShowReceivableDropdown(false);
+        try {
+          const response = await paymentAPI.searchReceivablePayments(brokerId, firmName);
+          setReceivablePayments(response.data || []);
+        } catch (error) {
+          console.error('Search failed:', error);
+        }
         break;
     }
-
-    // In real app, make API call here to get merchant details
-    console.log(`Selected firm: ${firmName} in section: ${section}`);
-    // TODO: Implement API call to backend
   };
 
-  const clearSearch = (section) => {
+  const clearSearch = async (section) => {
     switch(section) {
       case 'brokerage':
         setBrokerageSearchTerm('');
         setShowBrokerageDropdown(false);
+        try {
+          const response = await paymentAPI.getBrokeragePayments(brokerId);
+          setBrokeragePayments(response.data || []);
+        } catch (error) {
+          console.error('Failed to reload brokerage payments:', error);
+        }
         break;
       case 'pending':
         setPendingSearchTerm('');
         setShowPendingDropdown(false);
+        try {
+          const response = await paymentAPI.getPendingPayments(brokerId);
+          setPendingPayments(response.data || []);
+        } catch (error) {
+          console.error('Failed to reload pending payments:', error);
+        }
         break;
       case 'receivable':
         setReceivableSearchTerm('');
         setShowReceivableDropdown(false);
+        try {
+          const response = await paymentAPI.getReceivablePayments(brokerId);
+          setReceivablePayments(response.data || []);
+        } catch (error) {
+          console.error('Failed to reload receivable payments:', error);
+        }
         break;
     }
   };
@@ -677,50 +848,33 @@ const Dashboard = () => {
         return;
       }
 
-      // Simulate API call to update payment
-      console.log('Adding part payment:', {
-        merchantId: selectedPaymentDetail.merchantId,
+      const partPaymentData = {
         amount: amount,
         method: partPaymentMethod,
-        date: new Date().toISOString().split('T')[0]
-      });
+        notes: 'Part payment added from dashboard',
+        paymentDate: new Date().toISOString().split('T')[0],
+        transactionReference: `TXN${Date.now()}`,
+        recordedBy: localStorage.getItem('userName') || 'admin'
+      };
 
-      // Update local state
-      setBrokeragePayments(prev => prev.map(payment => {
-        if (payment.id === selectedPaymentDetail.id) {
-          const newPaidAmount = payment.paidAmount + amount;
-          const newPendingAmount = payment.pendingAmount - amount;
-          const newStatus = newPendingAmount === 0 ? 'PAID' : 'PARTIAL_PAID';
-
-          return {
-            ...payment,
-            paidAmount: newPaidAmount,
-            pendingAmount: newPendingAmount,
-            status: newStatus,
-            lastPaymentDate: new Date().toISOString().split('T')[0],
-            partPayments: [
-              ...payment.partPayments,
-              {
-                id: `PP${Date.now()}`,
-                amount: amount,
-                date: new Date().toISOString().split('T')[0],
-                method: partPaymentMethod,
-                notes: 'Part payment added'
-              }
-            ]
-          };
-        }
-        return payment;
-      }));
-
-      setShowPartPaymentModal(false);
-      setPartPaymentAmount('');
-      setPartPaymentMethod('CASH');
-      setSelectedPaymentDetail(null);
-      alert('Part payment added successfully!');
+      // Call real API to add part payment
+      const response = await paymentAPI.addPartPayment(brokerId, selectedPaymentDetail.id, partPaymentData);
+      
+      if (response.status === 'success') {
+        // Reload payment data to get updated information
+        await loadPaymentData();
+        
+        setShowPartPaymentModal(false);
+        setPartPaymentAmount('');
+        setPartPaymentMethod('CASH');
+        setSelectedPaymentDetail(null);
+        alert('Part payment added successfully!');
+      } else {
+        throw new Error(response.message || 'Failed to add part payment');
+      }
     } catch (error) {
       console.error('Error adding part payment:', error);
-      alert('Failed to add part payment');
+      alert(`Failed to add part payment: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -2027,6 +2181,50 @@ const Dashboard = () => {
       {/* Payments Tab */}
       {activeTab === 'payments' && (
         <div>
+          {/* Payment Dashboard */}
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '12px',
+            padding: '24px',
+            marginBottom: '20px',
+            boxShadow: theme.shadow,
+            border: `1px solid ${theme.border}`,
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{ margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📊 Payment Dashboard
+              </h3>
+              <button
+                onClick={loadPaymentDashboardStats}
+                disabled={paymentStatsLoading}
+                style={{
+                  padding: '8px 16px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  fontSize: '14px',
+                  cursor: paymentStatsLoading ? 'not-allowed' : 'pointer',
+                  opacity: paymentStatsLoading ? 0.6 : 1,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {paymentStatsLoading ? '🔄 Loading...' : '🔄 Refresh Stats'}
+              </button>
+            </div>
+            <PaymentDashboard 
+              stats={dashboardStats} 
+              loading={paymentStatsLoading}
+              onRefresh={loadPaymentDashboardStats}
+            />
+          </div>
+
           {/* Payment Tab Navigation */}
           <div style={{
             backgroundColor: theme.cardBackground,
@@ -2230,8 +2428,7 @@ const Dashboard = () => {
                   <thead>
                     <tr style={{ backgroundColor: theme.background }}>
                       <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Firm Name</th>
-                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Sold Bags</th>
-                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Bought Bags</th>
+                      <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Total Bags</th>
                       <th style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Rate (₹/bag)</th>
                       <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Net Brokerage</th>
                       <th style={{ padding: '12px', textAlign: 'right', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary, fontWeight: '600' }}>Paid Amount</th>
@@ -2250,10 +2447,7 @@ const Dashboard = () => {
                           </div>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                          {payment.soldBags}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                          {payment.boughtBags}
+                          {payment.totalBags || (payment.soldBags + payment.boughtBags) || 0}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                           ₹{payment.brokerageRate}

@@ -80,6 +80,13 @@ const GlobalNavigation = () => {
       ]
     },
     {
+      label: 'Payments',
+      icon: '💳',
+      items: [
+        { path: '/payments', label: 'Payment Management', icon: '💳' }
+      ]
+    },
+    {
       label: 'Entities',
       icon: '🏢',
       items: [

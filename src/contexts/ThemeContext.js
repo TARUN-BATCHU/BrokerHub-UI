@@ -123,6 +123,11 @@ export const ThemeProvider = ({ children }) => {
     localStorage.setItem('brokerhub-theme', newTheme ? 'dark' : 'light');
   };
 
+  // Apply theme to document body
+  useEffect(() => {
+    document.body.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
   // Listen for system theme changes
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
