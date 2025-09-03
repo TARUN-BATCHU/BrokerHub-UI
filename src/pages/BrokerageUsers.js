@@ -27,38 +27,51 @@ const BrokerageUsers = () => {
   }, []);
 
   useEffect(() => {
+    if (selectedYear) {
+      loadUsersForYear();
+      setSelectedUsers([]);
+    }
+  }, [selectedYear]);
+
+  useEffect(() => {
     filterUsers();
   }, [users, searchTerm, selectedCity]);
 
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [fyResponse, usersResponse] = await Promise.all([
-        financialYearAPI.getAllFinancialYears(),
-        userAPI.getUserSummary(0, 1000)
-      ]);
-      
-      console.log('FY Response:', fyResponse);
-      console.log('Users Response:', usersResponse);
+      const fyResponse = await financialYearAPI.getAllFinancialYears();
       
       const years = fyResponse || [];
-      console.log('First FY object:', years[0]);
       setFinancialYears(years);
       if (years.length > 0) {
         const firstYear = years[0];
         const yearId = firstYear.financialYearId || firstYear.yearId || firstYear.id;
         setSelectedYear(yearId ? yearId.toString() : '1');
       }
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUsersForYear = async () => {
+    try {
+      setLoading(true);
+      setUsers([]);
+      setFilteredUsers([]);
+      setCities([]);
+      
+      const usersResponse = await userAPI.getUserSummary(0, 1000, 'firmName,asc', selectedYear);
       
       const userData = usersResponse.content || [];
-      console.log('User Data:', userData);
       setUsers(userData);
       
-      // Extract unique cities
       const uniqueCities = [...new Set(userData.map(user => user.city).filter(Boolean))];
       setCities(uniqueCities);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      console.error('Failed to load users:', error);
     } finally {
       setLoading(false);
     }

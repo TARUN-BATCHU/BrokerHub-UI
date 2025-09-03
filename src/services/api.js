@@ -169,9 +169,12 @@ export const userAPI = {
   },
 
   // Get user summary with pagination
-  getUserSummary: async (page = 0, size = 10, sort = 'firmName,asc') => {
+  getUserSummary: async (page = 0, size = 10, sort = 'firmName,asc', financialYearId = null) => {
     try {
-      const response = await api.get(`/user/getUserSummary?page=${page}&size=${size}&sort=${sort}`);
+      const url = financialYearId 
+        ? `/user/getUserSummary?financialYearId=${financialYearId}&page=${page}&size=${size}&sort=${sort}`
+        : `/user/getUserSummary?page=${page}&size=${size}&sort=${sort}`;
+      const response = await api.get(url);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { analyticsAPI, dailyLedgerAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 const CalendarView = () => {
   const location = useLocation();
@@ -49,7 +50,11 @@ const CalendarView = () => {
   };
 
   const handleDateClick = async (date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    // Use local date formatting to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     navigate('/daily-ledger', { state: { date: dateStr } });
   };
 
@@ -85,7 +90,12 @@ const CalendarView = () => {
       // Add days of the month
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month, day);
-        if (date >= startDate && date <= endDate) {
+        // Use date comparison without time to avoid timezone issues
+        const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const startOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        const endOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+        
+        if (dateOnly >= startOnly && dateOnly <= endOnly) {
           monthData.days.push(date);
         }
       }
@@ -167,7 +177,7 @@ const CalendarView = () => {
               color: theme.textSecondary,
               fontSize: '16px'
             }}>
-              {new Date(financialYear.start).toLocaleDateString()} - {new Date(financialYear.end).toLocaleDateString()}
+              {formatDateForDisplay(financialYear.start)} - {formatDateForDisplay(financialYear.end)}
             </p>
           </div>
 

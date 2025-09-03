@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ledgerDetailsAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { formatDateForDisplay } from '../utils/dateUtils';
 import '../styles/ledger.css';
 
 const DailyLedger = () => {
@@ -9,6 +10,7 @@ const DailyLedger = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const [selectedDate, setSelectedDate] = useState(location.state?.date || new Date().toISOString().split('T')[0]);
+  const [dateInputValue, setDateInputValue] = useState('');
   const [ledgerData, setLedgerData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,8 +20,13 @@ const DailyLedger = () => {
   useEffect(() => {
     if (selectedDate) {
       fetchLedgerData();
+      setDateInputValue(formatDateForDisplay(selectedDate));
     }
   }, [selectedDate]);
+
+  useEffect(() => {
+    setDateInputValue(formatDateForDisplay(selectedDate));
+  }, []);
 
   const fetchLedgerData = async () => {
     setLoading(true);
@@ -85,28 +92,82 @@ const DailyLedger = () => {
       color: theme.textPrimary
     }}>
       <div className="header-section" style={{ marginBottom: '30px' }}>
-        <h1 style={{ color: theme.textPrimary, marginBottom: '20px' }}>Daily Ledger - {selectedDate}</h1>
+        <h1 style={{ color: theme.textPrimary, marginBottom: '20px' }}>Daily Ledger - {formatDateForDisplay(selectedDate)}</h1>
 
         <div className="controls" style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <label htmlFor="date-picker" style={{ marginRight: '10px', fontWeight: 'bold', color: theme.textPrimary }}>
-              Change Date:
+            <label style={{ marginRight: '10px', fontWeight: 'bold', color: theme.textPrimary }}>
+              Date:
             </label>
-            <input
-              id="date-picker"
-              type="date"
-              value={selectedDate}
-              onChange={handleDateChange}
-              onKeyPress={handleDateSubmit}
-              style={{
-                padding: '8px 12px',
-                border: `1px solid ${theme.border}`,
-                borderRadius: '4px',
-                fontSize: '14px',
-                backgroundColor: theme.inputBackground || theme.cardBackground,
-                color: theme.textPrimary
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="text"
+                value={dateInputValue}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDateInputValue(value);
+                  // Update selectedDate when complete dd-MM-yyyy format
+                  if (value.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    const [day, month, year] = value.split('-');
+                    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    setSelectedDate(isoDate);
+                  }
+                }}
+                onBlur={(e) => {
+                  // Try to parse partial dates on blur
+                  const value = e.target.value;
+                  if (value.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+                    const [day, month, year] = value.split('-');
+                    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    setSelectedDate(isoDate);
+                    setDateInputValue(formatDateForDisplay(isoDate));
+                  }
+                }}
+                onKeyPress={handleDateSubmit}
+                placeholder="DD-MM-YYYY"
+                style={{
+                  padding: '8px 12px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: theme.inputBackground || theme.cardBackground,
+                  color: theme.textPrimary,
+                  width: '120px'
+                }}
+              />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={handleDateChange}
+                style={{
+                  position: 'absolute',
+                  opacity: 0,
+                  width: '0',
+                  height: '0',
+                  pointerEvents: 'none'
+                }}
+                id="hidden-date-picker"
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('hidden-date-picker').showPicker?.() || document.getElementById('hidden-date-picker').click()}
+                style={{
+                  padding: '8px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '4px',
+                  backgroundColor: theme.cardBackground,
+                  color: theme.textPrimary,
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Select date"
+              >
+                📅
+              </button>
+            </div>
           </div>
 
           <button
@@ -155,7 +216,7 @@ const DailyLedger = () => {
           border: `1px solid ${theme.border}`
         }}>
           <p style={{ fontSize: '18px', color: theme.textSecondary, marginBottom: '20px' }}>
-            No transactions found for {selectedDate}
+            No transactions found for {formatDateForDisplay(selectedDate)}
           </p>
           <button
             onClick={handleAddNewTransaction}

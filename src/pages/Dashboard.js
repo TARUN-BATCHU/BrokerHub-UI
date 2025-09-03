@@ -29,6 +29,7 @@ import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
+import { formatDateForDisplay } from '../utils/dateUtils';
 import {
   mockSalesData,
   mockTopBuyers,
@@ -2682,7 +2683,7 @@ const Dashboard = () => {
                           ₹{payment.totalPendingAmount.toLocaleString()}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textSecondary }}>
-                          {new Date(payment.oldestTransactionDate).toLocaleDateString()}
+                          {formatDateForDisplay(payment.oldestTransactionDate)}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
                           <span style={{
@@ -2886,7 +2887,7 @@ const Dashboard = () => {
                           ₹{payment.totalReceivableAmount.toLocaleString()}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textSecondary }}>
-                          {new Date(payment.oldestTransactionDate).toLocaleDateString()}
+                          {formatDateForDisplay(payment.oldestTransactionDate)}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center', borderBottom: `1px solid ${theme.borderLight}` }}>
                           <span style={{
