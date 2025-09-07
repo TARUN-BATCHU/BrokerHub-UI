@@ -121,12 +121,12 @@ const BrokerageUsers = () => {
     }
   };
 
-  const handleDownloadBill = (userId, format = 'html') => {
-    setCustomBrokerageModal({ isOpen: true, userId, format });
+  const handleDownloadBill = (userId, format = 'html', firmName = null) => {
+    setCustomBrokerageModal({ isOpen: true, userId, format, firmName });
   };
 
   const handleCustomBrokerageConfirm = async (customBrokerage) => {
-    const { userId, format } = customBrokerageModal;
+    const { userId, format, firmName } = customBrokerageModal;
     try {
       if (format === 'bulk-bills') {
         await brokerageAPI.bulkBillsByUsers(selectedUsers, selectedYear, customBrokerage);
@@ -135,9 +135,9 @@ const BrokerageUsers = () => {
         await brokerageAPI.bulkExcelByUsers(selectedUsers, selectedYear, customBrokerage);
         alert('Bulk Excel generation started. Check document status for progress.');
       } else if (format === 'excel') {
-        await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage);
+        await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage, firmName);
       } else {
-        await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage);
+        await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
       }
     } catch (error) {
       console.error('Failed to download/generate:', error);
@@ -145,7 +145,7 @@ const BrokerageUsers = () => {
   };
 
   const handleCustomBrokerageClose = () => {
-    setCustomBrokerageModal({ isOpen: false, userId: null, format: null });
+    setCustomBrokerageModal({ isOpen: false, userId: null, format: null, firmName: null });
   };
 
   const handleBulkBills = () => {
@@ -450,24 +450,6 @@ const BrokerageUsers = () => {
 
 const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDownloadBill, index }) => {
   const { theme } = useTheme();
-  const [brokerage, setBrokerage] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadBrokerage();
-  }, [user.userId, selectedYear]);
-
-  const loadBrokerage = async () => {
-    try {
-      const response = await brokerageAPI.getUserTotalBrokerage(user.userId, selectedYear);
-      setBrokerage(response.data);
-    } catch (error) {
-      console.error('Failed to load brokerage:', error);
-      setBrokerage(0);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -542,20 +524,7 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
         textAlign: 'center',
         fontFamily: 'var(--font-mono)'
       }}>
-        {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ 
-              width: '20px', 
-              height: '20px', 
-              border: `2px solid ${theme.border}`, 
-              borderTop: '2px solid var(--color-secondary)', 
-              borderRadius: '50%', 
-              animation: 'spin 1s linear infinite' 
-            }}></div>
-          </div>
-        ) : (
-          formatCurrency(user.totalPayableBrokerage || brokerage)
-        )}
+        {formatCurrency(user.totalPayableBrokerage || 0)}
       </div>
       <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center' }}>
         <button 
@@ -570,7 +539,7 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
           </svg>
         </button>
         <button 
-          onClick={() => onDownloadBill(user.userId, 'html')} 
+          onClick={() => onDownloadBill(user.userId, 'html', user.firmName)} 
           className="modern-button modern-button-primary"
           style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
           title="Download Bill with Custom Brokerage Option"
@@ -581,7 +550,7 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
           </svg>
         </button>
         <button 
-          onClick={() => onDownloadBill(user.userId, 'excel')} 
+          onClick={() => onDownloadBill(user.userId, 'excel', user.firmName)} 
           className="modern-button modern-button-accent"
           style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
           title="Download Excel with Custom Brokerage Option"

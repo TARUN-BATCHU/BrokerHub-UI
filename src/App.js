@@ -18,6 +18,7 @@ import TodayMarket from './pages/TodayMarket';
 import CalendarView from './pages/CalendarView';
 import DailyLedger from './pages/DailyLedger';
 import TransactionDetailEnhanced from './pages/TransactionDetailEnhanced';
+import TransactionDetailEdit from './pages/TransactionDetailEdit';
 import LedgerManagement from './pages/LedgerManagement';
 import Products from './pages/Products';
 import Merchants from './pages/Merchants';
@@ -177,6 +178,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TransactionDetailEnhanced />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/transaction-detail-edit"
+                element={
+                  <ProtectedRoute>
+                    <TransactionDetailEdit />
                   </ProtectedRoute>
                 }
               />

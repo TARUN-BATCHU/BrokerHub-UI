@@ -19,10 +19,10 @@ const LoadingButton = ({
       {...props}
     >
       {loading ? (
-        <>
-          <LoadingSpinner size="20px" />
-          <span style={{ marginLeft: '8px' }}>Loading...</span>
-        </>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <LoadingSpinner size="16px" />
+          Loading...
+        </span>
       ) : (
         children
       )}

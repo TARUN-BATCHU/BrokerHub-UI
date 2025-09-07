@@ -28,21 +28,21 @@ export const brokerageAPI = {
   },
 
   // Document Generation APIs
-  downloadUserBill: async (userId, financialYear, customBrokerage = null) => {
+  downloadUserBill: async (userId, financialYear, customBrokerage = null, firmName = null) => {
     const url = `/Brokerage/bill/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.get(url, {
       responseType: 'blob'
     });
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
-    link.href = downloadUrl;
-    const filename = customBrokerage ? `bill_${userId}_custom_${customBrokerage}.html` : `bill_${userId}.html`;
+    const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const filename = customBrokerage ? `${safeFirmName}_bill_custom_${customBrokerage}.html` : `${safeFirmName}_bill.html`;
     link.download = filename;
     link.click();
     window.URL.revokeObjectURL(downloadUrl);
   },
 
-  downloadUserExcel: async (userId, financialYear, customBrokerage = null) => {
+  downloadUserExcel: async (userId, financialYear, customBrokerage = null, firmName = null) => {
     const url = `/Brokerage/excel/user/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.get(url, {
       responseType: 'blob'
@@ -50,7 +50,8 @@ export const brokerageAPI = {
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = downloadUrl;
-    const filename = customBrokerage ? `bill_${userId}_custom_${customBrokerage}.xlsx` : `bill_${userId}.xlsx`;
+    const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const filename = customBrokerage ? `${safeFirmName}_bill_custom_${customBrokerage}.xlsx` : `${safeFirmName}_bill.xlsx`;
     link.download = filename;
     link.click();
     window.URL.revokeObjectURL(downloadUrl);

@@ -11,15 +11,15 @@ const LoadingOverlay = ({ isVisible, message = 'Loading...' }) => {
       left: 0,
       width: '100%',
       height: '100%',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 9999
     }}>
-      <LoadingSpinner size="80px" />
-      <p style={{ color: 'white', marginTop: '20px' }}>{message}</p>
+      <LoadingSpinner size="30px" />
+      <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>{message}</div>
     </div>
   );
 };

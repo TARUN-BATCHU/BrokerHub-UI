@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ledgerDetailsAPI } from '../services/api';
+import { ledgerDetailsAPI, financialYearAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { formatDateForDisplay } from '../utils/dateUtils';
 import '../styles/ledger.css';
@@ -14,19 +14,30 @@ const DailyLedger = () => {
   const [ledgerData, setLedgerData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentFinancialYearId, setCurrentFinancialYearId] = useState(null);
 
   const brokerId = localStorage.getItem('brokerId');
+
+  useEffect(() => {
+    fetchCurrentFinancialYear();
+    setDateInputValue(formatDateForDisplay(selectedDate));
+  }, []);
 
   useEffect(() => {
     if (selectedDate) {
       fetchLedgerData();
       setDateInputValue(formatDateForDisplay(selectedDate));
     }
-  }, [selectedDate]);
+  }, [selectedDate, currentFinancialYearId]);
 
-  useEffect(() => {
-    setDateInputValue(formatDateForDisplay(selectedDate));
-  }, []);
+  const fetchCurrentFinancialYear = async () => {
+    try {
+      const financialYearId = await financialYearAPI.getCurrentFinancialYear();
+      setCurrentFinancialYearId(financialYearId);
+    } catch (err) {
+      console.error('Error fetching current financial year:', err);
+    }
+  };
 
   useEffect(() => {
     document.body.style.backgroundColor = theme.background;
@@ -39,7 +50,7 @@ const DailyLedger = () => {
     setLoading(true);
     setError('');
     try {
-      const data = await ledgerDetailsAPI.getLedgerDetailsByDate(selectedDate, brokerId);
+      const data = await ledgerDetailsAPI.getLedgerDetailsByDate(selectedDate, brokerId, currentFinancialYearId);
       setLedgerData(data || []);
     } catch (err) {
       setError('Failed to fetch ledger data');
@@ -72,11 +83,11 @@ const DailyLedger = () => {
   };
 
   const handleTransactionClick = (transaction) => {
-    navigate('/transaction-detail', {
+    navigate('/transaction-detail-edit', {
       state: {
-        mode: 'edit',
-        transactionNumber: transaction.brokerTransactionNumber || transaction.ledgerDetailsId,
-        financialYearId: transaction.financialYearId || new Date().getFullYear(),
+        transactionNumber: transaction.transactionNumber,
+        financialYearId: transaction.financialYearId,
+        brokerId: transaction.brokerId,
         date: selectedDate
       }
     });
@@ -196,8 +207,9 @@ const DailyLedger = () => {
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '20px', color: theme.textPrimary }}>
-          <div>Loading...</div>
+        <div style={{ textAlign: 'center', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <div className="simple-spinner" style={{ width: '20px', height: '20px' }}></div>
+          <span style={{ color: theme.textPrimary }}>Loading...</span>
         </div>
       )}
 
@@ -254,9 +266,29 @@ const DailyLedger = () => {
                 borderBottom: `2px solid ${theme.primary || '#007bff'}`,
                 border: `1px solid ${theme.border}`
               }}>
-                <h3 style={{ margin: '0', color: theme.primary || '#007bff', fontWeight: 'bold' }}>
-                  Seller: {brokerData.sellerName}
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: '0', color: theme.primary || '#007bff', fontWeight: 'bold' }}>
+                    Seller: {brokerData.sellerName}
+                  </h3>
+                  <button
+                    onClick={() => handleTransactionClick({
+                      transactionNumber: brokerData.transactionNumber,
+                      financialYearId: brokerData.financialYearId,
+                      brokerId: brokerData.brokerId
+                    })}
+                    style={{
+                      backgroundColor: theme.info || '#17a2b8',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Edit Details
+                  </button>
+                </div>
               </div>
 
               <div className="transactions-table" style={{
@@ -280,12 +312,12 @@ const DailyLedger = () => {
                       <tr style={{ backgroundColor: theme.background }}>
                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>ID</th>
                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Buyer Name</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Location</th>
                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Product Name</th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Product Cost</th>
                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Total Bags</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Product Cost</th>
                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Brokerage</th>
                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Total Brokerage</th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: `1px solid ${theme.border}`, color: `${theme.textPrimary} !important`, backgroundColor: `${theme.background} !important` }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -304,44 +336,28 @@ const DailyLedger = () => {
                           }}
                         >
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                            #{record.brokerTransactionNumber || record.ledgerDetailsId || recordIndex + 1}
+                            {record.brokerTransactionNumber || record.ledgerDetailsId || recordIndex + 1}
                           </td>
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             {record.buyerName}
                           </td>
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
+                            {record.buyerLocation || record.location || ''}
+                          </td>
+                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             {record.productName}
                           </td>
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                            {formatCurrency(record.productCost)}
+                            {record.quantity}
                           </td>
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
-                            {record.quantity}
+                            {formatCurrency(record.productCost)}
                           </td>
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             {formatCurrency(record.brokerage)}
                           </td>
                           <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}`, color: theme.textPrimary }}>
                             {formatCurrency(record.quantity * record.brokerage)}
-                          </td>
-                          <td style={{ padding: '12px', borderBottom: `1px solid ${theme.borderLight}` }}>
-                            <button
-                              onClick={() => handleTransactionClick({
-                                brokerTransactionNumber: record.brokerTransactionNumber || record.ledgerDetailsId || recordIndex + 1,
-                                financialYearId: record.financialYearId
-                              })}
-                              style={{
-                                backgroundColor: theme.info || '#17a2b8',
-                                color: 'white',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '12px'
-                              }}
-                            >
-                              View Details
-                            </button>
                           </td>
                         </tr>
                       ))}
@@ -351,10 +367,10 @@ const DailyLedger = () => {
                           {brokerData.displayLedgerRecordDTOList.reduce((sum, record) => sum + record.quantity, 0)}
                         </td>
                         <td style={{ padding: '12px', borderTop: `2px solid ${theme.border}`, color: theme.textPrimary }}></td>
+                        <td style={{ padding: '12px', borderTop: `2px solid ${theme.border}`, color: theme.textPrimary }}></td>
                         <td style={{ padding: '12px', borderTop: `2px solid ${theme.border}`, color: theme.textPrimary }}>
                           {formatCurrency(brokerData.displayLedgerRecordDTOList.reduce((sum, record) => sum + (record.quantity * record.brokerage), 0))}
                         </td>
-                        <td style={{ padding: '12px', borderTop: `2px solid ${theme.border}` }}></td>
                       </tr>
                     </tbody>
                   </table>
