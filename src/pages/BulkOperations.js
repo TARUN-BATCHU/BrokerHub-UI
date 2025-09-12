@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { brokerageAPI } from '../services/brokerageAPI';
 import { userAPI, financialYearAPI } from '../services/api';
+import { useErrorHandler } from '../hooks/useErrorHandler';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DocumentStatusDashboard from '../components/DocumentStatusDashboard';
 import '../styles/modern-ui.css';
 
 const BulkOperations = () => {
   const { theme } = useTheme();
+  const { error, handleError, clearError } = useErrorHandler();
   const [financialYears, setFinancialYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState('1');
   const [cities, setCities] = useState([]);
@@ -33,7 +35,7 @@ const BulkOperations = () => {
       const years = fyResponse || [];
       setFinancialYears(years);
       if (years.length > 0) {
-        setSelectedYear(years[0].financialYearId.toString());
+        setSelectedYear(years[0].financialYearId?.toString() || '1');
       }
       
       const userData = usersResponse.content || [];
@@ -47,7 +49,7 @@ const BulkOperations = () => {
         setSelectedCity(uniqueCities[0]);
       }
     } catch (error) {
-      console.error('Failed to load data:', error);
+      handleError(error);
     } finally {
       setLoading(false);
     }
@@ -74,19 +76,22 @@ const BulkOperations = () => {
       setIsGenerating(true);
       setGenerationStatus('Starting bulk operation...');
 
+      // Convert selectedYear to numeric ID
+      const yearId = parseInt(selectedYear);
+
       let response;
       switch (operation) {
         case 'city-bills':
-          response = await brokerageAPI.bulkBillsByCity(target, selectedYear);
+          response = await brokerageAPI.bulkBillsByCity(target, yearId);
           break;
         case 'user-bills':
-          response = await brokerageAPI.bulkBillsByUsers(target, selectedYear);
+          response = await brokerageAPI.bulkBillsByUsers(target, yearId);
           break;
         case 'city-excel':
-          response = await brokerageAPI.bulkExcelByCity(target, selectedYear);
+          response = await brokerageAPI.bulkExcelByCity(target, yearId);
           break;
         case 'user-excel':
-          response = await brokerageAPI.bulkExcelByUsers(target, selectedYear);
+          response = await brokerageAPI.bulkExcelByUsers(target, yearId);
           break;
         default:
           throw new Error('Invalid operation');
@@ -94,6 +99,7 @@ const BulkOperations = () => {
 
       if (response.status === 'success') {
         setGenerationStatus('Operation started successfully! Check document status for progress.');
+        clearError(); // Clear any previous errors
         setTimeout(() => {
           setIsGenerating(false);
           setGenerationStatus('');
@@ -102,7 +108,7 @@ const BulkOperations = () => {
     } catch (error) {
       setGenerationStatus('Failed to start operation. Please try again.');
       setIsGenerating(false);
-      console.error('Bulk operation failed:', error);
+      handleError(error);
     }
   };
 
@@ -149,11 +155,37 @@ const BulkOperations = () => {
               style={{ minWidth: '160px', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
             >
               {financialYears.map(year => (
-                <option key={year.financialYearId} value={year.financialYearId} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{year.financialYearName}</option>
+                <option key={year.financialYearId} value={year.financialYearId?.toString()} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{year.financialYearName}</option>
               ))}
             </select>
           </div>
         </div>
+
+        {error && (
+          <div className="modern-card animate-fade-in" style={{ 
+            background: 'var(--color-error)', 
+            color: 'white', 
+            padding: 'var(--space-6)', 
+            marginBottom: 'var(--space-8)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 'var(--space-4)',
+            border: `1px solid ${theme.border}`
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="15" y1="9" x2="9" y2="15"/>
+              <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            <div style={{ fontWeight: '600', fontSize: '1.125rem', flex: 1 }}>{error}</div>
+            <button 
+              onClick={clearError}
+              style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {isGenerating && (
           <div className="modern-card animate-fade-in" style={{ 
@@ -233,8 +265,8 @@ const BulkOperations = () => {
                   className="modern-select"
                   style={{ marginBottom: 'var(--space-4)', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
                 >
-                  {cities.map(city => (
-                    <option key={city} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
+                  {cities.map((city, index) => (
+                    <option key={`city-bills-${index}`} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
                   ))}
                 </select>
                 <button 
@@ -406,8 +438,8 @@ const BulkOperations = () => {
                   className="modern-select"
                   style={{ marginBottom: 'var(--space-4)', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
                 >
-                  {cities.map(city => (
-                    <option key={city} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
+                  {cities.map((city, index) => (
+                    <option key={`city-excel-${index}`} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
                   ))}
                 </select>
                 <button 

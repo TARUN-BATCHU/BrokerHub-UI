@@ -84,24 +84,24 @@ export const brokerageAPI = {
   // Bulk Processing APIs
   bulkBillsByCity: async (city, financialYear) => {
     const response = await api.post(`/Brokerage/bulk-bills/city/${city}/${financialYear}`);
-    return response.data;
+    return { status: 'success', data: response.data };
   },
 
   bulkBillsByUsers: async (userIds, financialYear, customBrokerage = null) => {
     const url = `/Brokerage/bulk-bills/users/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.post(url, userIds);
-    return response.data;
+    return { status: 'success', data: response.data };
   },
 
   bulkExcelByCity: async (city, financialYear) => {
     const response = await api.post(`/Brokerage/bulk-excel/city/${city}/${financialYear}`);
-    return response.data;
+    return { status: 'success', data: response.data };
   },
 
   bulkExcelByUsers: async (userIds, financialYear, customBrokerage = null) => {
     const url = `/Brokerage/bulk-excel/users/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.post(url, userIds);
-    return response.data;
+    return { status: 'success', data: response.data };
   },
 
   // Document Status APIs
@@ -113,6 +113,31 @@ export const brokerageAPI = {
   getDocumentStatusByType: async (documentType) => {
     const response = await api.get(`/Documents/status/${documentType}`);
     return response.data;
+  },
+
+  // Document Download API
+  downloadDocument: async (documentId) => {
+    const response = await api.get(`/Documents/download/${documentId}`, {
+      responseType: 'blob'
+    });
+    
+    // Extract filename from Content-Disposition header
+    const contentDisposition = response.headers['content-disposition'];
+    const filename = contentDisposition
+      ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+      : `document-${documentId}.zip`;
+
+    // Create blob and download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    return { success: true, filename };
   },
 
   // Cache Management

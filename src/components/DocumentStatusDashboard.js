@@ -1,26 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useDocuments } from '../contexts/DocumentContext';
 import { brokerageAPI } from '../services/brokerageAPI';
 
 const DocumentStatusDashboard = () => {
   const { theme } = useTheme();
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { documents, loading, fetchDocuments } = useDocuments();
+  // Remove polling state
 
   useEffect(() => {
-    fetchDocumentStatus();
-    const interval = setInterval(fetchDocumentStatus, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
+    // Fetch documents when component mounts
+    fetchDocuments();
   }, []);
 
-  const fetchDocumentStatus = async () => {
+  // Remove polling useEffect
+
+  const handleRefresh = () => {
+    fetchDocuments();
+    // No auto-polling - only single refresh
+  };
+
+  const handleDownload = async (documentId) => {
     try {
-      const response = await brokerageAPI.getDocumentStatus();
-      setDocuments(response.data || []);
+      await brokerageAPI.downloadDocument(documentId);
     } catch (error) {
-      console.error('Failed to fetch document status:', error);
-    } finally {
-      setLoading(false);
+      console.error('Download failed:', error);
+      alert('Download failed. Please try again.');
     }
   };
 
@@ -71,9 +76,14 @@ const DocumentStatusDashboard = () => {
 
   if (loading) {
     return (
-      <div className="status-dashboard">
-        <h3>📋 Document Generation Status</h3>
-        <div className="loading">Loading status...</div>
+      <div style={{ background: theme.cardBackground, borderRadius: '20px', boxShadow: theme.shadowHover, border: `1px solid ${theme.border}`, overflow: 'hidden' }}>
+        <div style={{ background: `linear-gradient(135deg, ${theme.buttonPrimary}, ${theme.buttonPrimaryHover})`, color: 'white', padding: '1.5rem', textAlign: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700' }}>📋 Document Status</h3>
+        </div>
+        <div style={{ padding: '3rem', textAlign: 'center', color: theme.textSecondary }}>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+          <div>Loading status...</div>
+        </div>
       </div>
     );
   }
@@ -88,7 +98,7 @@ const DocumentStatusDashboard = () => {
             <p style={{ margin: 0, opacity: 0.9, fontSize: '0.9rem' }}>Track bulk operation progress</p>
           </div>
         </div>
-        <button onClick={fetchDocumentStatus} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', backdropFilter: 'blur(10px)' }}>
+        <button onClick={handleRefresh} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', backdropFilter: 'blur(10px)' }}>
           🔄 Refresh
         </button>
       </div>
@@ -125,13 +135,13 @@ const DocumentStatusDashboard = () => {
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   {getStatusBadge(doc.status)}
-                  {doc.status === 'COMPLETED' && doc.filePath && (
+                  {doc.status === 'COMPLETED' && (
                     <button 
-                      onClick={() => window.open(`/download/${doc.filePath}`, '_blank')}
+                      onClick={() => handleDownload(doc.documentId)}
                       style={{ padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white', boxShadow: '0 2px 8px rgba(39, 174, 96, 0.3)' }}
-                      title="Download Files"
+                      title="Download ZIP File"
                     >
-                      📥 Download
+                      📥 Download ZIP
                     </button>
                   )}
                 </div>
