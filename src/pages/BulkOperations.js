@@ -1,28 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { brokerageAPI } from '../services/brokerageAPI';
 import { userAPI, financialYearAPI } from '../services/api';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import LoadingSpinner from '../components/LoadingSpinner';
-import DocumentStatusDashboard from '../components/DocumentStatusDashboard';
+import BulkBillDownload from '../components/BulkBillDownload';
 import '../styles/modern-ui.css';
 
 const BulkOperations = () => {
   const { theme } = useTheme();
   const { error, handleError, clearError } = useErrorHandler();
   const [financialYears, setFinancialYears] = useState([]);
-  const [selectedYear, setSelectedYear] = useState('1');
+  const [selectedYear, setSelectedYear] = useState(null);
   const [cities, setCities] = useState([]);
   const [selectedCity, setSelectedCity] = useState('');
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadInitialData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadInitialData = async () => {
     try {
@@ -34,19 +32,20 @@ const BulkOperations = () => {
       
       const years = fyResponse || [];
       setFinancialYears(years);
-      if (years.length > 0) {
-        setSelectedYear(years[0].financialYearId?.toString() || '1');
+      if (years.length > 0 && years[0].yearId) {
+        setSelectedYear(years[0].yearId);
       }
       
       const userData = usersResponse.content || [];
       setUsers(userData);
       
-      // Extract unique cities
-      const uniqueCities = [...new Set(userData.map(user => user.city))];
-      setCities(uniqueCities);
+      // Extract unique cities and add "All" option
+      const uniqueCities = [...new Set(userData.map(user => user?.city).filter(Boolean))];
+      const citiesWithAll = ['All', ...uniqueCities];
+      setCities(citiesWithAll);
       
-      if (uniqueCities.length > 0) {
-        setSelectedCity(uniqueCities[0]);
+      if (citiesWithAll.length > 0) {
+        setSelectedCity(citiesWithAll[0]);
       }
     } catch (error) {
       handleError(error);
@@ -64,53 +63,34 @@ const BulkOperations = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedUsers.length === users.length) {
+    const cityUsers = getCityUsers();
+    if (selectedUsers.length === cityUsers.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(users.map(user => user.userId));
+      setSelectedUsers(cityUsers.map(user => user.userId));
     }
   };
 
-  const startBulkOperation = async (operation, target) => {
-    try {
-      setIsGenerating(true);
-      setGenerationStatus('Starting bulk operation...');
-
-      // Convert selectedYear to numeric ID
-      const yearId = parseInt(selectedYear);
-
-      let response;
-      switch (operation) {
-        case 'city-bills':
-          response = await brokerageAPI.bulkBillsByCity(target, yearId);
-          break;
-        case 'user-bills':
-          response = await brokerageAPI.bulkBillsByUsers(target, yearId);
-          break;
-        case 'city-excel':
-          response = await brokerageAPI.bulkExcelByCity(target, yearId);
-          break;
-        case 'user-excel':
-          response = await brokerageAPI.bulkExcelByUsers(target, yearId);
-          break;
-        default:
-          throw new Error('Invalid operation');
-      }
-
-      if (response.status === 'success') {
-        setGenerationStatus('Operation started successfully! Check document status for progress.');
-        clearError(); // Clear any previous errors
-        setTimeout(() => {
-          setIsGenerating(false);
-          setGenerationStatus('');
-        }, 3000);
-      }
-    } catch (error) {
-      setGenerationStatus('Failed to start operation. Please try again.');
-      setIsGenerating(false);
-      handleError(error);
+  const getCityUsers = () => {
+    let filteredUsers = selectedCity === 'All' ? users : users.filter(user => user?.city === selectedCity);
+    
+    if (searchTerm.trim()) {
+      filteredUsers = filteredUsers.filter(user => 
+        user?.firmName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user?.userId?.toString().includes(searchTerm)
+      );
     }
+    
+    return filteredUsers;
   };
+
+  const handleCityChange = (city) => {
+    setSelectedCity(city);
+    setSelectedUsers([]); // Clear selected users when city changes
+    setSearchTerm(''); // Clear search when city changes
+  };
+
+
 
   if (loading) return (
     <div style={{ background: theme.background, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: 0, padding: 0 }}>
@@ -119,436 +99,334 @@ const BulkOperations = () => {
   );
 
   return (
-    <div style={{ background: theme.background, minHeight: '100vh', margin: 0, padding: 0 }}>
-      <div className="modern-container" style={{ color: theme.textPrimary }}>
-        {/* Header */}
-        <div className="modern-header animate-fade-in" style={{ background: theme.background, borderBottom: `1px solid ${theme.border}` }}>
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+    <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', minHeight: '100vh', margin: 0, padding: 0 }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+        {/* Modern Header */}
+        <div style={{ textAlign: 'center', marginBottom: '3rem', color: 'white' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ 
+              background: 'rgba(255,255,255,0.2)', 
+              padding: '1rem', 
+              borderRadius: '50%',
+              backdropFilter: 'blur(10px)'
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <rect x="7" y="7" width="10" height="10" rx="1" ry="1"/>
+              </svg>
+            </div>
             <h1 style={{ 
               margin: 0, 
-              fontSize: '2.25rem', 
-              fontWeight: '600', 
-              marginBottom: 'var(--space-2)',
-              color: theme.textPrimary,
-              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-              letterSpacing: '-0.025em'
+              fontSize: '3rem', 
+              fontWeight: '800',
+              background: 'linear-gradient(45deg, #fff, #f0f0f0)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
             }}>Bulk Operations</h1>
-            <p style={{ 
-              margin: 0, 
-              color: theme.textSecondary, 
-              fontSize: '0.95rem',
-              fontWeight: '400',
-              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif'
-            }}>Generate documents in bulk for multiple users or cities efficiently</p>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={theme.textSecondary} strokeWidth="2">
+          <p style={{ 
+            margin: 0, 
+            fontSize: '1.2rem',
+            opacity: 0.9,
+            maxWidth: '600px',
+            margin: '0 auto 2rem auto'
+          }}>Generate brokerage documents efficiently for multiple merchants</p>
+          
+          {/* Financial Year Selector */}
+          <div style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '1rem',
+            background: 'rgba(255,255,255,0.15)',
+            padding: '1rem 2rem',
+            borderRadius: '50px',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
               <line x1="16" y1="2" x2="16" y2="6"/>
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
             <select 
-              value={selectedYear} 
+              value={selectedYear || ''} 
               onChange={(e) => setSelectedYear(e.target.value)} 
-              className="modern-select"
-              style={{ minWidth: '160px', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
+              style={{ 
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
             >
               {financialYears.map(year => (
-                <option key={year.financialYearId} value={year.financialYearId?.toString()} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{year.financialYearName}</option>
+                <option key={year.yearId} value={year.yearId} style={{ background: theme.name === 'dark' ? '#1a1a2e' : '#667eea', color: 'white' }}>{year.financialYearName}</option>
               ))}
             </select>
           </div>
         </div>
 
+        {/* Status Messages */}
         {error && (
-          <div className="modern-card animate-fade-in" style={{ 
-            background: 'var(--color-error)', 
+          <div style={{ 
+            background: theme.name === 'dark' ? 'rgba(220, 38, 38, 0.9)' : 'rgba(239, 68, 68, 0.9)', 
             color: 'white', 
-            padding: 'var(--space-6)', 
-            marginBottom: 'var(--space-8)', 
+            padding: '1.5rem', 
+            marginBottom: '2rem', 
+            borderRadius: '20px',
             display: 'flex', 
             alignItems: 'center', 
-            gap: 'var(--space-4)',
-            border: `1px solid ${theme.border}`
+            gap: '1rem',
+            backdropFilter: 'blur(10px)',
+            border: theme.name === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.2)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
           }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
-            </svg>
-            <div style={{ fontWeight: '600', fontSize: '1.125rem', flex: 1 }}>{error}</div>
+            <div style={{ 
+              background: 'rgba(255,255,255,0.2)', 
+              padding: '0.5rem', 
+              borderRadius: '50%' 
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            </div>
+            <div style={{ fontWeight: '600', fontSize: '1.1rem', flex: 1 }}>{error}</div>
             <button 
               onClick={clearError}
-              style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }}
+              style={{ 
+                background: 'rgba(255,255,255,0.2)', 
+                border: 'none', 
+                color: 'white', 
+                padding: '0.5rem', 
+                borderRadius: '50%', 
+                cursor: 'pointer',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
             >
               ✕
             </button>
           </div>
         )}
 
-        {isGenerating && (
-          <div className="modern-card animate-fade-in" style={{ 
-            background: 'var(--color-secondary)', 
-            color: 'white', 
-            padding: 'var(--space-6)', 
-            marginBottom: 'var(--space-8)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 'var(--space-4)',
-            border: `1px solid ${theme.border}`
-          }}>
-            <div style={{ 
-              width: '32px', 
-              height: '32px', 
-              border: '3px solid rgba(255,255,255,0.3)', 
-              borderTop: '3px solid white', 
-              borderRadius: '50%', 
-              animation: 'spin 1s linear infinite' 
-            }}></div>
-            <div style={{ fontWeight: '600', fontSize: '1.125rem' }}>{generationStatus}</div>
-          </div>
-        )}
 
-        {/* Operations Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(550px, 1fr))', gap: 'var(--space-8)', marginBottom: 'var(--space-12)' }} className="animate-slide-in">
-          {/* HTML Bills Section */}
-          <div className="modern-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
-            <div style={{ 
-              background: 'var(--color-primary)', 
-              color: 'white', 
-              padding: 'var(--space-8)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 'var(--space-4)' 
-            }}>
-              <div style={{ 
-                background: 'rgba(255,255,255,0.2)', 
-                padding: 'var(--space-4)', 
-                borderRadius: 'var(--radius-xl)' 
-              }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14,2 14,8 20,8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                  <polyline points="10,9 9,9 8,9"/>
-                </svg>
-              </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>HTML Bills</h2>
-                <p style={{ margin: 0, opacity: 0.9, fontSize: '1rem' }}>Generate HTML brokerage bills</p>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-8)' }}>
-              {/* City Bills */}
-              <div style={{ marginBottom: 'var(--space-8)', padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
-                <h3 style={{ 
-                  margin: '0 0 var(--space-4) 0', 
-                  color: theme.textPrimary, 
-                  fontSize: '1.125rem', 
-                  fontWeight: '700', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 'var(--space-3)' 
-                }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  By City
-                </h3>
-                <select 
-                  value={selectedCity} 
-                  onChange={(e) => setSelectedCity(e.target.value)} 
-                  disabled={isGenerating} 
-                  className="modern-select"
-                  style={{ marginBottom: 'var(--space-4)', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
-                >
-                  {cities.map((city, index) => (
-                    <option key={`city-bills-${index}`} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
-                  ))}
-                </select>
-                <button 
-                  onClick={() => startBulkOperation('city-bills', selectedCity)} 
-                  disabled={!selectedCity || isGenerating} 
-                  className={`modern-button modern-button-primary ${(!selectedCity || isGenerating) ? 'opacity-50' : ''}`}
-                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7,10 12,15 17,10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Generate City Bills
-                </button>
-              </div>
-              
-              {/* User Bills */}
-              <div style={{ padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
-                <h3 style={{ 
-                  margin: '0 0 var(--space-4) 0', 
-                  color: theme.textPrimary, 
-                  fontSize: '1.125rem', 
-                  fontWeight: '700', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 'var(--space-3)' 
-                }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                  By Users
-                </h3>
-                <div style={{ marginBottom: 'var(--space-4)' }}>
-                  <label style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 'var(--space-2)', 
-                    fontWeight: '600', 
-                    color: theme.textPrimary, 
-                    cursor: 'pointer', 
-                    marginBottom: 'var(--space-4)' 
-                  }}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedUsers.length === users.length && users.length > 0} 
-                      onChange={handleSelectAll} 
-                      style={{ 
-                        transform: 'scale(1.2)',
-                        accentColor: 'var(--color-secondary)'
-                      }} 
-                    />
-                    Select All ({users.length} users)
-                  </label>
-                  <div style={{ 
-                    maxHeight: '180px', 
-                    overflowY: 'auto', 
-                    border: `1px solid ${theme.border}`, 
-                    borderRadius: 'var(--radius-lg)', 
-                    padding: 'var(--space-2)' 
-                  }}>
-                    {users.slice(0, 10).map(user => (
-                      <label key={user.userId} className="modern-table-row" style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 'var(--space-2)', 
-                        cursor: 'pointer', 
-                        margin: '0 -var(--space-2)',
-                        borderRadius: 'var(--radius-md)'
-                      }}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedUsers.includes(user.userId)} 
-                          onChange={() => handleUserSelect(user.userId)} 
-                          style={{ accentColor: 'var(--color-secondary)' }}
-                        />
-                        <span style={{ color: theme.textSecondary, fontSize: '0.875rem' }}>{user.firmName} - {user.city}</span>
-                      </label>
-                    ))}
-                    {users.length > 10 && (
-                      <div style={{ 
-                        padding: 'var(--space-2)', 
-                        color: theme.textMuted, 
-                        fontStyle: 'italic', 
-                        textAlign: 'center',
-                        fontSize: '0.875rem'
-                      }}>... and {users.length - 10} more users</div>
-                    )}
-                  </div>
-                  <div style={{ 
-                    fontWeight: '700', 
-                    color: theme.textPrimary, 
-                    marginTop: 'var(--space-4)', 
-                    textAlign: 'center',
-                    padding: 'var(--space-3)',
-                    background: theme.cardBackground,
-                    borderRadius: 'var(--radius-lg)',
-                    fontSize: '0.875rem'
-                  }}>Selected: {selectedUsers.length} users</div>
-                </div>
-                <button 
-                  onClick={() => startBulkOperation('user-bills', selectedUsers)} 
-                  disabled={selectedUsers.length === 0 || isGenerating} 
-                  className={`modern-button modern-button-primary ${(selectedUsers.length === 0 || isGenerating) ? 'opacity-50' : ''}`}
-                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7,10 12,15 17,10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Generate User Bills
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {/* Excel Reports Section */}
-          <div className="modern-card" style={{ background: theme.cardBackground, border: `1px solid ${theme.border}` }}>
-            <div style={{ 
-              background: 'var(--color-accent)', 
-              color: 'white', 
-              padding: 'var(--space-8)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 'var(--space-4)' 
-            }}>
-              <div style={{ 
-                background: 'rgba(255,255,255,0.2)', 
-                padding: 'var(--space-4)', 
-                borderRadius: 'var(--radius-xl)' 
-              }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7,10 12,15 17,10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-              </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>Excel Reports</h2>
-                <p style={{ margin: 0, opacity: 0.9, fontSize: '1rem' }}>Generate Excel brokerage reports</p>
-              </div>
-            </div>
-            <div style={{ padding: 'var(--space-8)' }}>
-              {/* City Excel */}
-              <div style={{ marginBottom: 'var(--space-8)', padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
-                <h3 style={{ 
-                  margin: '0 0 var(--space-4) 0', 
-                  color: theme.textPrimary, 
-                  fontSize: '1.125rem', 
-                  fontWeight: '700', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 'var(--space-3)' 
-                }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  By City
-                </h3>
-                <select 
-                  value={selectedCity} 
-                  onChange={(e) => setSelectedCity(e.target.value)} 
-                  disabled={isGenerating} 
-                  className="modern-select"
-                  style={{ marginBottom: 'var(--space-4)', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
-                >
-                  {cities.map((city, index) => (
-                    <option key={`city-excel-${index}`} value={city} style={{ background: theme.cardBackground, color: theme.textPrimary }}>{city}</option>
-                  ))}
-                </select>
-                <button 
-                  onClick={() => startBulkOperation('city-excel', selectedCity)} 
-                  disabled={!selectedCity || isGenerating} 
-                  className={`modern-button modern-button-accent ${(!selectedCity || isGenerating) ? 'opacity-50' : ''}`}
-                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7,10 12,15 17,10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Generate City Excel
-                </button>
-              </div>
-              
-              {/* User Excel */}
-              <div style={{ padding: 'var(--space-6)', background: theme.hoverBg, borderRadius: 'var(--radius-xl)' }}>
-                <h3 style={{ 
-                  margin: '0 0 var(--space-4) 0', 
-                  color: theme.textPrimary, 
-                  fontSize: '1.125rem', 
-                  fontWeight: '700', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 'var(--space-3)' 
-                }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                  By Users
-                </h3>
-                <div style={{ 
-                  fontWeight: '700', 
-                  color: theme.textPrimary, 
-                  marginBottom: 'var(--space-4)', 
-                  textAlign: 'center', 
-                  padding: 'var(--space-4)', 
-                  background: theme.cardBackground, 
-                  borderRadius: 'var(--radius-lg)',
-                  fontSize: '0.875rem'
-                }}>Selected: {selectedUsers.length} users</div>
-                <button 
-                  onClick={() => startBulkOperation('user-excel', selectedUsers)} 
-                  disabled={selectedUsers.length === 0 || isGenerating} 
-                  className={`modern-button modern-button-accent ${(selectedUsers.length === 0 || isGenerating) ? 'opacity-50' : ''}`}
-                  style={{ width: '100%', padding: 'var(--space-4) var(--space-6)' }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7,10 12,15 17,10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Generate User Excel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DocumentStatusDashboard />
-
-        {/* Navigation Buttons */}
+        {/* Main Content Card */}
         <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-          gap: 'var(--space-4)', 
-          marginTop: 'var(--space-8)'
+          background: 'rgba(255,255,255,0.95)', 
+          borderRadius: '30px',
+          padding: '3rem',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.3)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          marginBottom: '3rem'
         }}>
-          <button 
-            onClick={() => window.location.href = '/brokerage'} 
-            className="modern-button modern-button-accent"
-            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="1" x2="12" y2="23"/>
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-            Brokerage Dashboard
-          </button>
-          <button 
-            onClick={() => window.location.href = '/brokerage/users'} 
-            className="modern-button modern-button-secondary"
-            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            User Management
-          </button>
-          <button 
-            onClick={() => window.location.href = '/dashboard'} 
-            className="modern-button modern-button-outline"
-            style={{ padding: 'var(--space-5) var(--space-8)', fontSize: '1rem' }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-              <polyline points="9,22 9,12 15,12 15,22"/>
-            </svg>
-            Main Dashboard
-          </button>
+          {/* Step 1: City Selection */}
+          <div style={{ marginBottom: '3rem' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1rem', 
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{ 
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                color: 'white',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                fontSize: '1.2rem'
+              }}>1</div>
+              <h3 style={{ 
+                margin: 0, 
+                color: '#2d3748', 
+                fontSize: '1.5rem', 
+                fontWeight: '700'
+              }}>Select City</h3>
+            </div>
+            <select 
+              value={selectedCity} 
+              onChange={(e) => handleCityChange(e.target.value)} 
+              style={{ 
+                width: '100%',
+                padding: '1rem 1.5rem',
+                fontSize: '1.1rem',
+                border: '2px solid #e2e8f0',
+                borderRadius: '15px',
+                background: 'white',
+                color: '#2d3748',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+            >
+              {cities.map((city, index) => (
+                <option key={`city-${index}`} value={city}>{city}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Step 2: Merchant Selection */}
+          {selectedCity && (
+            <div style={{ marginBottom: '3rem' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '1rem', 
+                marginBottom: '1.5rem'
+              }}>
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'white',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '1.2rem'
+                }}>2</div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: '#2d3748', 
+                    fontSize: '1.5rem', 
+                    fontWeight: '700'
+                  }}>Select Merchants {selectedCity === 'All' ? 'from All Cities' : `in ${selectedCity}`}</h3>
+                  <p style={{ margin: '0.5rem 0 0 0', color: '#718096', fontSize: '1rem' }}>{getCityUsers().length} merchants available</p>
+                </div>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'white',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '25px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '0.9rem',
+                  transition: 'all 0.3s ease'
+                }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedUsers.length === getCityUsers().length && getCityUsers().length > 0} 
+                    onChange={handleSelectAll} 
+                    style={{ 
+                      transform: 'scale(1.2)',
+                      accentColor: 'white'
+                    }} 
+                  />
+                  Select All
+                </label>
+              </div>
+              
+              {/* Search Bar */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <input
+                  type="text"
+                  placeholder={`Search merchants ${selectedCity === 'All' ? 'from all cities' : `in ${selectedCity}`}...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem 1.5rem',
+                    fontSize: '1rem',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '15px',
+                    background: 'white',
+                    color: '#2d3748',
+                    outline: 'none',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                  onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                />
+              </div>
+              
+              <div style={{ 
+                maxHeight: '400px', 
+                overflowY: 'auto', 
+                border: '2px solid #e2e8f0', 
+                borderRadius: '20px', 
+                padding: '1rem',
+                background: '#f7fafc'
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                  {getCityUsers().map(user => (
+                    <label key={user.userId} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '1rem', 
+                      cursor: 'pointer', 
+                      padding: '1rem',
+                      background: selectedUsers.includes(user.userId) ? 'linear-gradient(135deg, #667eea, #764ba2)' : theme.cardBackground,
+                      color: selectedUsers.includes(user.userId) ? 'white' : theme.textPrimary,
+                      borderRadius: '15px',
+                      border: '2px solid',
+                      borderColor: selectedUsers.includes(user.userId) ? 'transparent' : theme.border,
+                      transition: 'all 0.3s ease',
+                      boxShadow: selectedUsers.includes(user.userId) ? '0 4px 15px rgba(102, 126, 234, 0.4)' : '0 2px 8px rgba(0,0,0,0.1)'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedUsers.includes(user.userId)} 
+                        onChange={() => handleUserSelect(user.userId)} 
+                        style={{ 
+                          transform: 'scale(1.3)',
+                          accentColor: selectedUsers.includes(user.userId) ? 'white' : '#667eea'
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', fontSize: '1rem' }}>{user.firmName}</div>
+                        <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>ID: {user.userId} {selectedCity === 'All' ? `• ${user.city}` : ''}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div style={{ 
+                marginTop: '1.5rem',
+                textAlign: 'center',
+                padding: '1rem',
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                color: 'white',
+                borderRadius: '15px',
+                fontSize: '1.1rem',
+                fontWeight: '600'
+              }}>Selected: {selectedUsers.length} merchants</div>
+            </div>
+          )}
+
+          {/* Step 3: Download Bulk Bills */}
+          {selectedUsers.length > 0 && (
+            <BulkBillDownload 
+              selectedUsers={users.filter(user => selectedUsers.includes(user.userId))}
+              financialYearId={selectedYear}
+            />
+          )}
         </div>
+
+
+
+
       </div>
     </div>
   );
