@@ -73,6 +73,20 @@ export const brokerageAPI = {
     window.URL.revokeObjectURL(downloadUrl);
   },
 
+  downloadPrintBill: async (userId, financialYear, options = {}) => {
+    const { customBrokerage = null } = options;
+    const url = `/Brokerage/print-bill/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.get(url, {
+      responseType: 'blob'
+    });
+    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `print-bill-${userId}.html`;
+    link.click();
+    window.URL.revokeObjectURL(downloadUrl);
+  },
+
   downloadSummaryExcel: async (financialYear) => {
     const response = await api.get(`/Brokerage/excel/summary/${financialYear}`, {
       responseType: 'blob'
@@ -104,7 +118,7 @@ export const brokerageAPI = {
   },
 
   bulkBillsByUsers: async (userIds, financialYear, customBrokerage = null) => {
-    const url = `/Brokerage/bulk-bills/users/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const url = `/Brokerage/bulk-bills/html/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.post(url, userIds);
     return { status: 'success', data: response.data };
   },

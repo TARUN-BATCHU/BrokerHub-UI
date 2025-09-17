@@ -125,6 +125,10 @@ const BrokerageUsers = () => {
     setCustomBrokerageModal({ isOpen: true, userId, format, firmName });
   };
 
+  const handlePrintBill = (userId, firmName = null) => {
+    setCustomBrokerageModal({ isOpen: true, userId, format: 'print', firmName });
+  };
+
   const handleCustomBrokerageConfirm = async (customBrokerage) => {
     const { userId, format, firmName } = customBrokerageModal;
     try {
@@ -138,6 +142,8 @@ const BrokerageUsers = () => {
         await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage, firmName);
       } else if (format === 'pdf') {
         await brokerageAPI.downloadUserPdf(userId, selectedYear, customBrokerage, firmName);
+      } else if (format === 'print') {
+        await brokerageAPI.downloadPrintBill(userId, selectedYear, { customBrokerage });
       } else {
         await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
       }
@@ -302,6 +308,7 @@ const BrokerageUsers = () => {
                 onSelect={() => handleUserSelect(user.userId)}
                 onViewDetails={() => handleViewDetails(user)}
                 onDownloadBill={handleDownloadBill}
+                onPrintBill={handlePrintBill}
                 index={index}
               />
             ))}
@@ -442,6 +449,7 @@ const BrokerageUsers = () => {
           title={
             customBrokerageModal.format === 'bulk-bills' ? 'Bulk Bills Generation' :
             customBrokerageModal.format === 'bulk-excel' ? 'Bulk Excel Generation' :
+            customBrokerageModal.format === 'print' ? 'Download Print Bill' :
             `Download ${customBrokerageModal.format === 'excel' ? 'Excel' : customBrokerageModal.format === 'pdf' ? 'PDF' : 'Bill'}`
           }
         />
@@ -450,8 +458,9 @@ const BrokerageUsers = () => {
   );
 };
 
-const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDownloadBill, index }) => {
+const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDownloadBill, onPrintBill, index }) => {
   const { theme } = useTheme();
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -528,7 +537,7 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
       }}>
         {formatCurrency(user.totalPayableBrokerage || 0)}
       </div>
-      <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center', alignItems: 'center' }}>
         <button 
           onClick={onViewDetails} 
           className="modern-button modern-button-secondary"
@@ -540,42 +549,142 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
             <circle cx="12" cy="12" r="3"/>
           </svg>
         </button>
-        <button 
-          onClick={() => onDownloadBill(user.userId, 'html', user.firmName)} 
-          className="modern-button modern-button-primary"
-          style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
-          title="Download Bill with Custom Brokerage Option"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14,2 14,8 20,8"/>
-          </svg>
-        </button>
-        <button 
-          onClick={() => onDownloadBill(user.userId, 'excel', user.firmName)} 
-          className="modern-button modern-button-accent"
-          style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
-          title="Download Excel with Custom Brokerage Option"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7,10 12,15 17,10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        </button>
-        <button 
-          onClick={() => onDownloadBill(user.userId, 'pdf', user.firmName)} 
-          className="modern-button modern-button-warning"
-          style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
-          title="Download PDF with Custom Brokerage Option"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14,2 14,8 20,8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button 
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="modern-button modern-button-primary"
+            style={{ padding: 'var(--space-2) var(--space-3)', minWidth: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}
+            title="Download Options"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6,9 12,15 18,9"/>
+            </svg>
+          </button>
+          {showDropdown && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              background: theme.cardBackground,
+              border: `1px solid ${theme.border}`,
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: theme.shadowModal,
+              zIndex: 1000,
+              minWidth: '180px',
+              overflow: 'hidden'
+            }}>
+              <button 
+                onClick={() => { onDownloadBill(user.userId, 'html', user.firmName); setShowDropdown(false); }}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-3) var(--space-4)',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#3b82f6',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500'
+                }}
+                onMouseEnter={(e) => { e.target.style.background = '#eff6ff'; e.target.style.color = '#1d4ed8'; }}
+                onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#3b82f6'; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                </svg>
+                HTML Bill
+              </button>
+              <button 
+                onClick={() => { onPrintBill(user.userId, user.firmName); setShowDropdown(false); }}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-3) var(--space-4)',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#f59e0b',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500'
+                }}
+                onMouseEnter={(e) => { e.target.style.background = '#fffbeb'; e.target.style.color = '#d97706'; }}
+                onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#f59e0b'; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                  <path d="M6 9V2h12v7"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <path d="M6 14h12v8H6z"/>
+                </svg>
+                Print Bill
+              </button>
+              <button 
+                onClick={() => { onDownloadBill(user.userId, 'excel', user.firmName); setShowDropdown(false); }}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-3) var(--space-4)',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#10b981',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500'
+                }}
+                onMouseEnter={(e) => { e.target.style.background = '#ecfdf5'; e.target.style.color = '#047857'; }}
+                onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#10b981'; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7,10 12,15 17,10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Excel Report
+              </button>
+              <button 
+                onClick={() => { onDownloadBill(user.userId, 'pdf', user.firmName); setShowDropdown(false); }}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-3) var(--space-4)',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#ef4444',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500'
+                }}
+                onMouseEnter={(e) => { e.target.style.background = '#fef2f2'; e.target.style.color = '#dc2626'; }}
+                onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#ef4444'; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                PDF Report
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
