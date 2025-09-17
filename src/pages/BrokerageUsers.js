@@ -136,6 +136,8 @@ const BrokerageUsers = () => {
         alert('Bulk Excel generation started. Check document status for progress.');
       } else if (format === 'excel') {
         await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage, firmName);
+      } else if (format === 'pdf') {
+        await brokerageAPI.downloadUserPdf(userId, selectedYear, customBrokerage, firmName);
       } else {
         await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
       }
@@ -266,7 +268,7 @@ const BrokerageUsers = () => {
           {/* Table Header */}
           <div className="modern-table-header" style={{ 
             display: 'grid', 
-            gridTemplateColumns: '60px 1fr 140px 160px 180px', 
+            gridTemplateColumns: '60px 1fr 140px 160px 220px', 
             alignItems: 'center',
             background: theme.hoverBg,
             borderBottom: `1px solid ${theme.border}`,
@@ -440,7 +442,7 @@ const BrokerageUsers = () => {
           title={
             customBrokerageModal.format === 'bulk-bills' ? 'Bulk Bills Generation' :
             customBrokerageModal.format === 'bulk-excel' ? 'Bulk Excel Generation' :
-            `Download ${customBrokerageModal.format === 'excel' ? 'Excel' : 'Bill'}`
+            `Download ${customBrokerageModal.format === 'excel' ? 'Excel' : customBrokerageModal.format === 'pdf' ? 'PDF' : 'Bill'}`
           }
         />
       </div>
@@ -461,7 +463,7 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
   return (
     <div className="modern-table-row" style={{ 
       display: 'grid', 
-      gridTemplateColumns: '60px 1fr 140px 160px 180px', 
+      gridTemplateColumns: '60px 1fr 140px 160px 220px', 
       alignItems: 'center',
       background: isSelected ? theme.hoverBg : 'transparent',
       borderBottom: `1px solid ${theme.borderLight}`
@@ -559,6 +561,19 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7,10 12,15 17,10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <button 
+          onClick={() => onDownloadBill(user.userId, 'pdf', user.firmName)} 
+          className="modern-button modern-button-warning"
+          style={{ padding: 'var(--space-2)', minWidth: 'auto' }}
+          title="Download PDF with Custom Brokerage Option"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
         </button>
       </div>

@@ -409,6 +409,7 @@ const TransactionDetail = () => {
   }
 
   return (
+    <>
     <div className="transaction-detail-container" style={{ 
       padding: '20px', 
       maxWidth: '1200px', 
@@ -674,8 +675,16 @@ const TransactionDetail = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Buyers Section */}
+      {/* Buyers Section - Outside form container */}
+      <div style={{ 
+        backgroundColor: theme.cardBackground, 
+        padding: '20px', 
+        borderRadius: '8px', 
+        border: `1px solid ${theme.border}`,
+        marginTop: '20px'
+      }}>
         <div className="buyers-section">
           <h3 style={{ marginBottom: '20px', color: theme.textPrimary }}>Buyers</h3>
           
@@ -729,7 +738,7 @@ const TransactionDetail = () => {
                           border: `1px solid ${theme.border}`,
                           borderRadius: '4px',
                           boxShadow: theme.shadow,
-                          zIndex: 10,
+                          zIndex: 9999,
                           maxHeight: '150px',
                           overflowY: 'auto'
                         }}>
@@ -938,8 +947,10 @@ const TransactionDetail = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="action-buttons" style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end', marginTop: '30px' }}>
+      {/* Action Buttons */}
+      <div className="action-buttons" style={{ display: 'flex', gap: '15px', justifyContent: 'flex-end', marginTop: '30px' }}>
           <button
             onClick={handleSave}
             disabled={saving}
@@ -976,8 +987,8 @@ const TransactionDetail = () => {
             </button>
           )}
         </div>
-      </div>
     </div>
+    </>
   );
 };
 

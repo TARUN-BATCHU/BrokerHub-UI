@@ -35,6 +35,7 @@ export const brokerageAPI = {
     });
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
+    link.href = downloadUrl;
     const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
     const filename = customBrokerage ? `${safeFirmName}_bill_custom_${customBrokerage}.html` : `${safeFirmName}_bill.html`;
     link.download = filename;
@@ -52,6 +53,21 @@ export const brokerageAPI = {
     link.href = downloadUrl;
     const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
     const filename = customBrokerage ? `${safeFirmName}_bill_custom_${customBrokerage}.xlsx` : `${safeFirmName}_bill.xlsx`;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(downloadUrl);
+  },
+
+  downloadUserPdf: async (userId, financialYear, customBrokerage = null, firmName = null) => {
+    const url = `/Brokerage/bill/pdf/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.get(url, {
+      responseType: 'blob'
+    });
+    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const filename = customBrokerage ? `${safeFirmName}_bill_custom_${customBrokerage}.pdf` : `${safeFirmName}_bill.pdf`;
     link.download = filename;
     link.click();
     window.URL.revokeObjectURL(downloadUrl);

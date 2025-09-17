@@ -17,6 +17,8 @@ const BulkOperations = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [citySearchTerm, setCitySearchTerm] = useState('');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -39,8 +41,9 @@ const BulkOperations = () => {
       const userData = usersResponse.content || [];
       setUsers(userData);
       
-      // Extract unique cities and add "All" option
-      const uniqueCities = [...new Set(userData.map(user => user?.city).filter(Boolean))];
+      // Extract unique cities, sort alphabetically, and add "All" option
+      const uniqueCities = [...new Set(userData.map(user => user?.city).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
       const citiesWithAll = ['All', ...uniqueCities];
       setCities(citiesWithAll);
       
@@ -88,6 +91,15 @@ const BulkOperations = () => {
     setSelectedCity(city);
     setSelectedUsers([]); // Clear selected users when city changes
     setSearchTerm(''); // Clear search when city changes
+    setCitySearchTerm(''); // Clear city search
+    setShowCityDropdown(false); // Hide dropdown
+  };
+
+  const getFilteredCities = () => {
+    if (!citySearchTerm.trim()) return cities;
+    return cities.filter(city => 
+      city.toLowerCase().includes(citySearchTerm.toLowerCase())
+    );
   };
 
 
@@ -257,28 +269,78 @@ const BulkOperations = () => {
                 fontWeight: '700'
               }}>Select City</h3>
             </div>
-            <select 
-              value={selectedCity} 
-              onChange={(e) => handleCityChange(e.target.value)} 
-              style={{ 
-                width: '100%',
-                padding: '1rem 1.5rem',
-                fontSize: '1.1rem',
-                border: '2px solid #e2e8f0',
-                borderRadius: '15px',
-                background: 'white',
-                color: '#2d3748',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                outline: 'none'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#667eea'}
-              onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-            >
-              {cities.map((city, index) => (
-                <option key={`city-${index}`} value={city}>{city}</option>
-              ))}
-            </select>
+            <div style={{ position: 'relative', width: '100%' }}>
+              <input
+                type="text"
+                placeholder="Search and select city..."
+                value={showCityDropdown ? citySearchTerm : selectedCity}
+                onChange={(e) => {
+                  setCitySearchTerm(e.target.value);
+                  setShowCityDropdown(true);
+                }}
+                onFocus={() => setShowCityDropdown(true)}
+                style={{
+                  width: '100%',
+                  padding: '1rem 1.5rem',
+                  fontSize: '1.1rem',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '15px',
+                  background: 'white',
+                  color: '#2d3748',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#667eea'}
+                onBlur={(e) => {
+                  setTimeout(() => setShowCityDropdown(false), 200);
+                  e.target.style.borderColor = '#e2e8f0';
+                }}
+              />
+              {showCityDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  border: '2px solid #e2e8f0',
+                  borderTop: 'none',
+                  borderRadius: '0 0 15px 15px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                }}>
+                  {getFilteredCities().map((city, index) => (
+                    <div
+                      key={`city-${index}`}
+                      onClick={() => handleCityChange(city)}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        cursor: 'pointer',
+                        borderBottom: index < getFilteredCities().length - 1 ? '1px solid #e2e8f0' : 'none',
+                        transition: 'background-color 0.2s ease',
+                        backgroundColor: city === selectedCity ? '#f0f4ff' : 'transparent'
+                      }}
+                      onMouseEnter={(e) => e.target.style.backgroundColor = '#f7fafc'}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = city === selectedCity ? '#f0f4ff' : 'transparent'}
+                    >
+                      {city}
+                    </div>
+                  ))}
+                  {getFilteredCities().length === 0 && (
+                    <div style={{
+                      padding: '0.75rem 1.5rem',
+                      color: '#718096',
+                      fontStyle: 'italic'
+                    }}>
+                      No cities found
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Step 2: Merchant Selection */}
