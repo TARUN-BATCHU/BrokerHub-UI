@@ -95,6 +95,13 @@ const GlobalNavigation = () => {
         { path: '/financial-years', label: 'Financial Years', icon: '📈' },
         { path: '/create-merchant', label: 'Create Merchant', icon: '👤' }
       ]
+    },
+    {
+      label: 'About',
+      icon: 'ℹ️',
+      items: [
+        { path: '/about', label: 'About BrokerHub', icon: 'ℹ️' }
+      ]
     }
   ];
 

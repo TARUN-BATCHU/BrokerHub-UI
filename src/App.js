@@ -29,6 +29,7 @@ import BrokerageUsers from './pages/BrokerageUsers';
 import BulkOperations from './pages/BulkOperations';
 import PaymentManagement from './pages/PaymentManagement';
 import PaymentDemo from './pages/PaymentDemo';
+import About from './pages/About';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -254,6 +255,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <PaymentDemo />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/about"
+                element={
+                  <ProtectedRoute>
+                    <About />
                   </ProtectedRoute>
                 }
               />
