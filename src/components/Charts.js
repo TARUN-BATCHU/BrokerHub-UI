@@ -167,11 +167,43 @@ export const QuantityChart = ({ data, animated = true }) => {
 // Product Distribution Pie Chart
 export const ProductPieChart = ({ data, animated = true }) => {
   const { isMobile } = useResponsive();
+
+  // Normalize and aggregate by product name to avoid duplicates across months
+  const aggregateByProduct = (items, usePercent = false) => {
+    const map = new Map();
+    for (const item of items || []) {
+      const name = item.product || item.productName;
+      if (!name) continue;
+      const value = usePercent && typeof item.percentage === 'number'
+        ? item.percentage
+        : (item.totalTransactionValue ?? item.totalQuantity ?? item.totalBrokerage ?? 0);
+      map.set(name, (map.get(name) || 0) + (Number(value) || 0));
+    }
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  };
+
+  // Try percentage path first only if they sum to something > 0; else fall back to totals
+  const aggPerc = aggregateByProduct(data, true);
+  const sumPerc = aggPerc.reduce((s, x) => s + x.value, 0);
+  const usePercentages = sumPerc > 0;
+  const aggregated = usePercentages ? aggPerc : aggregateByProduct(data, false);
+
+  // Convert totals to percentages if needed
+  const total = aggregated.reduce((sum, x) => sum + x.value, 0);
+  const labels = aggregated.map(x => x.name);
+  const values = usePercentages
+    ? aggregated.map(x => x.value)
+    : (total > 0 ? aggregated.map(x => (x.value / total) * 100) : aggregated.map(x => 0));
+
+  if (!labels.length || values.every(v => !v)) {
+    return <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No product distribution data</div>;
+  }
+
   const chartData = {
-    labels: data.map(item => item.product),
+    labels,
     datasets: [
       {
-        data: data.map(item => item.percentage),
+        data: values,
         backgroundColor: [
           '#3B82F6',
           '#10B981',

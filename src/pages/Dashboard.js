@@ -99,7 +99,28 @@ const Dashboard = () => {
   const [showPartPaymentModal, setShowPartPaymentModal] = useState(false);
   const [partPaymentAmount, setPartPaymentAmount] = useState('');
   const [partPaymentMethod, setPartPaymentMethod] = useState('CASH');
-  const [dashboardStats, setDashboardStats] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalBrokerageAmount: 0,
+    totalBrokeragePaid: 0,
+    totalBrokeragePending: 0,
+    brokerageCompletionPercentage: 0,
+    merchantsWithPendingBrokerage: 0,
+    overdueBrokeragePayments: 0,
+    totalPendingPaymentAmount: 0,
+    buyersWithPendingPayments: 0,
+    overduePendingPayments: 0,
+    averagePendingPaymentAmount: 0,
+    totalReceivablePaymentAmount: 0,
+    sellersWithReceivablePayments: 0,
+    overdueReceivablePayments: 0,
+    averageReceivablePaymentAmount: 0,
+    totalAmountInCirculation: 0,
+    totalActivePayments: 0,
+    criticalPaymentsCount: 0,
+    paymentsDueSoonCount: 0,
+    recentPaymentsAmount: 0,
+    recentPaymentsCount: 0
+  });
   const [paymentStatsLoading, setPaymentStatsLoading] = useState(false);
 
   // Search state for payments
@@ -162,36 +183,17 @@ const Dashboard = () => {
       setTimeout(() => setSuccessMessage(''), 5000);
     }
 
-    // Load analytics data (using mock data for now)
-    loadAnalyticsData();
+    // Do not fetch real analytics until user opts-in; prepare mock only when analytics tab is active
+    if (activeTab === 'analytics') {
+      loadAnalyticsData();
+    }
 
     // Load real broker data if needed
     if (user && user.brokerId) {
       console.log('User data available from auth context');
     }
 
-    // Load merchants data
-    loadMerchantsData();
-
-    // Load products data
-    loadProductsData();
-
-    // Load addresses data
-    loadAddressesData();
-
-    // Load payment data
-    loadPaymentData();
-    
-    // Load firm names
-    loadFirmNames();
-
-    // Payment dashboard stats will be loaded by useEffect when tab becomes active
-
-    // Load financial years
-    loadFinancialYears();
-
-    // Load current financial year
-    loadCurrentFinancialYear();
+    // Defer all other data loads to tab-activated effects below
   }, [navigate, location, user]);
 
   // Load payment dashboard stats when payments tab becomes active
@@ -213,6 +215,60 @@ const Dashboard = () => {
       }
     }
   }, [activeTab, activePaymentTab]);
+
+  // Lazy load merchants when Merchants tab is opened
+  useEffect(() => {
+    if (activeTab === 'merchants' && merchants.length === 0) {
+      loadMerchantsData();
+      loadFirmNames();
+    }
+  }, [activeTab]);
+
+  // Lazy load products when Products tab is opened
+  useEffect(() => {
+    if (activeTab === 'products' && products.length === 0) {
+      loadProductsData();
+    }
+  }, [activeTab]);
+
+  // Lazy load addresses when Route/Addresses tab is opened
+  useEffect(() => {
+    if ((activeTab === 'routes' || activeTab === 'addresses') && addresses.length === 0) {
+      loadAddressesData();
+    }
+  }, [activeTab]);
+
+  // Lazy load financial years when Analytics is opened
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      if (financialYears.length === 0) {
+        loadFinancialYears();
+      }
+      if (!currentFinancialYearId) {
+        loadCurrentFinancialYear();
+      }
+      // Ensure analytics mock/real data prepared only on analytics tab
+      loadAnalyticsData();
+    }
+  }, [activeTab]);
+
+  // Overview: load analytics only if user toggles real data; otherwise keep zero/dummy cards
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      if (useRealData && selectedFinancialYear) {
+        loadRealAnalyticsData();
+      } else {
+        // keep mock analytics for charts without triggering network
+        setAnalyticsData({
+          sales: mockSalesData,
+          topBuyers: mockTopBuyers,
+          topSellers: mockTopSellers,
+          cityAnalytics: mockCityAnalytics,
+          productAnalytics: mockProductAnalytics
+        });
+      }
+    }
+  }, [activeTab, useRealData, selectedFinancialYear]);
 
   const loadAnalyticsData = async () => {
     try {

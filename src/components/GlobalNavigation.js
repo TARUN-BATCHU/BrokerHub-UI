@@ -93,7 +93,8 @@ const GlobalNavigation = () => {
         { path: '/products', label: 'Products', icon: '🌾' },
         { path: '/merchants', label: 'Merchants', icon: '🏢' },
         { path: '/financial-years', label: 'Financial Years', icon: '📈' },
-        { path: '/create-merchant', label: 'Create Merchant', icon: '👤' }
+        { path: '/create-merchant', label: 'Create Merchant', icon: '👤' },
+        { path: '/contacts', label: 'Phone Directory', icon: '📇' }
       ]
     },
     {

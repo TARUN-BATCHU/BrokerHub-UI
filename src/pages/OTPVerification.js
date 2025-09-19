@@ -28,7 +28,8 @@ const OTPVerification = () => {
       if (fromForgotPassword) {
         await authAPI.forgotPassword(userName);
       } else {
-        await authAPI.generateOTP(email);
+        // Prefer public regenerate if allowed, else backend must allow without JWT
+        await authAPI.regenerateOtp(email);
       }
       alert('A new OTP has been sent to your email.');
     } catch (error) {

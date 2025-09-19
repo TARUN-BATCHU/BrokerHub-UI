@@ -10,13 +10,40 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for authentication
+// In-flight request dedupe and cancellation
+const inflightRequests = new Map();
+const buildRequestKey = (config) => {
+  const method = (config.method || 'get').toLowerCase();
+  const url = config.url || '';
+  const params = config.params ? JSON.stringify(config.params) : '';
+  const data = config.data ? (typeof config.data === 'string' ? config.data : JSON.stringify(config.data)) : '';
+  return `${method}|${url}|${params}|${data}`;
+};
+
+// Request interceptor for authentication and dedupe
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const key = buildRequestKey(config);
+    if (inflightRequests.has(key)) {
+      // Cancel this duplicate request immediately by throwing a promise that resolves with the original
+      return new Promise((resolve, reject) => {
+        // Wait for the original to settle, then resolve with a cloned config to avoid sending again
+        inflightRequests.get(key).promise.then(() => resolve(config)).catch(reject);
+      });
+    }
+
+    // Attach AbortController to allow cancellation on unmount/switch (axios v1 supports signal)
+    const controller = new AbortController();
+    config.signal = controller.signal;
+    // Track the promise for this request; replaced on response interceptors
+    const entry = { controller, promise: Promise.resolve() };
+    inflightRequests.set(key, entry);
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -24,15 +51,39 @@ api.interceptors.request.use(
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Clear inflight on success
+    const key = buildRequestKey(response.config || {});
+    if (inflightRequests.has(key)) {
+      inflightRequests.delete(key);
+    }
+    return response;
+  },
   (error) => {
+    // Clear inflight on error
+    try {
+      const key = buildRequestKey(error.config || {});
+      inflightRequests.delete(key);
+    } catch {}
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('brokerId');
-      localStorage.removeItem('brokerName');
-      localStorage.removeItem('userName');
-      window.location.href = '/login';
+      const requestUrl = error.config?.url || '';
+      // Do NOT redirect for public/unauthed endpoints (forgot password, login, register, verify)
+      const isPublicAuthEndpoint = [
+        '/auth/password-reset/request',
+        '/auth/password-reset/confirm',
+        '/auth/register',
+        '/Broker/login',
+        '/auth/verify-email'
+      ].some((path) => requestUrl.includes(path));
+
+      if (!isPublicAuthEndpoint) {
+        // Token expired or invalid → clear and redirect
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('brokerId');
+        localStorage.removeItem('brokerName');
+        localStorage.removeItem('userName');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -40,10 +91,10 @@ api.interceptors.response.use(
 
 // Auth API functions - Updated for multi-tenant
 export const authAPI = {
-  // Register new broker
+  // Register new broker (if used elsewhere; path may differ in BrokerController)
   registerBroker: async (brokerData) => {
     try {
-      const response = await api.post('/auth/register', brokerData);
+      const response = await api.post('/Broker/createBroker', brokerData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -72,43 +123,50 @@ export const authAPI = {
 
 
 
-  // Change password
+  // Change password (authenticated)
   changePassword: async (passwordData) => {
     try {
-      const response = await api.put('/auth/password', passwordData);
+      const response = await api.put('/Broker/changePassword', passwordData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Request password reset
-  requestPasswordReset: async (email) => {
+  // Forgot password (send OTP) - public, text/plain response
+  forgotPassword: async (userName) => {
     try {
-      const response = await api.post('/auth/password-reset/request', { email });
+      const response = await api.get(`/Broker/forgotPassword`, { params: { userName } });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Reset password with token
-  resetPassword: async (token, newPassword) => {
+  // Create password (first-time or after verification) - public
+  createPassword: async ({ email, password }) => {
     try {
-      const response = await api.post('/auth/password-reset/confirm', {
-        token,
-        newPassword
-      });
+      const response = await api.put('/Broker/createPassword', { email, password });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Verify email
-  verifyEmail: async (token) => {
+  // Verify account (submit OTP) - public, text/plain
+  verifyAccount: async (userName, otp) => {
     try {
-      const response = await api.post('/auth/verify-email', { token });
+      const response = await api.post(`/Broker/verify-account`, null, { params: { userName, otp } });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Regenerate OTP (may require JWT depending on backend security)
+  regenerateOtp: async (email) => {
+    try {
+      const response = await api.put(`/Broker/regenerate-otp`, null, { params: { email } });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -854,6 +912,151 @@ export const grainCostsAPI = {
           'Authorization': 'Basic dGFydW46c2VjdXJlUGFzc3dvcmQxMjM='
         }
       });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Contacts Management API functions
+export const contactsAPI = {
+  // Sections
+  createSection: async (sectionData) => {
+    try {
+      const response = await api.post('/api/contacts/sections', sectionData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getAllSections: async () => {
+    try {
+      const response = await api.get('/api/contacts/sections');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getSectionById: async (sectionId) => {
+    try {
+      const response = await api.get(`/api/contacts/sections/${sectionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  updateSection: async (sectionId, sectionData) => {
+    try {
+      const response = await api.put(`/api/contacts/sections/${sectionId}`, sectionData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  deleteSection: async (sectionId) => {
+    try {
+      const response = await api.delete(`/api/contacts/sections/${sectionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getRootSections: async () => {
+    try {
+      const response = await api.get('/api/contacts/sections/root');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getChildSections: async (parentId) => {
+    try {
+      const response = await api.get(`/api/contacts/sections/${parentId}/children`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Contacts
+  createContact: async (contactData) => {
+    try {
+      const response = await api.post('/api/contacts', contactData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getAllContacts: async () => {
+    try {
+      const response = await api.get('/api/contacts');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getContactsBySection: async (sectionId) => {
+    try {
+      const response = await api.get(`/api/contacts/section/${sectionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getContactById: async (contactId) => {
+    try {
+      const response = await api.get(`/api/contacts/${contactId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  updateContact: async (contactId, contactData) => {
+    try {
+      const response = await api.put(`/api/contacts/${contactId}`, contactData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  deleteContact: async (contactId) => {
+    try {
+      const response = await api.delete(`/api/contacts/${contactId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  addContactToSection: async (contactId, sectionId) => {
+    try {
+      const response = await api.post(`/api/contacts/${contactId}/sections/${sectionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  removeContactFromSection: async (contactId, sectionId) => {
+    try {
+      const response = await api.delete(`/api/contacts/${contactId}/sections/${sectionId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Search & Pagination
+  searchContacts: async (query, page = 0, size = 10) => {
+    try {
+      const response = await api.get(`/api/contacts/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+  getPaginatedContacts: async (page = 0, size = 10) => {
+    try {
+      const response = await api.get(`/api/contacts/paginated?page=${page}&size=${size}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

@@ -227,7 +227,7 @@ const AnalyticsControls = ({
               textTransform: 'uppercase',
               letterSpacing: '0.5px'
             }}>
-              Data Source
+              DUMMY DATA
             </span>
             <label style={{
               position: 'relative',

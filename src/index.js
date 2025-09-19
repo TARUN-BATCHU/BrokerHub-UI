@@ -4,8 +4,12 @@ import './index.css';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+const isProd = process.env.NODE_ENV === 'production';
 root.render(
-  <React.StrictMode>
+  isProd ? (
     <App />
-  </React.StrictMode>
+  ) : (
+    // Disable StrictMode in development to avoid double effects and duplicate calls
+    <App />
+  )
 );

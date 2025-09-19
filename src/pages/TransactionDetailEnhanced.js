@@ -903,7 +903,7 @@ const TransactionDetailEnhanced = () => {
                         border: `1px solid ${theme.border}`,
                         borderRadius: '4px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        zIndex: 1000,
+                        zIndex: 1100,
                         maxHeight: '200px',
                         overflowY: 'auto'
                       }}>
@@ -1050,10 +1050,10 @@ const TransactionDetailEnhanced = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
               <thead>
                 <tr style={{ backgroundColor: theme.background }}>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600' }}>S.No</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600',width: '10px'}}>S.No</th>
                   <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', minWidth: '200px' }}>Buyer Name *</th>
                   <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '120px' }}>City</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', minWidth: '180px' }}>Product *</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', minWidth: '100px' }}>Product *</th>
                   <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '80px' }}>Qty *</th>
                   <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '80px' }}>Brokerage</th>
                   <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '100px' }}>Rate *</th>
@@ -1069,7 +1069,7 @@ const TransactionDetailEnhanced = () => {
                     </td>
 
                     {/* Buyer Name */}
-                    <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'relative', minWidth: '200px' }}>
+                    <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'absolute', minWidth: '419px' }}>
                       <input
                         ref={el => buyerInputRefs.current[index] = el}
                         type="text"
@@ -1126,7 +1126,7 @@ const TransactionDetailEnhanced = () => {
                           width: '100%',
                           padding: '8px',
                           border: 'none',
-                          fontSize: '14px',
+                          fontSize: '16px',
                           backgroundColor: 'transparent',
                           color: theme.textPrimary,
                           outline: 'none'
@@ -1193,7 +1193,7 @@ const TransactionDetailEnhanced = () => {
                     </td>
 
                     {/* Product */}
-                    <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'relative', minWidth: '200px' }}>
+                    <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'absolute', minWidth: '210px' }}>
                       <input
                         ref={el => productInputRefs.current[index] = el}
                         type="text"
@@ -1255,7 +1255,7 @@ const TransactionDetailEnhanced = () => {
                           border: `1px solid ${theme.border}`,
                           borderRadius: '4px',
                           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          zIndex: 1000,
+                          zIndex: 1100,
                           maxHeight: '200px',
                           overflowY: 'auto'
                         }}>

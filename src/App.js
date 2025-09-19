@@ -30,6 +30,7 @@ import BulkOperations from './pages/BulkOperations';
 import PaymentManagement from './pages/PaymentManagement';
 import PaymentDemo from './pages/PaymentDemo';
 import About from './pages/About';
+import PhoneDirectory from './pages/PhoneDirectory';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -255,6 +256,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <PaymentDemo />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/contacts"
+                element={
+                  <ProtectedRoute>
+                    <PhoneDirectory />
                   </ProtectedRoute>
                 }
               />
