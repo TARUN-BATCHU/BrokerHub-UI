@@ -183,6 +183,13 @@ const Signup = () => {
           stepErrors[field] = validation.errors[field];
         }
       });
+    } else if (currentStep === 3) {
+      // Step 3: Banking details
+      ['bankName', 'accountNumber', 'ifscCode', 'branch'].forEach(field => {
+        if (validation.errors[field]) {
+          stepErrors[field] = validation.errors[field];
+        }
+      });
     }
 
     const allErrors = { ...stepErrors, ...stepAvailabilityErrors };
@@ -191,7 +198,9 @@ const Signup = () => {
       return;
     }
 
-    setCurrentStep(prev => prev + 1);
+    if (currentStep < 3) {
+      setCurrentStep(prev => prev + 1);
+    }
   };
 
   const handlePrevStep = () => {

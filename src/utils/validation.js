@@ -105,24 +105,24 @@ export const validateBrokerForm = (formData) => {
   }
 
   // Bank details validation
-  if (!validateRequired(formData.BankName)) {
-    errors.BankName = 'Bank name is required';
+  if (!validateRequired(formData.bankName)) {
+    errors.bankName = 'Bank name is required';
   }
 
-  if (!validateRequired(formData.AccountNumber)) {
-    errors.AccountNumber = 'Account number is required';
-  } else if (!validateAccountNumber(formData.AccountNumber)) {
-    errors.AccountNumber = 'Please enter a valid account number (9-18 digits)';
+  if (!validateRequired(formData.accountNumber)) {
+    errors.accountNumber = 'Account number is required';
+  } else if (!validateAccountNumber(formData.accountNumber)) {
+    errors.accountNumber = 'Please enter a valid account number (9-18 digits)';
   }
 
-  if (!validateRequired(formData.IfscCode)) {
-    errors.IfscCode = 'IFSC code is required';
-  } else if (!validateIFSC(formData.IfscCode)) {
-    errors.IfscCode = 'Please enter a valid IFSC code';
+  if (!validateRequired(formData.ifscCode)) {
+    errors.ifscCode = 'IFSC code is required';
+  } else if (!validateIFSC(formData.ifscCode)) {
+    errors.ifscCode = 'Please enter a valid IFSC code';
   }
 
-  if (!validateRequired(formData.Branch)) {
-    errors.Branch = 'Branch name is required';
+  if (!validateRequired(formData.branch)) {
+    errors.branch = 'Branch name is required';
   }
 
   return {
