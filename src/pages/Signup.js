@@ -21,10 +21,10 @@ const Signup = () => {
     pincode: '',
     email: '',
     phoneNumber: '',
-    BankName: '',
-    AccountNumber: '',
-    IfscCode: '',
-    Branch: ''
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    branch: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -231,8 +231,8 @@ const Signup = () => {
         pincode: formData.pincode,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
-        AccountNumber: formData.AccountNumber,
-        IfscCode: formData.IfscCode
+        accountNumber: formData.accountNumber,
+        ifscCode: formData.ifscCode
       };
 
       const response = await authAPI.createBroker(brokerData);
@@ -388,40 +388,40 @@ const Signup = () => {
     <>
       <FormInput
         label="Bank Name"
-        name="BankName"
-        value={formData.BankName}
+        name="bankName"
+        value={formData.bankName}
         onChange={handleChange}
-        error={errors.BankName}
+        error={errors.bankName}
         placeholder="Your bank name"
         required
       />
 
       <FormInput
         label="Account Number"
-        name="AccountNumber"
-        value={formData.AccountNumber}
+        name="accountNumber"
+        value={formData.accountNumber}
         onChange={handleChange}
-        error={errors.AccountNumber}
+        error={errors.accountNumber}
         placeholder="Bank account number"
         required
       />
 
       <FormInput
         label="IFSC Code"
-        name="IfscCode"
-        value={formData.IfscCode}
+        name="ifscCode"
+        value={formData.ifscCode}
         onChange={handleChange}
-        error={errors.IfscCode}
+        error={errors.ifscCode}
         placeholder="Bank IFSC code"
         required
       />
 
       <FormInput
         label="Branch"
-        name="Branch"
-        value={formData.Branch}
+        name="branch"
+        value={formData.branch}
         onChange={handleChange}
-        error={errors.Branch}
+        error={errors.branch}
         placeholder="Bank branch name"
         required
       />
