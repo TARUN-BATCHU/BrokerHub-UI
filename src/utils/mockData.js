@@ -1,12 +1,12 @@
 // Mock data for analytics dashboard
 
 export const mockSalesData = {
-  totalSales: 2450000,
-  totalQuantity: 15600,
-  totalTransactions: 342,
-  totalBrokerage: 245000,
-  totalTransactionValue: 2450000,
-  monthlyGrowth: 12.5,
+  totalSales: 0,
+  totalQuantity: 0,
+  totalTransactions: 0,
+  totalBrokerage: 0,
+  totalTransactionValue: 0,
+  monthlyGrowth: 0.0,
   monthlySales: [
     { month: 'Jan', sales: 180000, quantity: 1200 },
     { month: 'Feb', sales: 220000, quantity: 1450 },
@@ -26,7 +26,7 @@ export const mockSalesData = {
 export const mockTopBuyers = [
   {
     id: 1,
-    name: 'Rajesh Rice Mills',
+    name: 'Test Mills',
     city: 'Hyderabad',
     totalPurchases: 450000,
     quantity: 3200,
@@ -35,7 +35,7 @@ export const mockTopBuyers = [
   },
   {
     id: 2,
-    name: 'Srinivas Traders',
+    name: 'Dummy Traders',
     city: 'Vijayawada',
     totalPurchases: 380000,
     quantity: 2800,
@@ -44,7 +44,7 @@ export const mockTopBuyers = [
   },
   {
     id: 3,
-    name: 'Krishna Dal Mills',
+    name: 'Abc Mills',
     city: 'Guntur',
     totalPurchases: 320000,
     quantity: 2400,
