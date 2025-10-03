@@ -155,7 +155,7 @@ const TransactionDetailEdit = () => {
           sellerBrokerage: data.transactionSummary?.averageBrokeragePerBag || 0,
           brokerage: data.transactionSummary?.totalBrokerageInTransaction || 0,
           fromSeller: data.fromSeller.userId,
-          date: data.transactionDate,
+          date: formatDateForDisplay(data.transactionDate),
           sellerProducts: data.records.reduce((unique, record) => {
             const exists = unique.find(p => p.productId === record.product.productId);
             if (!exists) {
@@ -321,7 +321,7 @@ const TransactionDetailEdit = () => {
     
     try {
       const updateData = {
-        date: formData.date,
+        date: formatDateForAPI(formData.date),
         fromSeller: formData.fromSeller,
         brokerage: calculateTotalBrokerage(),
         ledgerRecordDTOList: formData.ledgerRecordDTOList
@@ -376,6 +376,20 @@ const TransactionDetailEdit = () => {
   const getSelectedSellerInfo = () => {
     const selectedSeller = sellers.find(s => s.id === parseInt(formData.fromSeller));
     return selectedSeller ? `${selectedSeller.firmName} - ${selectedSeller.city}` : '';
+  };
+
+  // Convert YYYY-MM-DD to DD-MM-YYYY for display
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}-${month}-${year}`;
+  };
+
+  // Convert DD-MM-YYYY to YYYY-MM-DD for API
+  const formatDateForAPI = (dateStr) => {
+    if (!dateStr) return '';
+    const [day, month, year] = dateStr.split('-');
+    return `${year}-${month}-${day}`;
   };
 
   if (loading || loadingData) {
@@ -481,9 +495,10 @@ const TransactionDetailEdit = () => {
               Date:
             </label>
             <input
-              type="date"
+              type="text"
               value={formData.date}
               onChange={(e) => handleInputChange('date', e.target.value)}
+              placeholder="DD-MM-YYYY"
               style={{
                 width: '100%',
                 padding: '8px 12px',
@@ -564,6 +579,10 @@ const TransactionDetailEdit = () => {
                         key={seller.id}
                         onClick={() => {
                           handleInputChange('fromSeller', seller.id);
+                          // Auto-populate seller brokerage rate if available
+                          if (seller.brokerageRate) {
+                            handleInputChange('sellerBrokerage', seller.brokerageRate);
+                          }
                           setSellerSearch(seller.firmName);
                           setShowSellerDropdown(false);
                         }}
@@ -578,7 +597,9 @@ const TransactionDetailEdit = () => {
                         onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                       >
                         <div style={{ fontWeight: '500' }}>{seller.firmName}</div>
-                        <div style={{ fontSize: '12px', color: theme.textSecondary }}>{seller.city}</div>
+                        <div style={{ fontSize: '12px', color: theme.textSecondary }}>
+                          {seller.city} {seller.brokerageRate && `• Brokerage: ${seller.brokerageRate}%`}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -728,6 +749,10 @@ const TransactionDetailEdit = () => {
                               key={buyer.id}
                               onClick={() => {
                                 handleRecordChange(index, 'buyerName', buyer.firmName);
+                                // Auto-populate buyer brokerage rate if available
+                                if (buyer.brokerageRate) {
+                                  handleRecordChange(index, 'brokerage', buyer.brokerageRate);
+                                }
                                 setBuyerSearches(prev => ({ ...prev, [index]: buyer.firmName }));
                                 setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
                               }}
@@ -742,7 +767,9 @@ const TransactionDetailEdit = () => {
                               onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                             >
                               <div style={{ fontWeight: '500' }}>{buyer.firmName}</div>
-                              <div style={{ fontSize: '10px', color: theme.textSecondary }}>{buyer.city}</div>
+                              <div style={{ fontSize: '10px', color: theme.textSecondary }}>
+                                {buyer.city} {buyer.brokerageRate && `• Brokerage: ${buyer.brokerageRate}%`}
+                              </div>
                             </div>
                           ))}
                         </div>

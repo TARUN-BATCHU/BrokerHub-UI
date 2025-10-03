@@ -25,7 +25,24 @@ const TransactionDetailEnhanced = () => {
   const sellerProductRefs = useRef([]);
   const sellerProductCostRefs = useRef([]);
 
-  const initialDate = date || new Date().toISOString().split('T')[0];
+  // Convert YYYY-MM-DD to DD-MM-YYYY for display
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}-${month}-${year}`;
+  };
+
+  // Convert DD-MM-YYYY to YYYY-MM-DD for API
+  const formatDateForAPI = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('-') && dateStr.split('-')[2]?.length === 4) {
+      const [day, month, year] = dateStr.split('-');
+      return `${year}-${month}-${day}`;
+    }
+    return dateStr; // Return as-is if already in YYYY-MM-DD format
+  };
+
+  const initialDate = date ? formatDateForDisplay(date) : formatDateForDisplay(new Date().toISOString().split('T')[0]);
   const [formData, setFormData] = useState({
     brokerId: parseInt(localStorage.getItem('brokerId')),
     financialYearId: null,
@@ -108,7 +125,7 @@ const TransactionDetailEnhanced = () => {
     const handleKeyDown = (e) => {
       // Arrow keys for dropdown navigation
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        if (showSellerDropdown || Object.values(showBuyerDropdowns).some(Boolean) || Object.values(showProductDropdowns).some(Boolean)) {
+        if (showSellerDropdown || Object.values(showBuyerDropdowns).some(Boolean) || Object.values(showProductDropdowns).some(Boolean) || Object.values(showSellerProductDropdowns).some(Boolean)) {
           e.preventDefault();
           const direction = e.key === 'ArrowDown' ? 1 : -1;
           
@@ -116,14 +133,38 @@ const TransactionDetailEnhanced = () => {
             const filtered = getFilteredSellers();
             const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
             setSelectedDropdownIndex(newIndex);
+            // Auto-scroll to selected item
+            setTimeout(() => {
+              const dropdown = document.querySelector('[data-dropdown="seller"]');
+              const selectedItem = dropdown?.children[newIndex];
+              if (selectedItem) {
+                selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }
+            }, 0);
           } else if (activeDropdownType === 'buyer' && activeRowIndex !== null) {
             const filtered = getFilteredBuyers(buyerSearches[activeRowIndex]);
             const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
             setSelectedDropdownIndex(newIndex);
+            // Auto-scroll to selected item
+            setTimeout(() => {
+              const dropdown = document.querySelector(`[data-dropdown="buyer-${activeRowIndex}"]`);
+              const selectedItem = dropdown?.children[newIndex];
+              if (selectedItem) {
+                selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }
+            }, 0);
           } else if (activeDropdownType === 'product' && activeRowIndex !== null) {
             const filtered = getFilteredProducts(productSearches[activeRowIndex]);
             const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
             setSelectedDropdownIndex(newIndex);
+            // Auto-scroll to selected item
+            setTimeout(() => {
+              const dropdown = document.querySelector(`[data-dropdown="product-${activeRowIndex}"]`);
+              const selectedItem = dropdown?.children[newIndex];
+              if (selectedItem) {
+                selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }
+            }, 0);
           } else if (activeDropdownType === 'sellerProduct' && activeRowIndex !== null) {
             const filtered = getFilteredProducts(sellerProductSearches[activeRowIndex]);
             const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
@@ -148,10 +189,14 @@ const TransactionDetailEnhanced = () => {
           if (filtered.length > 0 && selectedDropdownIndex >= 0) {
             const seller = filtered[selectedDropdownIndex];
             handleInputChange('fromSeller', seller.id);
+            // Auto-populate seller brokerage rate if available
+            if (seller.brokerageRate) {
+              handleInputChange('sellerBrokerage', seller.brokerageRate);
+            }
             setSellerSearch(seller.firmName);
             setShowSellerDropdown(false);
             setSelectedDropdownIndex(-1);
-            setTimeout(() => brokerageInputRef.current?.focus(), 100);
+            setTimeout(() => sellerProductRefs.current[0]?.focus(), 100);
           }
           return;
         }
@@ -163,6 +208,10 @@ const TransactionDetailEnhanced = () => {
             const buyer = filtered[selectedDropdownIndex];
             handleRecordChange(activeRowIndex, 'buyerName', buyer.firmName);
             handleRecordChange(activeRowIndex, 'buyerCity', buyer.city);
+            // Auto-populate buyer brokerage rate if available
+            if (buyer.brokerageRate) {
+              handleRecordChange(activeRowIndex, 'brokerage', buyer.brokerageRate);
+            }
             setBuyerSearches(prev => ({ ...prev, [activeRowIndex]: buyer.firmName }));
             setShowBuyerDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
             setSelectedDropdownIndex(-1);
@@ -170,6 +219,10 @@ const TransactionDetailEnhanced = () => {
             // Auto-populate product from seller products if available
             if (formData.sellerProducts[0]?.productId) {
               handleRecordChange(activeRowIndex, 'productId', formData.sellerProducts[0].productId);
+              // Auto-populate product cost from seller products
+              if (formData.sellerProducts[0]?.productCost) {
+                handleRecordChange(activeRowIndex, 'productCost', formData.sellerProducts[0].productCost);
+              }
               const selectedProduct = products.find(p => Object.values(p)[0] === formData.sellerProducts[0].productId);
               if (selectedProduct) {
                 const [description] = Object.entries(selectedProduct)[0];
@@ -216,10 +269,10 @@ const TransactionDetailEnhanced = () => {
         }
       }
 
-      // Ctrl+S to save
+      // Ctrl+S to save and next
       if (e.key === 's' && e.ctrlKey) {
         e.preventDefault();
-        handleSave();
+        handleSave(true);
         return;
       }
 
@@ -238,7 +291,7 @@ const TransactionDetailEnhanced = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showSellerDropdown, showBuyerDropdowns, showProductDropdowns, selectedDropdownIndex, activeDropdownType, activeRowIndex, buyerSearches, productSearches]);
+  }, [showSellerDropdown, showBuyerDropdowns, showProductDropdowns, showSellerProductDropdowns, selectedDropdownIndex, activeDropdownType, activeRowIndex, buyerSearches, productSearches, sellerProductSearches]);
 
   const loadCurrentFinancialYear = async () => {
     try {
@@ -369,22 +422,22 @@ const TransactionDetailEnhanced = () => {
     return totalSellerBrokerage + buyerBrokerage;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (saveAndNext = false) => {
     if (!formData.fromSeller) {
       setError('Please select a seller');
-      return;
+      return false;
     }
 
     if (!formData.date) {
       setError('Please select a date');
-      return;
+      return false;
     }
 
     if (formData.ledgerRecordDTOList.some(record => 
       !record.buyerName || !record.productId || !record.quantity || !record.productCost
     )) {
       setError('Please fill all required fields in transaction records');
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -403,14 +456,16 @@ const TransactionDetailEnhanced = () => {
 
       if (mode === 'create') {
         const response = await ledgerDetailsAPI.createLedgerDetails(saveData);
-        const createdTransactionNumber = response; // Assuming API returns the transaction number
+        const createdTransactionNumber = response;
         setNextTransactionNumber(createdTransactionNumber);
         setSuccess(`Transaction #${createdTransactionNumber} created successfully!`);
         setHasUnsavedChanges(false);
-        // Reset form for next entry
-        setTimeout(() => {
-          handleNext();
-        }, 1000);
+        
+        if (saveAndNext) {
+          setTimeout(() => {
+            handleNext();
+          }, 500);
+        }
       } else {
         await ledgerDetailsAPI.updateLedgerDetailByTransactionNumber(
           transactionNumber,
@@ -421,9 +476,11 @@ const TransactionDetailEnhanced = () => {
         setSuccess('Transaction updated successfully!');
         setHasUnsavedChanges(false);
       }
+      return true;
     } catch (err) {
       setError(typeof err === 'string' ? err : 'Failed to save transaction');
       console.error('Error saving transaction:', err);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -435,9 +492,9 @@ const TransactionDetailEnhanced = () => {
     setFormData({
       brokerId: parseInt(localStorage.getItem('brokerId')),
       financialYearId: formData.financialYearId,
-      sellerBrokerage: formData.sellerBrokerage, // Keep previous brokerage
+      sellerBrokerage: '',
       brokerage: 0,
-      fromSeller: formData.fromSeller, // Keep previous seller
+      fromSeller: '',
       date: newDate,
       sellerProducts: [{ productId: '', productCost: '' }],
       ledgerRecordDTOList: [
@@ -451,6 +508,13 @@ const TransactionDetailEnhanced = () => {
         }
       ]
     });
+    
+    // Clear search states
+    setSellerSearch('');
+    setBuyerSearches({});
+    setProductSearches({});
+    setSellerProductSearches({});
+    
     setSuccess('');
     setError('');
     setHasUnsavedChanges(false);
@@ -460,9 +524,9 @@ const TransactionDetailEnhanced = () => {
       setNextTransactionNumber(nextTransactionNumber + 1);
     }
 
-    // Focus on first buyer input for next entry
+    // Focus on seller input for next entry
     setTimeout(() => {
-      buyerInputRefs.current[0]?.focus();
+      sellerInputRef.current?.focus();
     }, 100);
   };
 
@@ -647,26 +711,36 @@ const TransactionDetailEnhanced = () => {
               }}>
                 Date *:
               </label>
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={formData.date}
-                onChange={(e) => handleInputChange('date', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    sellerInputRef.current?.focus();
-                  }
-                }}
-                style={{
-                  padding: '8px 12px',
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: '6px',
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={formatDateForAPI(formData.date)}
+                  onChange={(e) => handleInputChange('date', formatDateForDisplay(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      sellerInputRef.current?.focus();
+                    }
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '6px',
+                    fontSize: '15px',
+                    backgroundColor: theme.inputBackground || theme.cardBackground,
+                    color: theme.textPrimary,
+                    width: '150px'
+                  }}
+                />
+                <span style={{
                   fontSize: '15px',
-                  backgroundColor: theme.inputBackground || theme.cardBackground,
-                  color: theme.textPrimary
-                }}
-              />
+                  color: theme.textPrimary,
+                  fontWeight: '500'
+                }}>
+                  {formData.date || 'DD-MM-YYYY'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -727,28 +801,34 @@ const TransactionDetailEnhanced = () => {
                 }}
               />
               {showSellerDropdown && getFilteredSellers().length > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: theme.cardBackground,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: '6px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  zIndex: 1000,
-                  maxHeight: '200px',
-                  overflowY: 'auto'
-                }}>
+                <div 
+                  data-dropdown="seller"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: theme.cardBackground,
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    zIndex: 1000,
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
                   {getFilteredSellers().map((seller, index) => (
                     <div
                       key={seller.id}
                       onClick={() => {
                         handleInputChange('fromSeller', seller.id);
+                        // Auto-populate seller brokerage rate if available
+                        if (seller.brokerageRate) {
+                          handleInputChange('sellerBrokerage', seller.brokerageRate);
+                        }
                         setSellerSearch(seller.firmName);
                         setShowSellerDropdown(false);
                         setSelectedDropdownIndex(-1);
-                        setTimeout(() => brokerageInputRef.current?.focus(), 100);
+                        setTimeout(() => sellerProductRefs.current[0]?.focus(), 100);
                       }}
                       style={{
                         padding: '10px 12px',
@@ -761,7 +841,9 @@ const TransactionDetailEnhanced = () => {
                       onMouseEnter={() => setSelectedDropdownIndex(index)}
                     >
                       <div style={{ fontWeight: '500' }}>{seller.firmName}</div>
-                      <div style={{ fontSize: '12px', color: theme.textSecondary }}>{seller.city}</div>
+                      <div style={{ fontSize: '12px', color: theme.textSecondary }}>
+                        {seller.city} {seller.brokerageRate && `• Brokerage: ${seller.brokerageRate}/-`}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -869,6 +951,10 @@ const TransactionDetailEnhanced = () => {
                         }
                       }, 200)}
                       onKeyDown={(e) => {
+                        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && showSellerProductDropdowns[index]) {
+                          // Let the global handler manage dropdown navigation
+                          return;
+                        }
                         if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
                           e.preventDefault();
                           brokerageInputRef.current?.focus();
@@ -878,7 +964,7 @@ const TransactionDetailEnhanced = () => {
                         } else if (e.key === 'ArrowRight') {
                           e.preventDefault();
                           sellerProductCostRefs.current[index]?.focus();
-                        } else if (e.key === 'ArrowDown') {
+                        } else if (e.key === 'ArrowDown' && !showSellerProductDropdowns[index]) {
                           e.preventDefault();
                           buyerInputRefs.current[0]?.focus();
                         }
@@ -1133,25 +1219,31 @@ const TransactionDetailEnhanced = () => {
                         }}
                       />
                       {showBuyerDropdowns[index] && getFilteredBuyers(buyerSearches[index]).length > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          backgroundColor: theme.cardBackground,
-                          border: `1px solid ${theme.border}`,
-                          borderRadius: '4px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          zIndex: 1000,
-                          maxHeight: '200px',
-                          overflowY: 'auto'
-                        }}>
+                        <div 
+                          data-dropdown={`buyer-${index}`}
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            backgroundColor: theme.cardBackground,
+                            border: `1px solid ${theme.border}`,
+                            borderRadius: '4px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            zIndex: 1000,
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }}>
                           {getFilteredBuyers(buyerSearches[index]).map((buyer, buyerIndex) => (
                             <div
                               key={buyer.id}
                               onClick={() => {
                                 handleRecordChange(index, 'buyerName', buyer.firmName);
                                 handleRecordChange(index, 'buyerCity', buyer.city);
+                                // Auto-populate buyer brokerage rate if available
+                                if (buyer.brokerageRate) {
+                                  handleRecordChange(index, 'brokerage', buyer.brokerageRate);
+                                }
                                 setBuyerSearches(prev => ({ ...prev, [index]: buyer.firmName }));
                                 setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
                                 setSelectedDropdownIndex(-1);
@@ -1159,6 +1251,10 @@ const TransactionDetailEnhanced = () => {
                                 // Auto-populate product from seller products if available
                                 if (formData.sellerProducts[0]?.productId) {
                                   handleRecordChange(index, 'productId', formData.sellerProducts[0].productId);
+                                  // Auto-populate product cost from seller products
+                                  if (formData.sellerProducts[0]?.productCost) {
+                                    handleRecordChange(index, 'productCost', formData.sellerProducts[0].productCost);
+                                  }
                                   const selectedProduct = products.find(p => Object.values(p)[0] === formData.sellerProducts[0].productId);
                                   if (selectedProduct) {
                                     const [description] = Object.entries(selectedProduct)[0];
@@ -1180,7 +1276,9 @@ const TransactionDetailEnhanced = () => {
                               onMouseEnter={() => setSelectedDropdownIndex(buyerIndex)}
                             >
                               <div style={{ fontWeight: '500' }}>{buyer.firmName}</div>
-                              <div style={{ fontSize: '10px', color: theme.textSecondary }}>{buyer.city}</div>
+                              <div style={{ fontSize: '10px', color: theme.textSecondary }}>
+                                {buyer.city} {buyer.brokerageRate && `• Brokerage: ${buyer.brokerageRate}/-`}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1221,16 +1319,20 @@ const TransactionDetailEnhanced = () => {
                           }
                         }, 200)}
                         onKeyDown={(e) => {
+                          if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && showProductDropdowns[index]) {
+                            // Let the global handler manage dropdown navigation
+                            return;
+                          }
                           if (e.key === 'ArrowRight' && !showProductDropdowns[index]) {
                             e.preventDefault();
                             quantityInputRefs.current[index]?.focus();
                           } else if (e.key === 'ArrowLeft') {
                             e.preventDefault();
                             buyerInputRefs.current[index]?.focus();
-                          } else if (e.key === 'ArrowUp' && index > 0) {
+                          } else if (e.key === 'ArrowUp' && index > 0 && !showProductDropdowns[index]) {
                             e.preventDefault();
                             productInputRefs.current[index - 1]?.focus();
-                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1) {
+                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1 && !showProductDropdowns[index]) {
                             e.preventDefault();
                             productInputRefs.current[index + 1]?.focus();
                           }
@@ -1246,19 +1348,21 @@ const TransactionDetailEnhanced = () => {
                         }}
                       />
                       {showProductDropdowns[index] && getFilteredProducts(productSearches[index]).length > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          backgroundColor: theme.cardBackground,
-                          border: `1px solid ${theme.border}`,
-                          borderRadius: '4px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          zIndex: 1100,
-                          maxHeight: '200px',
-                          overflowY: 'auto'
-                        }}>
+                        <div 
+                          data-dropdown={`product-${index}`}
+                          style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            backgroundColor: theme.cardBackground,
+                            border: `1px solid ${theme.border}`,
+                            borderRadius: '4px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            zIndex: 1100,
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }}>
                           {getFilteredProducts(productSearches[index]).map((product, productIndex) => {
                             const [description, id] = Object.entries(product)[0];
                             return (
@@ -1297,7 +1401,15 @@ const TransactionDetailEnhanced = () => {
                         value={record.quantity}
                         onChange={(e) => handleRecordChange(index, 'quantity', e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === 'ArrowRight') {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // If brokerage and rate are filled, add new record
+                            if (record.brokerage && record.productCost) {
+                              addNewRecord();
+                            } else {
+                              brokerageColumnRefs.current[index]?.focus();
+                            }
+                          } else if (e.key === 'ArrowRight') {
                             e.preventDefault();
                             brokerageColumnRefs.current[index]?.focus();
                           } else if (e.key === 'ArrowLeft') {
@@ -1489,7 +1601,7 @@ const TransactionDetailEnhanced = () => {
           flexWrap: 'wrap'
         }}>
           <button
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={saving}
             style={{
               backgroundColor: theme.primary || '#007bff',
@@ -1509,17 +1621,19 @@ const TransactionDetailEnhanced = () => {
 
           {mode === 'create' && (
             <button
-              onClick={handleNext}
+              onClick={() => handleSave(true)}
+              disabled={saving}
               style={{
                 backgroundColor: theme.success || '#28a745',
                 color: 'white',
                 border: 'none',
                 padding: '12px 32px',
                 borderRadius: '6px',
-                cursor: 'pointer',
+                cursor: saving ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
                 fontWeight: '600',
-                minWidth: '120px'
+                minWidth: '120px',
+                opacity: saving ? 0.6 : 1
               }}
             >
               ➡️ Save & Next

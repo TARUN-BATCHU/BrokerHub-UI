@@ -648,6 +648,16 @@ export const ledgerDetailsAPI = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Create ledger details with Excel JSON
+  createLedgerDetailsWithExcelJson: async (jsonData) => {
+    try {
+      const response = await api.post('/LedgerDetails/createLedgerDetailsWithExcelJson', jsonData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 

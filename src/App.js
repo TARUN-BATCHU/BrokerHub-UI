@@ -31,6 +31,7 @@ import PaymentManagement from './pages/PaymentManagement';
 import PaymentDemo from './pages/PaymentDemo';
 import About from './pages/About';
 import PhoneDirectory from './pages/PhoneDirectory';
+import JsonTransactionInput from './pages/JsonTransactionInput';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -264,6 +265,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <PhoneDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/json-transaction"
+                element={
+                  <ProtectedRoute>
+                    <JsonTransactionInput />
                   </ProtectedRoute>
                 }
               />

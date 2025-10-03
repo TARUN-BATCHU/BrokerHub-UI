@@ -76,7 +76,8 @@ const GlobalNavigation = () => {
       items: [
         { path: '/ledger-management', label: 'Ledger Management', icon: '📋' },
         { path: '/daily-ledger', label: 'Daily Ledger', icon: '📊' },
-        { path: '/calendar-view', label: 'Calendar View', icon: '📅' }
+        { path: '/calendar-view', label: 'Calendar View', icon: '📅' },
+        { path: '/json-transaction', label: 'JSON Transaction Input', icon: '📝' }
       ]
     },
     {
