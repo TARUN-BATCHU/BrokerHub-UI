@@ -25,24 +25,7 @@ const TransactionDetailEnhanced = () => {
   const sellerProductRefs = useRef([]);
   const sellerProductCostRefs = useRef([]);
 
-  // Convert YYYY-MM-DD to DD-MM-YYYY for display
-  const formatDateForDisplay = (dateStr) => {
-    if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}-${month}-${year}`;
-  };
-
-  // Convert DD-MM-YYYY to YYYY-MM-DD for API
-  const formatDateForAPI = (dateStr) => {
-    if (!dateStr) return '';
-    if (dateStr.includes('-') && dateStr.split('-')[2]?.length === 4) {
-      const [day, month, year] = dateStr.split('-');
-      return `${year}-${month}-${day}`;
-    }
-    return dateStr; // Return as-is if already in YYYY-MM-DD format
-  };
-
-  const initialDate = date ? formatDateForDisplay(date) : formatDateForDisplay(new Date().toISOString().split('T')[0]);
+  const initialDate = date || new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
     brokerId: parseInt(localStorage.getItem('brokerId')),
     financialYearId: null,
@@ -711,36 +694,26 @@ const TransactionDetailEnhanced = () => {
               }}>
                 Date *:
               </label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  value={formatDateForAPI(formData.date)}
-                  onChange={(e) => handleInputChange('date', formatDateForDisplay(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      sellerInputRef.current?.focus();
-                    }
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: '6px',
-                    fontSize: '15px',
-                    backgroundColor: theme.inputBackground || theme.cardBackground,
-                    color: theme.textPrimary,
-                    width: '150px'
-                  }}
-                />
-                <span style={{
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={formData.date}
+                onChange={(e) => handleInputChange('date', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sellerInputRef.current?.focus();
+                  }
+                }}
+                style={{
+                  padding: '8px 12px',
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: '6px',
                   fontSize: '15px',
-                  color: theme.textPrimary,
-                  fontWeight: '500'
-                }}>
-                  {formData.date || 'DD-MM-YYYY'}
-                </span>
-              </div>
+                  backgroundColor: theme.inputBackground || theme.cardBackground,
+                  color: theme.textPrimary
+                }}
+              />
             </div>
           </div>
 

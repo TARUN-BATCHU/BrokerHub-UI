@@ -6,9 +6,26 @@ import '../styles/ledger.css';
 const JsonTransactionInput = () => {
   const { theme } = useTheme();
   const [jsonInput, setJsonInput] = useState('');
+  const [parsedData, setParsedData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+
+  const handleJsonChange = (value) => {
+    setJsonInput(value);
+    setError('');
+    
+    if (value.trim()) {
+      try {
+        const parsed = JSON.parse(value);
+        setParsedData(parsed);
+      } catch (err) {
+        setParsedData(null);
+      }
+    } else {
+      setParsedData(null);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!jsonInput.trim()) {
@@ -22,13 +39,14 @@ const JsonTransactionInput = () => {
       setSuccess('');
 
       // Parse JSON to validate
-      const parsedData = JSON.parse(jsonInput);
+      const parsedJson = JSON.parse(jsonInput);
       
       // Call the API
-      const response = await ledgerDetailsAPI.createLedgerDetailsWithExcelJson(parsedData);
+      const response = await ledgerDetailsAPI.createLedgerDetailsWithExcelJson(parsedJson);
       
       setSuccess('Transaction created successfully!');
-      setJsonInput(''); // Clear the input after successful submission
+      setJsonInput('');
+      setParsedData(null);
     } catch (err) {
       if (err instanceof SyntaxError) {
         setError('Invalid JSON format. Please check your input.');
@@ -42,8 +60,160 @@ const JsonTransactionInput = () => {
 
   const handleClear = () => {
     setJsonInput('');
+    setParsedData(null);
     setError('');
     setSuccess('');
+  };
+
+  const renderTransactionTable = () => {
+    if (!parsedData) return null;
+
+    const tableStyle = {
+      width: '100%',
+      borderCollapse: 'collapse',
+      marginTop: '20px',
+      backgroundColor: theme.cardBackground,
+      border: `1px solid ${theme.border}`,
+      borderRadius: '8px',
+      overflow: 'hidden'
+    };
+
+    const thStyle = {
+      backgroundColor: theme.buttonPrimary,
+      color: 'white',
+      padding: '12px',
+      textAlign: 'left',
+      fontWeight: '600',
+      borderBottom: `1px solid ${theme.border}`
+    };
+
+    const tdStyle = {
+      padding: '12px',
+      borderBottom: `1px solid ${theme.border}`,
+      color: theme.textPrimary
+    };
+
+    const summaryLabelStyle = {
+      ...tdStyle,
+      fontWeight: '600',
+      backgroundColor: theme.infoBg,
+      color: theme.info,
+      width: '200px'
+    };
+
+    const summaryValueStyle = {
+      ...tdStyle,
+      backgroundColor: theme.cardBackground
+    };
+
+    const evenRowStyle = {
+      ...tdStyle,
+      backgroundColor: theme.hoverBg
+    };
+
+    const oddRowStyle = {
+      ...tdStyle,
+      backgroundColor: theme.cardBackground
+    };
+
+    return (
+      <div style={{ marginTop: '30px' }}>
+        <h3 style={{ color: theme.textPrimary, marginBottom: '16px' }}>Transaction Preview</h3>
+        
+        {/* Transaction Summary */}
+        <div style={{ marginBottom: '20px' }}>
+          <h4 style={{ color: theme.textSecondary, marginBottom: '12px' }}>Transaction Details</h4>
+          <table style={tableStyle}>
+            <tbody>
+              <tr>
+                <td style={summaryLabelStyle}>Broker ID</td>
+                <td style={summaryValueStyle}>{parsedData.brokerId}</td>
+              </tr>
+              <tr>
+                <td style={summaryLabelStyle}>Financial Year</td>
+                <td style={summaryValueStyle}>{parsedData.financialYearId}</td>
+              </tr>
+              <tr>
+                <td style={summaryLabelStyle}>Seller Name</td>
+                <td style={summaryValueStyle}>{parsedData.seller_name}</td>
+              </tr>
+              <tr>
+                <td style={summaryLabelStyle}>Order Date</td>
+                <td style={summaryValueStyle}>{parsedData.order_date}</td>
+              </tr>
+              <tr>
+                <td style={summaryLabelStyle}>Seller Brokerage</td>
+                <td style={summaryValueStyle}>{parsedData.sellerBrokerage}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Products */}
+        {parsedData.product_list && parsedData.product_list.length > 0 && (
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ color: theme.textSecondary, marginBottom: '12px' }}>Products</h4>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Product Name</th>
+                  <th style={thStyle}>Total Quantity</th>
+                  <th style={thStyle}>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedData.product_list.map((product, index) => (
+                  <tr key={index}>
+                    <td style={index % 2 === 0 ? evenRowStyle : oddRowStyle}>{product.product_name}</td>
+                    <td style={index % 2 === 0 ? evenRowStyle : oddRowStyle}>{product.total_quantity}</td>
+                    <td style={index % 2 === 0 ? evenRowStyle : oddRowStyle}>{product.price}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Buyers */}
+        {parsedData.buyers && parsedData.buyers.length > 0 && (
+          <div>
+            <h4 style={{ color: theme.textSecondary, marginBottom: '12px' }}>Buyers</h4>
+            {parsedData.buyers.map((buyer, buyerIndex) => (
+              <div key={buyerIndex} style={{ marginBottom: '20px' }}>
+                <h5 style={{ 
+                  color: 'white', 
+                  marginBottom: '8px',
+                  backgroundColor: theme.success,
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}>
+                  {buyer.buyer_name} (Brokerage: {buyer.buyerBrokerage})
+                </h5>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Product Name</th>
+                      <th style={thStyle}>Quantity</th>
+                      <th style={thStyle}>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {buyer.products && buyer.products.map((product, productIndex) => (
+                      <tr key={productIndex}>
+                        <td style={productIndex % 2 === 0 ? evenRowStyle : oddRowStyle}>{product.product_name}</td>
+                        <td style={productIndex % 2 === 0 ? evenRowStyle : oddRowStyle}>{product.quantity}</td>
+                        <td style={productIndex % 2 === 0 ? evenRowStyle : oddRowStyle}>{product.price}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const containerStyle = {
@@ -169,34 +339,8 @@ const JsonTransactionInput = () => {
           </label>
           <textarea
             value={jsonInput}
-            onChange={(e) => setJsonInput(e.target.value)}
-            placeholder={`{
-  "brokerId": 1,
-  "financialYearId": 2024,
-  "sellerBrokerage": 50,
-  "seller_name": "ABC Traders",
-  "order_date": "2024-01-15",
-  "product_list": [
-    {
-      "product_name": "Rice",
-      "total_quantity": 100,
-      "price": 2500
-    }
-  ],
-  "buyers": [
-    {
-      "buyer_name": "XYZ Stores",
-      "buyerBrokerage": 30,
-      "products": [
-        {
-          "product_name": "Rice",
-          "quantity": 60,
-          "price": 2500
-        }
-      ]
-    }
-  ]
-}`}
+            onChange={(e) => handleJsonChange(e.target.value)}
+            placeholder="Paste your transaction JSON data here..."
             style={{
               ...textareaStyle,
               borderColor: error ? theme.error : theme.border
@@ -260,57 +404,7 @@ const JsonTransactionInput = () => {
           </button>
         </div>
 
-        <div style={{ 
-          marginTop: '30px', 
-          padding: '20px',
-          backgroundColor: theme.infoBg,
-          border: `1px solid ${theme.infoBorder}`,
-          borderRadius: '8px'
-        }}>
-          <h3 style={{ 
-            color: theme.info, 
-            marginBottom: '12px',
-            fontSize: '16px',
-            fontWeight: '600'
-          }}>
-            JSON Format Example:
-          </h3>
-          <pre style={{ 
-            color: theme.textSecondary,
-            fontSize: '12px',
-            lineHeight: '1.4',
-            margin: 0,
-            overflow: 'auto'
-          }}>
-{`{
-  "brokerId": 1,
-  "financialYearId": 2024,
-  "sellerBrokerage": 50,
-  "seller_name": "ABC Traders",
-  "order_date": "2024-01-15",
-  "product_list": [
-    {
-      "product_name": "Rice",
-      "total_quantity": 100,
-      "price": 2500
-    }
-  ],
-  "buyers": [
-    {
-      "buyer_name": "XYZ Stores",
-      "buyerBrokerage": 30,
-      "products": [
-        {
-          "product_name": "Rice",
-          "quantity": 60,
-          "price": 2500
-        }
-      ]
-    }
-  ]
-}`}
-          </pre>
-        </div>
+        {renderTransactionTable()}
       </div>
     </div>
   );
