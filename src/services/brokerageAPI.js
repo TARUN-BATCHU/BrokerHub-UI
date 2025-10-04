@@ -74,7 +74,7 @@ export const brokerageAPI = {
   },
 
   downloadPrintBill: async (userId, financialYear, options = {}) => {
-    const { customBrokerage = null } = options;
+    const { customBrokerage = null, firmName = null } = options;
     const url = `/Brokerage/print-bill/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.get(url, {
       responseType: 'blob'
@@ -82,12 +82,14 @@ export const brokerageAPI = {
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.download = `print-bill-${userId}.html`;
+    const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const filename = customBrokerage ? `${safeFirmName}_print_bill_custom_${customBrokerage}.html` : `${safeFirmName}_print_bill.html`;
+    link.download = filename;
     link.click();
     window.URL.revokeObjectURL(downloadUrl);
   },
 
-  downloadCityWisePrintBill: async (userId, financialYear, customBrokerage = null) => {
+  downloadCityWisePrintBill: async (userId, financialYear, customBrokerage = null, firmName = null) => {
     const url = `/Brokerage/city-wise-print-bill/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
     const response = await api.get(url, {
       responseType: 'blob'
@@ -95,7 +97,9 @@ export const brokerageAPI = {
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.download = `city-wise-print-bill-${userId}.html`;
+    const safeFirmName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const filename = customBrokerage ? `${safeFirmName}_city_wise_print_bill_custom_${customBrokerage}.html` : `${safeFirmName}_city_wise_print_bill.html`;
+    link.download = filename;
     link.click();
     window.URL.revokeObjectURL(downloadUrl);
   },

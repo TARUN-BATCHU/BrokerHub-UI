@@ -143,9 +143,9 @@ const BrokerageUsers = () => {
       } else if (format === 'pdf') {
         await brokerageAPI.downloadUserPdf(userId, selectedYear, customBrokerage, firmName);
       } else if (format === 'print') {
-        await brokerageAPI.downloadPrintBill(userId, selectedYear, { customBrokerage });
+        await brokerageAPI.downloadPrintBill(userId, selectedYear, { customBrokerage, firmName });
       } else if (format === 'print-city') {
-        await brokerageAPI.downloadCityWisePrintBill(userId, selectedYear, customBrokerage);
+        await brokerageAPI.downloadCityWisePrintBill(userId, selectedYear, customBrokerage, firmName);
       } else {
         await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
       }
