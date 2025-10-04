@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import LoadingSpinner from './LoadingSpinner';
+import { brokerageAPI, financialYearAPI } from '../services/api';
 
 const MerchantDetailModal = ({ isOpen, onClose, merchantId }) => {
   const { theme } = useTheme();
   const [merchant, setMerchant] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [printingCity, setPrintingCity] = useState(false);
 
   useEffect(() => {
     if (isOpen && merchantId) {
@@ -33,6 +35,31 @@ const MerchantDetailModal = ({ isOpen, onClose, merchantId }) => {
       setError(error.message || 'Failed to load merchant details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePrintCity = async () => {
+    setPrintingCity(true);
+    try {
+      const currentFY = await financialYearAPI.getCurrentFinancialYear();
+      const blob = await brokerageAPI.getCityWisePrintBill(merchantId, currentFY);
+      
+      const url = window.URL.createObjectURL(blob);
+      const newWindow = window.open(url, '_blank');
+      
+      if (newWindow) {
+        newWindow.onload = () => {
+          window.URL.revokeObjectURL(url);
+        };
+      } else {
+        window.URL.revokeObjectURL(url);
+        alert('Please allow pop-ups to view the print bill');
+      }
+    } catch (error) {
+      console.error('Error generating city-wise print bill:', error);
+      alert('Failed to generate city-wise print bill. Please try again.');
+    } finally {
+      setPrintingCity(false);
     }
   };
 
@@ -240,6 +267,32 @@ const MerchantDetailModal = ({ isOpen, onClose, merchantId }) => {
                 </p>
               </div>
             )}
+
+            {/* Print City Button */}
+            <button
+              onClick={handlePrintCity}
+              disabled={printingCity}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: printingCity ? theme.border : theme.buttonPrimary,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: printingCity ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                width: '100%',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => !printingCity && (e.currentTarget.style.opacity = '0.9')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+            >
+              {printingCity ? '🖨️ Generating...' : '🖨️ Print City Bill'}
+            </button>
           </div>
         ) : null}
       </div>

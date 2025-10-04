@@ -143,56 +143,27 @@ const CreateMerchant = () => {
       newErrors.city = 'City is required';
     }
 
-    if (!formData.area.trim()) {
-      newErrors.area = 'Area is required';
-    }
-
-    if (!formData.pincode.trim()) {
-      newErrors.pincode = 'Pincode is required';
-    } else if (!/^\d{6}$/.test(formData.pincode)) {
-      newErrors.pincode = 'Pincode must be 6 digits';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
-    }
-
-    if (!formData.bankName.trim()) {
-      newErrors.bankName = 'Bank Name is required';
-    }
-
-    if (!formData.accountNumber.trim()) {
-      newErrors.accountNumber = 'Account Number is required';
-    }
-
-    if (!formData.ifscCode.trim()) {
-      newErrors.ifscCode = 'IFSC Code is required';
-    }
-
-    if (!formData.branch.trim()) {
-      newErrors.branch = 'Branch is required';
-    }
-
-    if (!formData.phoneNumbers[0].trim()) {
-      newErrors.phoneNumber1 = 'Primary phone number is required';
-    } else if (!/^\d{10}$/.test(formData.phoneNumbers[0])) {
-      newErrors.phoneNumber1 = 'Phone number must be 10 digits';
-    }
-
     if (!formData.brokerageRate) {
       newErrors.brokerageRate = 'Brokerage Rate is required';
     } else if (isNaN(formData.brokerageRate) || formData.brokerageRate <= 0) {
       newErrors.brokerageRate = 'Brokerage Rate must be a positive number';
     }
 
-    if (!formData.byProduct.trim()) {
-      newErrors.byProduct = 'Product is required';
-    }
-
     if (!formData.selectedAddressId) {
       newErrors.address = 'Please select an address or create a new one';
+    }
+
+    // Optional field validations
+    if (formData.pincode.trim() && !/^\d{6}$/.test(formData.pincode)) {
+      newErrors.pincode = 'Pincode must be 6 digits';
+    }
+
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+
+    if (formData.phoneNumbers[0].trim() && !/^\d{10}$/.test(formData.phoneNumbers[0])) {
+      newErrors.phoneNumber1 = 'Phone number must be 10 digits';
     }
 
     return newErrors;
@@ -396,8 +367,7 @@ const CreateMerchant = () => {
                     value={formData.email}
                     onChange={handleChange}
                     error={errors.email}
-                    placeholder="email@example.com"
-                    required
+                    placeholder="email@example.com (Optional)"
                   />
                 </div>
               </div>
@@ -590,8 +560,7 @@ const CreateMerchant = () => {
                     value={formData.phoneNumbers[0]}
                     onChange={(e) => handlePhoneChange(0, e.target.value)}
                     error={errors.phoneNumber1}
-                    placeholder="9876543210"
-                    required
+                    placeholder="9876543210 (Optional)"
                   />
                   <FormInput
                     label="Secondary Phone"
@@ -637,8 +606,7 @@ const CreateMerchant = () => {
                   value={formData.byProduct}
                   onChange={handleChange}
                   error={errors.byProduct}
-                  placeholder="e.g., Basmati Rice, Channa Dal"
-                  required
+                  placeholder="e.g., Basmati Rice, Channa Dal (Optional)"
                 />
 
                 <div className="form-grid-2" style={{
@@ -678,8 +646,7 @@ const CreateMerchant = () => {
                     value={formData.bankName}
                     onChange={handleChange}
                     error={errors.bankName}
-                    placeholder="Bank Name"
-                    required
+                    placeholder="Bank Name (Optional)"
                   />
                   <FormInput
                     label="Branch"
@@ -687,8 +654,7 @@ const CreateMerchant = () => {
                     value={formData.branch}
                     onChange={handleChange}
                     error={errors.branch}
-                    placeholder="Branch Name"
-                    required
+                    placeholder="Branch Name (Optional)"
                   />
                 </div>
 
@@ -703,8 +669,7 @@ const CreateMerchant = () => {
                     value={formData.accountNumber}
                     onChange={handleChange}
                     error={errors.accountNumber}
-                    placeholder="Account Number"
-                    required
+                    placeholder="Account Number (Optional)"
                   />
                   <FormInput
                     label="IFSC Code"
@@ -712,8 +677,7 @@ const CreateMerchant = () => {
                     value={formData.ifscCode}
                     onChange={handleChange}
                     error={errors.ifscCode}
-                    placeholder="IFSC Code"
-                    required
+                    placeholder="IFSC Code (Optional)"
                   />
                 </div>
               </div>

@@ -35,13 +35,9 @@ const CalendarView = () => {
         return;
       }
 
-      const [analytics, performers] = await Promise.all([
-        analyticsAPI.getFinancialYearAnalytics(brokerId, financialYear.yearId),
-        analyticsAPI.getTopPerformers(brokerId, financialYear.yearId)
-      ]);
+      const analytics = await analyticsAPI.getFinancialYearAnalytics(brokerId, financialYear.yearId);
 
       setAnalyticsData(analytics);
-      setTopPerformers(performers);
     } catch (error) {
       console.error('Error loading analytics:', error);
     } finally {

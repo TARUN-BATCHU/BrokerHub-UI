@@ -311,9 +311,9 @@ export const productAPI = {
   },
 
   // Get all products
-  getAllProducts: async (page = 0, size = 10) => {
+  getAllProducts: async (page = 0, size = 30) => {
     try {
-      const response = await api.get('/Product/allProducts');
+      const response = await api.get(`/Product/allProducts?page=${page}&size=${size}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -920,6 +920,28 @@ export const grainCostsAPI = {
       const response = await api.delete(`/grain-costs/${brokerId}/${grainCostId}`, {
         headers: {
           'Authorization': 'Basic dGFydW46c2VjdXJlUGFzc3dvcmQxMjM='
+        }
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  }
+};
+
+// Brokerage API functions
+export const brokerageAPI = {
+  // Get city-wise print bill
+  getCityWisePrintBill: async (userId, financialYearId, customBrokerage = null, paperSize = 'a4', orientation = 'portrait') => {
+    try {
+      let url = `/Brokerage/city-wise-print-bill/${userId}/${financialYearId}?paperSize=${paperSize}&orientation=${orientation}`;
+      if (customBrokerage !== null) {
+        url += `&customBrokerage=${customBrokerage}`;
+      }
+      const response = await api.get(url, {
+        responseType: 'blob',
+        headers: {
+          'Accept': 'text/html'
         }
       });
       return response.data;

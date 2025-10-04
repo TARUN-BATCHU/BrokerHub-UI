@@ -144,6 +144,8 @@ const BrokerageUsers = () => {
         await brokerageAPI.downloadUserPdf(userId, selectedYear, customBrokerage, firmName);
       } else if (format === 'print') {
         await brokerageAPI.downloadPrintBill(userId, selectedYear, { customBrokerage });
+      } else if (format === 'print-city') {
+        await brokerageAPI.downloadCityWisePrintBill(userId, selectedYear, customBrokerage);
       } else {
         await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
       }
@@ -450,6 +452,7 @@ const BrokerageUsers = () => {
             customBrokerageModal.format === 'bulk-bills' ? 'Bulk Bills Generation' :
             customBrokerageModal.format === 'bulk-excel' ? 'Bulk Excel Generation' :
             customBrokerageModal.format === 'print' ? 'Download Print Bill' :
+            customBrokerageModal.format === 'print-city' ? 'Download City-wise Print Bill' :
             `Download ${customBrokerageModal.format === 'excel' ? 'Excel' : customBrokerageModal.format === 'pdf' ? 'PDF' : 'Bill'}`
           }
         />
@@ -628,6 +631,31 @@ const UserRow = ({ user, selectedYear, isSelected, onSelect, onViewDetails, onDo
                   <path d="M6 14h12v8H6z"/>
                 </svg>
                 Print Bill
+              </button>
+              <button 
+                onClick={() => { onDownloadBill(user.userId, 'print-city', user.firmName); setShowDropdown(false); }}
+                style={{
+                  width: '100%',
+                  padding: 'var(--space-3) var(--space-4)',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#8b5cf6',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  fontSize: '0.875rem',
+                  fontWeight: '500'
+                }}
+                onMouseEnter={(e) => { e.target.style.background = '#f5f3ff'; e.target.style.color = '#7c3aed'; }}
+                onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#8b5cf6'; }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                  <circle cx="12" cy="10" r="3"/>
+                </svg>
+                Print City
               </button>
               <button 
                 onClick={() => { onDownloadBill(user.userId, 'excel', user.firmName); setShowDropdown(false); }}

@@ -15,6 +15,7 @@ import {
   BrokerageDistributionPieChart
 } from '../components/Charts';
 import AddressModal from '../components/AddressModal';
+import ProductAddModal from '../components/ProductAddModal';
 import ProductEditModal from '../components/ProductEditModal';
 import AnimatedChartWrapper from '../components/AnimatedChartWrapper';
 import AnalyticsControls from '../components/AnalyticsControls';
@@ -161,6 +162,7 @@ const Dashboard = () => {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [expandedCities, setExpandedCities] = useState({});
+  const [showProductAddModal, setShowProductAddModal] = useState(false);
   const [showProductEditModal, setShowProductEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductBulkUpload, setShowProductBulkUpload] = useState(false);
@@ -3950,7 +3952,7 @@ const Dashboard = () => {
                   📊 Bulk Upload
                 </button>
                 <button
-                  onClick={() => alert('Add Product functionality coming soon!')}
+                  onClick={() => setShowProductAddModal(true)}
                   className="btn btn-primary"
                 >
                   + Add New Product
@@ -4240,7 +4242,7 @@ const Dashboard = () => {
                 </p>
                 {!productSearchTerm && (
                   <button
-                    onClick={() => alert('Add Product functionality coming soon!')}
+                    onClick={() => setShowProductAddModal(true)}
                     className="btn btn-primary"
                     style={{
                       marginTop: '16px'
@@ -5204,6 +5206,13 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Product Add Modal */}
+      <ProductAddModal
+        isOpen={showProductAddModal}
+        onClose={() => setShowProductAddModal(false)}
+        onSuccess={loadProductsData}
+      />
 
       {/* Product Edit Modal */}
       <ProductEditModal

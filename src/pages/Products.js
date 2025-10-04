@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
 import { productAPI } from '../services/api';
+import ProductAddModal from '../components/ProductAddModal';
 import ProductEditModal from '../components/ProductEditModal';
 import ProductBulkUpload from '../components/ProductBulkUpload';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -16,6 +17,7 @@ const Products = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -244,33 +246,62 @@ const Products = () => {
               Manage your product inventory and bulk upload
             </p>
           </div>
-          <button
-            onClick={() => setShowBulkUpload(true)}
-            style={{
-              padding: '12px 24px',
-              border: 'none',
-              borderRadius: '8px',
-              backgroundColor: theme.buttonPrimary,
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = theme.shadowHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            📊 Bulk Upload
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{
+                padding: '12px 24px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: theme.success,
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = theme.shadowHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              ➕ Add Product
+            </button>
+            <button
+              onClick={() => setShowBulkUpload(true)}
+              style={{
+                padding: '12px 24px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: theme.buttonPrimary,
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = theme.shadowHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              📊 Bulk Upload
+            </button>
+          </div>
         </div>
       </div>
 
@@ -379,6 +410,12 @@ const Products = () => {
       )}
 
       {/* Modals */}
+      <ProductAddModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={loadProducts}
+      />
+
       <ProductEditModal
         isOpen={showEditModal}
         onClose={() => {

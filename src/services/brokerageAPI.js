@@ -87,6 +87,19 @@ export const brokerageAPI = {
     window.URL.revokeObjectURL(downloadUrl);
   },
 
+  downloadCityWisePrintBill: async (userId, financialYear, customBrokerage = null) => {
+    const url = `/Brokerage/city-wise-print-bill/${userId}/${financialYear}${customBrokerage ? `?customBrokerage=${customBrokerage}` : ''}`;
+    const response = await api.get(url, {
+      responseType: 'blob'
+    });
+    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `city-wise-print-bill-${userId}.html`;
+    link.click();
+    window.URL.revokeObjectURL(downloadUrl);
+  },
+
   downloadSummaryExcel: async (financialYear) => {
     const response = await api.get(`/Brokerage/excel/summary/${financialYear}`, {
       responseType: 'blob'
