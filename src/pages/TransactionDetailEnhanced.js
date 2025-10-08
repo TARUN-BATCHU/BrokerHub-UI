@@ -758,7 +758,9 @@ const TransactionDetailEnhanced = () => {
                   setActiveDropdownType(null);
                 }, 200)}
                 onKeyDown={(e) => {
-                  if (e.key === 'ArrowRight' && !showSellerDropdown) {
+                  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showSellerDropdown) {
+                    e.preventDefault();
+                  } else if (e.key === 'ArrowRight' && !showSellerDropdown) {
                     e.preventDefault();
                     brokerageInputRef.current?.focus();
                   }
@@ -925,7 +927,7 @@ const TransactionDetailEnhanced = () => {
                       }, 200)}
                       onKeyDown={(e) => {
                         if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && showSellerProductDropdowns[index]) {
-                          // Let the global handler manage dropdown navigation
+                          e.preventDefault();
                           return;
                         }
                         if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
@@ -1158,6 +1160,10 @@ const TransactionDetailEnhanced = () => {
                           }
                         }, 200)}
                         onKeyDown={(e) => {
+                          if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showBuyerDropdowns[index]) {
+                            e.preventDefault();
+                            return;
+                          }
                           if (e.key === 'ArrowRight' && !showBuyerDropdowns[index]) {
                             e.preventDefault();
                             // Check if product is auto-populated, if yes go to quantity, else go to product
@@ -1173,10 +1179,10 @@ const TransactionDetailEnhanced = () => {
                             } else {
                               rateInputRefs.current[index - 1]?.focus();
                             }
-                          } else if (e.key === 'ArrowUp' && index > 0) {
+                          } else if (e.key === 'ArrowUp' && index > 0 && !showBuyerDropdowns[index]) {
                             e.preventDefault();
                             buyerInputRefs.current[index - 1]?.focus();
-                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1) {
+                          } else if (e.key === 'ArrowDown' && index < formData.ledgerRecordDTOList.length - 1 && !showBuyerDropdowns[index]) {
                             e.preventDefault();
                             buyerInputRefs.current[index + 1]?.focus();
                           }
@@ -1293,7 +1299,7 @@ const TransactionDetailEnhanced = () => {
                         }, 200)}
                         onKeyDown={(e) => {
                           if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && showProductDropdowns[index]) {
-                            // Let the global handler manage dropdown navigation
+                            e.preventDefault();
                             return;
                           }
                           if (e.key === 'ArrowRight' && !showProductDropdowns[index]) {

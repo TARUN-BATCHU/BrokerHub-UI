@@ -550,6 +550,11 @@ const TransactionDetailEdit = () => {
                     setShowSellerDropdown(true);
                   }}
                   onFocus={() => setShowSellerDropdown(true)}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showSellerDropdown) {
+                      e.preventDefault();
+                    }
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -720,6 +725,11 @@ const TransactionDetailEdit = () => {
                           setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
                         }}
                         onFocus={() => setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }))}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showBuyerDropdowns[index]) {
+                            e.preventDefault();
+                          }
+                        }}
                         style={{
                           width: '100%',
                           padding: '6px',
@@ -785,6 +795,11 @@ const TransactionDetailEdit = () => {
                           setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
                         }}
                         onFocus={() => setShowProductDropdowns(prev => ({ ...prev, [index]: true }))}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showProductDropdowns[index]) {
+                            e.preventDefault();
+                          }
+                        }}
                         style={{
                           width: '100%',
                           padding: '6px',
