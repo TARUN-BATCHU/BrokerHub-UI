@@ -658,6 +658,16 @@ export const ledgerDetailsAPI = {
     } catch (error) {
       throw error.response?.data || error.message;
     }
+  },
+
+  // Delete ledger detail by transaction number
+  deleteLedgerDetailByTransactionNumber: async (transactionNumber, brokerId, financialYearId) => {
+    try {
+      const response = await api.delete(`/LedgerDetails/deleteLedgerDetailByTransactionNumber?transactionNumber=${transactionNumber}&brokerId=${brokerId}&financialYearId=${financialYearId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
   }
 };
 

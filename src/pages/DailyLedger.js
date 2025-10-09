@@ -15,6 +15,8 @@ const DailyLedger = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentFinancialYearId, setCurrentFinancialYearId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   const brokerId = localStorage.getItem('brokerId');
 
@@ -91,6 +93,37 @@ const DailyLedger = () => {
         date: selectedDate
       }
     });
+  };
+
+  const handleDeleteClick = (transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!transactionToDelete) return;
+    
+    try {
+      setLoading(true);
+      await ledgerDetailsAPI.deleteLedgerDetailByTransactionNumber(
+        transactionToDelete.transactionNumber,
+        transactionToDelete.brokerId,
+        transactionToDelete.financialYearId
+      );
+      setShowDeleteModal(false);
+      setTransactionToDelete(null);
+      fetchLedgerData();
+    } catch (err) {
+      setError('Failed to delete transaction');
+      console.error('Error deleting transaction:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
+    setTransactionToDelete(null);
   };
 
   const formatCurrency = (amount) => {
@@ -267,27 +300,52 @@ const DailyLedger = () => {
                 border: `1px solid ${theme.border}`
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: '0', color: theme.primary || '#007bff', fontWeight: 'bold' }}>
-                    Seller: {brokerData.sellerName}
+                  <h3 style={{ margin: '0', fontWeight: 'bold', display: 'flex', gap: '20px' }}>
+                    <span style={{ color: theme.textPrimary }}>{brokerData.transactionNumber}</span>
+                    <span style={{ color: theme.primary || '#007bff' }}>Seller : {brokerData.sellerName}</span>
                   </h3>
-                  <button
-                    onClick={() => handleTransactionClick({
-                      transactionNumber: brokerData.transactionNumber,
-                      financialYearId: brokerData.financialYearId,
-                      brokerId: brokerData.brokerId
-                    })}
-                    style={{
-                      backgroundColor: theme.info || '#17a2b8',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Edit Details
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleTransactionClick({
+                        transactionNumber: brokerData.transactionNumber,
+                        financialYearId: brokerData.financialYearId,
+                        brokerId: brokerData.brokerId
+                      })}
+                      style={{
+                        backgroundColor: theme.info || '#17a2b8',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Edit Details
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick({
+                        transactionNumber: brokerData.transactionNumber,
+                        financialYearId: brokerData.financialYearId,
+                        brokerId: brokerData.brokerId
+                      })}
+                      style={{
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      title="Delete Transaction"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -378,6 +436,67 @@ const DailyLedger = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: theme.cardBackground,
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', color: theme.textPrimary }}>Confirm Delete</h3>
+            <p style={{ margin: '0 0 24px 0', color: theme.textSecondary }}>
+              Are you sure you want to delete this transaction?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={handleConfirmDelete}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: theme.textPrimary,
+                  border: `1px solid ${theme.border}`,
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Yes
+              </button>
+              <button
+                onClick={handleCancelDelete}
+                style={{
+                  backgroundColor: theme.primary || '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                No
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

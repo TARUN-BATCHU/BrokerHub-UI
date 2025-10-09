@@ -51,9 +51,13 @@ const CreateMerchant = () => {
       const addressesData = await addressAPI.getAllAddresses();
       if (Array.isArray(addressesData)) {
         setAddresses(addressesData);
+      } else {
+        setAddresses([]);
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
+      setAddresses([]);
+      setApiError('Failed to load addresses. Please try again.');
     }
   };
 
@@ -70,14 +74,14 @@ const CreateMerchant = () => {
       return;
     }
 
-    const selectedAddress = addresses.find(addr => addr.addressId.toString() === addressId.toString());
+    const selectedAddress = addresses.find(addr => addr.addressId?.toString() === addressId.toString());
     if (selectedAddress) {
       setFormData(prev => ({
         ...prev,
         selectedAddressId: addressId,
-        city: selectedAddress.city,
-        area: selectedAddress.area,
-        pincode: selectedAddress.pincode
+        city: selectedAddress.city || '',
+        area: selectedAddress.area || '',
+        pincode: selectedAddress.pincode || ''
       }));
     }
   };
@@ -88,11 +92,12 @@ const CreateMerchant = () => {
     }
 
     const searchTerm = addressSearchTerm.toLowerCase();
-    return addresses.filter(address =>
-      address.city.toLowerCase().includes(searchTerm) ||
-      address.area.toLowerCase().includes(searchTerm) ||
-      address.pincode.includes(searchTerm)
-    );
+    return addresses.filter(address => {
+      const city = address.city?.toLowerCase() || '';
+      const area = address.area?.toLowerCase() || '';
+      const pincode = address.pincode || '';
+      return city.includes(searchTerm) || area.includes(searchTerm) || pincode.includes(searchTerm);
+    });
   };
 
   const handleChange = (e) => {
@@ -127,19 +132,19 @@ const CreateMerchant = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.gstNumber.trim()) {
+    if (!formData.gstNumber?.trim()) {
       newErrors.gstNumber = 'GST Number is required';
     }
 
-    if (!formData.firmName.trim()) {
+    if (!formData.firmName?.trim()) {
       newErrors.firmName = 'Firm Name is required';
     }
 
-    if (!formData.ownerName.trim()) {
+    if (!formData.ownerName?.trim()) {
       newErrors.ownerName = 'Owner Name is required';
     }
 
-    if (!formData.city.trim()) {
+    if (!formData.city?.trim()) {
       newErrors.city = 'City is required';
     }
 
@@ -154,15 +159,15 @@ const CreateMerchant = () => {
     }
 
     // Optional field validations
-    if (formData.pincode.trim() && !/^\d{6}$/.test(formData.pincode)) {
+    if (formData.pincode?.trim() && !/^\d{6}$/.test(formData.pincode)) {
       newErrors.pincode = 'Pincode must be 6 digits';
     }
 
-    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
     }
 
-    if (formData.phoneNumbers[0].trim() && !/^\d{10}$/.test(formData.phoneNumbers[0])) {
+    if (formData.phoneNumbers[0]?.trim() && !/^\d{10}$/.test(formData.phoneNumbers[0])) {
       newErrors.phoneNumber1 = 'Phone number must be 10 digits';
     }
 
@@ -193,8 +198,8 @@ const CreateMerchant = () => {
         userType: formData.userType, // Ensure userType is included
         phoneNumbers,
         brokerageRate: parseFloat(formData.brokerageRate),
-        addressHint: formData.addressHint.trim(),
-        collectionRote: formData.collectionRote.trim()
+        addressHint: formData.addressHint?.trim() || '',
+        collectionRote: formData.collectionRote?.trim() || ''
       };
 
       await userAPI.createUser(merchantData);
@@ -424,7 +429,7 @@ const CreateMerchant = () => {
                         <option value="">📍 Select an existing address</option>
                         {getFilteredAddresses().map(address => (
                           <option key={address.addressId} value={address.addressId}>
-                            📍 {address.city} - {address.area} ({address.pincode})
+                            📍 {address.city || 'N/A'} - {address.area || 'N/A'} ({address.pincode || 'N/A'})
                           </option>
                         ))}
                       </select>

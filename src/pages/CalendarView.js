@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { analyticsAPI, dailyLedgerAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
-import { formatDateForDisplay } from '../utils/dateUtils';
+import { formatDateForDisplay, formatDateWithOrdinal } from '../utils/dateUtils';
 
 const CalendarView = () => {
   const location = useLocation();
@@ -173,7 +173,7 @@ const CalendarView = () => {
               color: theme.textSecondary,
               fontSize: '16px'
             }}>
-              {formatDateForDisplay(financialYear.start)} - {formatDateForDisplay(financialYear.end)}
+              {formatDateWithOrdinal(financialYear.start)} to {formatDateWithOrdinal(financialYear.end)}
             </p>
           </div>
 

@@ -54,6 +54,18 @@ const TransactionDetailEdit = () => {
   }, []);
 
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 's' && e.ctrlKey) {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [formData]);
+
+  useEffect(() => {
     console.log('useEffect triggered with:', { transactionNumber, financialYearId });
     
     const loadCurrentFinancialYearAndFetchData = async () => {
@@ -308,10 +320,13 @@ const TransactionDetailEdit = () => {
       return;
     }
     
-    if (formData.ledgerRecordDTOList.some(record => 
-      !record.buyerName || !record.productId || !record.quantity || !record.productCost
-    )) {
+    const hasEmptyFields = formData.ledgerRecordDTOList.some(record => 
+      !record.buyerName?.trim() || !record.productId || !record.quantity || !record.productCost
+    );
+    
+    if (hasEmptyFields) {
       setError('Please fill all required fields in transaction records');
+      console.log('Validation failed. Records:', formData.ledgerRecordDTOList);
       return;
     }
 
