@@ -29,6 +29,7 @@ import MobilePaymentsTabs from '../components/MobilePaymentsTabs';
 import useResponsive from '../hooks/useResponsive';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { transformFinancialYearAnalytics, compareFinancialYears } from '../utils/analyticsTransformer';
 import { formatDateForDisplay } from '../utils/dateUtils';
 import {
@@ -51,8 +52,18 @@ const Dashboard = () => {
   const { isMobile, isTablet } = useResponsive();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Handle tab query parameter from URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
   const brokerId = localStorage.getItem('brokerId') || '1';
   const [analyticsData, setAnalyticsData] = useState({
     sales: mockSalesData,
@@ -1276,14 +1287,14 @@ const Dashboard = () => {
             fontSize: '28px',
             fontWeight: '700'
           }}>
-            BrokerHub Dashboard
+            {t('BrokerHub Dashboard')}
           </h1>
           <p style={{
             margin: '4px 0 0 0',
             color: theme.textSecondary,
             fontSize: isMobile ? '14px' : '16px'
           }}>
-            Welcome back, {user?.brokerName || 'Broker User'}!
+            {t('Welcome back')}, {user?.brokerName || 'Broker User'}!
           </p>
         </div>
         {/* Settings dropdown will be positioned here by App.js */}
@@ -1322,15 +1333,15 @@ const Dashboard = () => {
           WebkitOverflowScrolling: 'touch'
         }}>
           {[
-            { id: 'overview', label: 'Overview' },
-            { id: 'analytics', label: 'Analytics' },
-            { id: 'grainanalytics', label: 'Grain Analytics' },
-            { id: 'todaymarket', label: 'Today Market' },
-            { id: 'payments', label: 'Payments' },
-            { id: 'merchants', label: 'Merchants' },
-            { id: 'products', label: 'Products' },
-            { id: 'addresses', label: 'Addresses' },
-            { id: 'profile', label: 'Profile' }
+            { id: 'overview', label: t('Overview') },
+            { id: 'analytics', label: t('Analytics') },
+            { id: 'grainanalytics', label: t('Grain Analytics') },
+            { id: 'payments', label: t('Payments') },
+            { id: 'merchants', label: t('Merchants') },
+            { id: 'products', label: t('Products') },
+            { id: 'addresses', label: t('Addresses') },
+            { id: 'profile', label: t('Profile') },
+            { id: 'allservices', label: t('All Services') }
           ].map(tab => (
             <button
               key={tab.id}
@@ -1474,11 +1485,82 @@ const Dashboard = () => {
               </div>
 
               <div style={{ textAlign: isMobile ? 'center' : 'right' }}>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', 
+                  gap: '12px',
+                  maxWidth: isMobile ? '100%' : '600px',
+                  marginLeft: 'auto'
+                }}>
+                  <Link
+                    to="/json-transaction"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '16px 20px',
+                      backgroundColor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '12px',
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)',
+                      minHeight: '56px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.3)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>📝</span>
+                    JSON
+                  </Link>
                   <Link
                     to="/financial-years"
                     style={{
-                      display: 'inline-flex',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '16px 24px',
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      color: '#667eea',
+                      textDecoration: 'none',
+                      borderRadius: '12px',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      border: '2px solid white',
+                      transition: 'all 0.3s ease',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'white';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.95)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.15)';
+                    }}
+                  >
+                    <span style={{ fontSize: '18px' }}>🚀</span>
+                    Open Ledger Detail
+                  </Link>
+                  <Link
+                    to="/ledger-management"
+                    style={{
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
                       padding: '16px 24px',
@@ -1503,13 +1585,13 @@ const Dashboard = () => {
                       e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    <span style={{ fontSize: '18px' }}>🚀</span>
-                    Open Ledger Detail
+                    <span style={{ fontSize: '18px' }}>📋</span>
+                    Ledger Management
                   </Link>
                   <Link
                     to="/brokerage"
                     style={{
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
                       padding: '16px 24px',
@@ -3232,8 +3314,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Today Market Tab */}
-      {activeTab === 'todaymarket' && (
+      {/* All Services Tab */}
+      {activeTab === 'allservices' && (
         <div>
           <div style={{
             backgroundColor: theme.cardBackground,
@@ -3258,18 +3340,22 @@ const Dashboard = () => {
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                📈 Today's Market
+                🛠️ All Services
               </h2>
             </div>
             
-            {/* Import and use TodayMarket component */}
             <div style={{
               backgroundColor: theme.background,
               borderRadius: '12px',
-              padding: '20px',
-              border: `1px solid ${theme.borderLight}`
+              padding: '40px',
+              border: `1px solid ${theme.borderLight}`,
+              textAlign: 'center'
             }}>
-              <TodayMarket />
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>🚧</div>
+              <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary }}>Coming Soon</h3>
+              <p style={{ margin: 0, color: theme.textSecondary }}>
+                All services will be available here soon.
+              </p>
             </div>
           </div>
         </div>

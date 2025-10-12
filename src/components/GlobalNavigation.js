@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import useResponsive from '../hooks/useResponsive';
 
 const GlobalNavigation = () => {
@@ -12,6 +13,7 @@ const GlobalNavigation = () => {
   const location = useLocation();
   const { theme, isDarkMode, toggleTheme } = useTheme();
   const { logout } = useAuth();
+  const { language, toggleLanguage, t } = useLanguage();
   const { isMobile } = useResponsive();
 
   // Hide navigation on auth pages
@@ -104,6 +106,13 @@ const GlobalNavigation = () => {
       items: [
         { path: '/about', label: 'About BrokerHub', icon: 'ℹ️' }
       ]
+    },
+    {
+      label: 'All Services',
+      icon: '🛠️',
+      items: [
+        { path: '/dashboard?tab=allservices', label: 'All Services', icon: '🛠️' }
+      ]
     }
   ];
 
@@ -124,6 +133,26 @@ const GlobalNavigation = () => {
       gap: '8px',
       alignItems: 'center'
     }}>
+      <button onClick={toggleLanguage} style={{
+        background: theme.cardBackground,
+        border: `1px solid ${theme.border}`,
+        borderRadius: '8px',
+        padding: '8px',
+        cursor: 'pointer',
+        boxShadow: theme.shadow,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '36px',
+        height: '36px',
+        fontSize: '11px',
+        fontWeight: '600',
+        color: theme.textPrimary,
+        transition: 'all 0.2s ease'
+      }} title={`Switch to ${language === 'en' ? 'Telugu' : 'English'}`}>
+        {language === 'en' ? 'తె' : 'EN'}
+      </button>
+
       <button onClick={toggleTheme} style={{
         background: theme.cardBackground,
         border: `1px solid ${theme.border}`,
@@ -216,7 +245,7 @@ const GlobalNavigation = () => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span>{section.icon}</span>
-                    <span>{section.label}</span>
+                    <span>{t(section.label)}</span>
                   </div>
                   <span style={{ 
                     fontSize: '10px', 
@@ -263,7 +292,7 @@ const GlobalNavigation = () => {
                         }}
                       >
                         <span>{item.icon}</span>
-                        <span>{item.label}</span>
+                        <span>{t(item.label)}</span>
                       </button>
                     ))}
                   </div>
@@ -291,7 +320,7 @@ const GlobalNavigation = () => {
             onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
             >
               <span>🚪</span>
-              <span>Logout</span>
+              <span>{t('Logout')}</span>
             </button>
           </div>
         </div>

@@ -179,6 +179,30 @@ const CalendarView = () => {
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             <button
+              onClick={() => navigate('/ledger-management')}
+              style={{
+                padding: '8px 16px',
+                border: `1px solid ${theme.primary}`,
+                borderRadius: '6px',
+                backgroundColor: theme.primaryBg,
+                color: theme.primary,
+                fontSize: '14px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.primary;
+                e.currentTarget.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = theme.primaryBg;
+                e.currentTarget.style.color = theme.primary;
+              }}
+            >
+              📋 Ledger Management
+            </button>
+
+            <button
               onClick={() => setShowAnalyticsModal(true)}
               style={{
                 width: '48px',

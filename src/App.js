@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DocumentProvider } from './contexts/DocumentContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -49,10 +50,11 @@ const PublicRoute = ({ children }) => {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <DocumentProvider>
-            <Router>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <DocumentProvider>
+              <Router>
           <div className="App">
             {/* GlobalNavigation now handles its own conditional rendering */}
             <GlobalNavigation />
@@ -292,10 +294,11 @@ function App() {
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </div>
-            </Router>
-          </DocumentProvider>
-        </AuthProvider>
-      </ThemeProvider>
+              </Router>
+            </DocumentProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }
