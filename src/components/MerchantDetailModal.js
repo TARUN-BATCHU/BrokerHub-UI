@@ -20,7 +20,7 @@ const MerchantDetailModal = ({ isOpen, onClose, merchantId }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`http://localhost:8080/BrokerHub/user/${merchantId}`, {
+      const response = await fetch(`/BrokerHub/user/${merchantId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json'

@@ -16,11 +16,8 @@ const FinancialYearSelector = ({ selectedYear, onYearChange, label = "Financial 
       const data = await financialYearAPI.getAllFinancialYears();
       setFinancialYears(data || []);
       
-      // Auto-select current financial year if none selected
       if (!selectedYear && data && data.length > 0) {
-        const currentYear = new Date().getFullYear();
-        const currentFY = data.find(fy => fy.financialYearId === currentYear) || data[0];
-        onYearChange(currentFY.financialYearId);
+        onYearChange(data[0].yearId);
       }
     } catch (error) {
       console.error('Error fetching financial years:', error);
@@ -56,14 +53,15 @@ const FinancialYearSelector = ({ selectedYear, onYearChange, label = "Financial 
           border: `1px solid ${theme.border}`,
           borderRadius: '4px',
           fontSize: '14px',
-          backgroundColor: theme.inputBackground || theme.cardBackground,
-          color: theme.textPrimary
+          backgroundColor: theme.inputBackground || theme.cardBackground || '#fff',
+          color: theme.textPrimary || '#000',
+          cursor: 'pointer'
         }}
       >
-        <option value="">Select Financial Year</option>
+        <option value="" style={{ backgroundColor: '#fff', color: '#000' }}>Select Financial Year</option>
         {financialYears.map(fy => (
-          <option key={fy.financialYearId} value={fy.financialYearId}>
-            FY {fy.financialYearId} ({fy.startDate} to {fy.endDate})
+          <option key={fy.yearId} value={fy.yearId} style={{ backgroundColor: '#fff', color: '#000' }}>
+            {fy.financialYearName}
           </option>
         ))}
       </select>

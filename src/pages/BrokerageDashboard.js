@@ -68,7 +68,6 @@ const BrokerageDashboard = () => {
       
       console.log('Selected year object:', selectedYearObj);
       console.log('Using yearId for API call:', yearId);
-      console.log('Making API call to:', `http://localhost:8080/BrokerHub/Brokerage/summary/${yearId}`);
       
       const response = await brokerageAPI.getSummary(yearId);
       console.log('Brokerage summary response:', response);

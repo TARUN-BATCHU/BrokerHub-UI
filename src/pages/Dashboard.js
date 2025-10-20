@@ -3094,6 +3094,31 @@ const Dashboard = () => {
                 alignItems: 'center',
                 flexWrap: 'wrap'
               }}>
+                <Link
+                  to="/city-merchants"
+                  style={{
+                    padding: '8px 16px',
+                    border: `1px solid ${theme.info}`,
+                    borderRadius: '6px',
+                    backgroundColor: theme.infoBg,
+                    color: theme.info,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textDecoration: 'none',
+                    display: 'inline-block'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.info;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.infoBg;
+                    e.currentTarget.style.color = theme.info;
+                  }}
+                >
+                  🏙️ Merchants in City
+                </Link>
                 <button
                   onClick={loadMerchantsData}
                   disabled={loading}
@@ -3344,18 +3369,84 @@ const Dashboard = () => {
               </h2>
             </div>
             
+            {/* Services Grid */}
             <div style={{
-              backgroundColor: theme.background,
-              borderRadius: '12px',
-              padding: '40px',
-              border: `1px solid ${theme.borderLight}`,
-              textAlign: 'center'
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
             }}>
-              <div style={{ fontSize: '64px', marginBottom: '16px' }}>🚧</div>
-              <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary }}>Coming Soon</h3>
-              <p style={{ margin: 0, color: theme.textSecondary }}>
-                All services will be available here soon.
-              </p>
+              {/* City Merchants Service Card */}
+              <Link
+                to="/city-merchants"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  🏙️
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Merchants by City
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Browse and search merchants organized by their city location
+                </p>
+              </Link>
+
+              {/* Placeholder for future services */}
+              <div style={{
+                backgroundColor: theme.background,
+                borderRadius: '12px',
+                padding: '24px',
+                border: `1px solid ${theme.borderLight}`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                opacity: 0.6
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>🚧</div>
+                <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary, fontSize: '18px', fontWeight: '600' }}>
+                  More Services
+                </h3>
+                <p style={{ margin: 0, color: theme.textSecondary, fontSize: '14px' }}>
+                  Coming Soon
+                </p>
+              </div>
             </div>
           </div>
         </div>

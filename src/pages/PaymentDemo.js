@@ -160,7 +160,7 @@ const PaymentDemo = () => {
         <h3>API Test Results</h3>
         <p>Check the browser console for detailed API responses and any errors.</p>
         <p>Broker ID: {brokerId}</p>
-        <p>API Base URL: {process.env.REACT_APP_API_URL || 'http://localhost:8080/BrokerHub'}/payments</p>
+        <p>API Base URL: {process.env.REACT_APP_API_URL || '/BrokerHub'}/payments</p>
       </div>
     </div>
   );

@@ -33,6 +33,7 @@ import PaymentDemo from './pages/PaymentDemo';
 import About from './pages/About';
 import PhoneDirectory from './pages/PhoneDirectory';
 import JsonTransactionInput from './pages/JsonTransactionInput';
+import CityMerchantsPage from './pages/CityMerchantsPage';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -283,6 +284,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <About />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/city-merchants"
+                element={
+                  <ProtectedRoute>
+                    <CityMerchantsPage />
                   </ProtectedRoute>
                 }
               />

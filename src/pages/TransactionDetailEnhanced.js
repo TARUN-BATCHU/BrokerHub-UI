@@ -417,7 +417,7 @@ const TransactionDetailEnhanced = () => {
     }
 
     if (formData.ledgerRecordDTOList.some(record => 
-      !record.buyerName || !record.productId || !record.quantity || !record.productCost
+      !record.buyerName || !record.productId || !record.quantity
     )) {
       setError('Please fill all required fields in transaction records');
       return false;

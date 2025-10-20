@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
 import { userAPI } from '../services/api';
@@ -253,22 +254,59 @@ const Merchants = () => {
         marginBottom: '24px',
         border: `1px solid ${theme.border}`
       }}>
-        <div>
-          <h2 style={{
-            margin: '0 0 8px 0',
-            color: theme.textPrimary,
-            fontSize: '28px',
-            fontWeight: '700'
-          }}>
-            Merchants Summary
-          </h2>
-          <p style={{
-            margin: 0,
-            color: theme.textSecondary,
-            fontSize: '16px'
-          }}>
-            Overview of merchant trading activity and brokerage
-          </p>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: '16px'
+        }}>
+          <div>
+            <h2 style={{
+              margin: '0 0 8px 0',
+              color: theme.textPrimary,
+              fontSize: '28px',
+              fontWeight: '700'
+            }}>
+              Merchants Summary
+            </h2>
+            <p style={{
+              margin: 0,
+              color: theme.textSecondary,
+              fontSize: '16px'
+            }}>
+              Overview of merchant trading activity and brokerage
+            </p>
+          </div>
+          <Link
+            to="/city-merchants"
+            style={{
+              padding: '10px 20px',
+              border: `1px solid ${theme.info}`,
+              borderRadius: '8px',
+              backgroundColor: theme.infoBg,
+              color: theme.info,
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              whiteSpace: 'nowrap'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = theme.info;
+              e.currentTarget.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = theme.infoBg;
+              e.currentTarget.style.color = theme.info;
+            }}
+          >
+            🏙️ Merchants in City
+          </Link>
         </div>
       </div>
 

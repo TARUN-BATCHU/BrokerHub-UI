@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API configuration - Updated for BrokerHub
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/BrokerHub';
+const API_BASE_URL = window.APP_CONFIG?.API_URL || process.env.REACT_APP_API_URL || '/BrokerHub';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -253,6 +253,28 @@ export const userAPI = {
   getUsersByCity: async (cityName) => {
     try {
       const response = await api.get(`/user/getUsersByCity/${encodeURIComponent(cityName)}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all cities
+  getAllCities: async () => {
+    try {
+      const response = await api.get('/user/cities');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get merchants by city
+  getMerchantsByCity: async (city) => {
+    try {
+      const response = await api.get('/user/merchants', {
+        params: { city }
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
