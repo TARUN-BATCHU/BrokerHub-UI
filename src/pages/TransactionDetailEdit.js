@@ -47,6 +47,9 @@ const TransactionDetailEdit = () => {
   const [showBuyerDropdowns, setShowBuyerDropdowns] = useState({});
   const [productSearches, setProductSearches] = useState({});
   const [showProductDropdowns, setShowProductDropdowns] = useState({});
+  const [selectedDropdownIndex, setSelectedDropdownIndex] = useState(-1);
+  const [activeDropdownType, setActiveDropdownType] = useState(null);
+  const [activeRowIndex, setActiveRowIndex] = useState(null);
 
   useEffect(() => {
     console.log('TransactionDetailEdit component mounted, loading sellers/buyers/products...');
@@ -55,15 +58,106 @@ const TransactionDetailEdit = () => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Arrow keys for dropdown navigation
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (showSellerDropdown || Object.values(showBuyerDropdowns).some(Boolean) || Object.values(showProductDropdowns).some(Boolean)) {
+          e.preventDefault();
+          const direction = e.key === 'ArrowDown' ? 1 : -1;
+          
+          if (showSellerDropdown) {
+            const filtered = getFilteredSellers();
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          } else if (activeDropdownType === 'buyer' && activeRowIndex !== null) {
+            const filtered = getFilteredBuyers(buyerSearches[activeRowIndex]);
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          } else if (activeDropdownType === 'product' && activeRowIndex !== null) {
+            const filtered = getFilteredProducts(productSearches[activeRowIndex]);
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            setSelectedDropdownIndex(newIndex);
+          }
+          return;
+        }
+      }
+
+      // Enter key handling
+      if (e.key === 'Enter') {
+        if (e.ctrlKey) {
+          e.preventDefault();
+          addNewRecord();
+          return;
+        }
+        
+        if (showSellerDropdown) {
+          e.preventDefault();
+          const filtered = getFilteredSellers();
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const seller = filtered[selectedDropdownIndex];
+            handleInputChange('fromSeller', seller.id);
+            if (seller.brokerageRate) {
+              handleInputChange('sellerBrokerage', seller.brokerageRate);
+            }
+            setSellerSearch(seller.firmName);
+            setShowSellerDropdown(false);
+            setSelectedDropdownIndex(-1);
+          }
+          return;
+        }
+        
+        if (activeDropdownType === 'buyer' && activeRowIndex !== null && showBuyerDropdowns[activeRowIndex]) {
+          e.preventDefault();
+          const filtered = getFilteredBuyers(buyerSearches[activeRowIndex]);
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const buyer = filtered[selectedDropdownIndex];
+            handleRecordChange(activeRowIndex, 'buyerName', buyer.firmName);
+            if (buyer.brokerageRate) {
+              handleRecordChange(activeRowIndex, 'brokerage', buyer.brokerageRate);
+            }
+            setBuyerSearches(prev => ({ ...prev, [activeRowIndex]: buyer.firmName }));
+            setShowBuyerDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
+            setSelectedDropdownIndex(-1);
+          }
+          return;
+        }
+        
+        if (activeDropdownType === 'product' && activeRowIndex !== null && showProductDropdowns[activeRowIndex]) {
+          e.preventDefault();
+          const filtered = getFilteredProducts(productSearches[activeRowIndex]);
+          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
+            const product = filtered[selectedDropdownIndex];
+            const [description, id] = Object.entries(product)[0];
+            handleRecordChange(activeRowIndex, 'productId', id);
+            setProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
+            setShowProductDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
+            setSelectedDropdownIndex(-1);
+          }
+          return;
+        }
+      }
+
+      // Ctrl+S to save
       if (e.key === 's' && e.ctrlKey) {
         e.preventDefault();
         handleSave();
+        return;
+      }
+
+      // Escape to close dropdowns
+      if (e.key === 'Escape') {
+        setShowSellerDropdown(false);
+        setShowBuyerDropdowns({});
+        setShowProductDropdowns({});
+        setSelectedDropdownIndex(-1);
+        setActiveDropdownType(null);
+        setActiveRowIndex(null);
+        return;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [formData]);
+  }, [showSellerDropdown, showBuyerDropdowns, showProductDropdowns, selectedDropdownIndex, activeDropdownType, activeRowIndex, buyerSearches, productSearches, formData]);
 
   useEffect(() => {
     console.log('useEffect triggered with:', { transactionNumber, financialYearId });
@@ -563,8 +657,21 @@ const TransactionDetailEdit = () => {
                   onChange={(e) => {
                     setSellerSearch(e.target.value);
                     setShowSellerDropdown(true);
+                    setSelectedDropdownIndex(0);
+                    setActiveDropdownType('seller');
                   }}
-                  onFocus={() => setShowSellerDropdown(true)}
+                  onFocus={() => {
+                    if (sellerSearch) {
+                      setShowSellerDropdown(true);
+                      setSelectedDropdownIndex(0);
+                      setActiveDropdownType('seller');
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => {
+                    setShowSellerDropdown(false);
+                    setSelectedDropdownIndex(-1);
+                    setActiveDropdownType(null);
+                  }, 200)}
                   onKeyDown={(e) => {
                     if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showSellerDropdown) {
                       e.preventDefault();
@@ -594,27 +701,26 @@ const TransactionDetailEdit = () => {
                     maxHeight: '200px',
                     overflowY: 'auto'
                   }}>
-                    {getFilteredSellers().map(seller => (
+                    {getFilteredSellers().map((seller, index) => (
                       <div
                         key={seller.id}
                         onClick={() => {
                           handleInputChange('fromSeller', seller.id);
-                          // Auto-populate seller brokerage rate if available
                           if (seller.brokerageRate) {
                             handleInputChange('sellerBrokerage', seller.brokerageRate);
                           }
                           setSellerSearch(seller.firmName);
                           setShowSellerDropdown(false);
+                          setSelectedDropdownIndex(-1);
                         }}
                         style={{
                           padding: '10px 12px',
                           cursor: 'pointer',
                           borderBottom: `1px solid ${theme.borderLight}`,
                           color: theme.textPrimary,
-                          ':hover': { backgroundColor: theme.hoverBg }
+                          backgroundColor: index === selectedDropdownIndex ? theme.hoverBg : 'transparent'
                         }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                        onMouseEnter={() => setSelectedDropdownIndex(index)}
                       >
                         <div style={{ fontWeight: '500' }}>{seller.firmName}</div>
                         <div style={{ fontSize: '12px', color: theme.textSecondary }}>
@@ -714,23 +820,26 @@ const TransactionDetailEdit = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: theme.background }}>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>S.No</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Buyer Name *</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Product *</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Quantity *</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Brokerage</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Product Cost *</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Total</th>
-                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>Action</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '10px' }}>S.No</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', minWidth: '200px' }}>Buyer Name *</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '120px' }}>City</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', minWidth: '100px' }}>Product *</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '80px' }}>Qty *</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '80px' }}>Brokerage</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600', width: '100px' }}>Rate *</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600' }}>Total</th>
+                  <th style={{ padding: '12px', textAlign: 'left', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '14px', fontWeight: '600' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {formData.ledgerRecordDTOList.map((record, index) => (
                   <tr key={index}>
-                    <td style={{ padding: '8px', border: `1px solid ${theme.border}`, color: theme.textPrimary }}>
+                    <td style={{ padding: '8px', border: `1px solid ${theme.border}`, color: theme.textPrimary, textAlign: 'center' }}>
                       {index + 1}
                     </td>
-                    <td style={{ padding: '8px', border: `1px solid ${theme.border}`, position: 'relative' }}>
+
+                    {/* Buyer Name */}
+                    <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'absolute', minWidth: '315px' }}>
                       <input
                         type="text"
                         placeholder="Search buyer..."
@@ -738,8 +847,26 @@ const TransactionDetailEdit = () => {
                         onChange={(e) => {
                           setBuyerSearches(prev => ({ ...prev, [index]: e.target.value }));
                           setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
+                          setSelectedDropdownIndex(0);
+                          setActiveDropdownType('buyer');
+                          setActiveRowIndex(index);
                         }}
-                        onFocus={() => setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }))}
+                        onFocus={() => {
+                          if (buyerSearches[index]) {
+                            setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
+                            setSelectedDropdownIndex(0);
+                            setActiveDropdownType('buyer');
+                            setActiveRowIndex(index);
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => {
+                          setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
+                          setSelectedDropdownIndex(-1);
+                          if (activeRowIndex === index) {
+                            setActiveDropdownType(null);
+                            setActiveRowIndex(null);
+                          }
+                        }, 200)}
                         onKeyDown={(e) => {
                           if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showBuyerDropdowns[index]) {
                             e.preventDefault();
@@ -747,49 +874,49 @@ const TransactionDetailEdit = () => {
                         }}
                         style={{
                           width: '100%',
-                          padding: '6px',
-                          border: `1px solid ${theme.border}`,
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          backgroundColor: theme.inputBackground || theme.cardBackground,
-                          color: theme.textPrimary
+                          padding: '8px',
+                          border: 'none',
+                          fontSize: '16px',
+                          backgroundColor: 'transparent',
+                          color: theme.textPrimary,
+                          outline: 'none'
                         }}
                       />
                       {showBuyerDropdowns[index] && (
                         <div style={{
                           position: 'absolute',
                           top: '100%',
-                          left: '8px',
-                          right: '8px',
+                          left: 0,
+                          right: 0,
                           backgroundColor: theme.cardBackground,
                           border: `1px solid ${theme.border}`,
                           borderRadius: '4px',
-                          boxShadow: theme.shadow,
-                          zIndex: 10,
-                          maxHeight: '150px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          zIndex: 1000,
+                          maxHeight: '200px',
                           overflowY: 'auto'
                         }}>
-                          {getFilteredBuyers(buyerSearches[index]).map(buyer => (
+                          {getFilteredBuyers(buyerSearches[index]).map((buyer, buyerIndex) => (
                             <div
                               key={buyer.id}
                               onClick={() => {
                                 handleRecordChange(index, 'buyerName', buyer.firmName);
-                                // Auto-populate buyer brokerage rate if available
                                 if (buyer.brokerageRate) {
                                   handleRecordChange(index, 'brokerage', buyer.brokerageRate);
                                 }
                                 setBuyerSearches(prev => ({ ...prev, [index]: buyer.firmName }));
                                 setShowBuyerDropdowns(prev => ({ ...prev, [index]: false }));
+                                setSelectedDropdownIndex(-1);
                               }}
                               style={{
                                 padding: '8px',
                                 cursor: 'pointer',
                                 borderBottom: `1px solid ${theme.borderLight}`,
                                 color: theme.textPrimary,
-                                fontSize: '12px'
+                                fontSize: '12px',
+                                backgroundColor: buyerIndex === selectedDropdownIndex ? theme.hoverBg : 'transparent'
                               }}
-                              onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
-                              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                              onMouseEnter={() => setSelectedDropdownIndex(buyerIndex)}
                             >
                               <div style={{ fontWeight: '500' }}>{buyer.firmName}</div>
                               <div style={{ fontSize: '10px', color: theme.textSecondary }}>
@@ -800,7 +927,14 @@ const TransactionDetailEdit = () => {
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '8px', border: `1px solid ${theme.border}`, position: 'relative' }}>
+
+                    {/* City */}
+                    <td style={{ padding: '8px', border: `1px solid ${theme.border}`, color: theme.textSecondary, fontSize: '14px' }}>
+                      {buyers.find(b => b.firmName === record.buyerName)?.city || '-'}
+                    </td>
+
+                    {/* Product */}
+                    <td style={{ padding: '4px', border: `1px solid ${theme.border}`, position: 'absolute', minWidth: '315px' }}>
                       <input
                         type="text"
                         placeholder="Search product..."
@@ -808,8 +942,26 @@ const TransactionDetailEdit = () => {
                         onChange={(e) => {
                           setProductSearches(prev => ({ ...prev, [index]: e.target.value }));
                           setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
+                          setSelectedDropdownIndex(0);
+                          setActiveDropdownType('product');
+                          setActiveRowIndex(index);
                         }}
-                        onFocus={() => setShowProductDropdowns(prev => ({ ...prev, [index]: true }))}
+                        onFocus={() => {
+                          if (productSearches[index]) {
+                            setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
+                            setSelectedDropdownIndex(0);
+                            setActiveDropdownType('product');
+                            setActiveRowIndex(index);
+                          }
+                        }}
+                        onBlur={() => setTimeout(() => {
+                          setShowProductDropdowns(prev => ({ ...prev, [index]: false }));
+                          setSelectedDropdownIndex(-1);
+                          if (activeRowIndex === index) {
+                            setActiveDropdownType(null);
+                            setActiveRowIndex(null);
+                          }
+                        }, 200)}
                         onKeyDown={(e) => {
                           if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && showProductDropdowns[index]) {
                             e.preventDefault();
@@ -817,26 +969,26 @@ const TransactionDetailEdit = () => {
                         }}
                         style={{
                           width: '100%',
-                          padding: '6px',
-                          border: `1px solid ${theme.border}`,
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          backgroundColor: theme.inputBackground || theme.cardBackground,
-                          color: theme.textPrimary
+                          padding: '8px',
+                          border: 'none',
+                          fontSize: '14px',
+                          backgroundColor: 'transparent',
+                          color: theme.textPrimary,
+                          outline: 'none'
                         }}
                       />
                       {showProductDropdowns[index] && (
                         <div style={{
                           position: 'absolute',
                           top: '100%',
-                          left: '8px',
-                          right: '8px',
+                          left: 0,
+                          right: 0,
                           backgroundColor: theme.cardBackground,
                           border: `1px solid ${theme.border}`,
                           borderRadius: '4px',
-                          boxShadow: theme.shadow,
-                          zIndex: 10,
-                          maxHeight: '150px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          zIndex: 1100,
+                          maxHeight: '200px',
                           overflowY: 'auto'
                         }}>
                           {getFilteredProducts(productSearches[index]).map((product, productIndex) => {
@@ -848,16 +1000,17 @@ const TransactionDetailEdit = () => {
                                   handleRecordChange(index, 'productId', id);
                                   setProductSearches(prev => ({ ...prev, [index]: description }));
                                   setShowProductDropdowns(prev => ({ ...prev, [index]: false }));
+                                  setSelectedDropdownIndex(-1);
                                 }}
                                 style={{
                                   padding: '8px',
                                   cursor: 'pointer',
                                   borderBottom: `1px solid ${theme.borderLight}`,
                                   color: theme.textPrimary,
-                                  fontSize: '12px'
+                                  fontSize: '12px',
+                                  backgroundColor: productIndex === selectedDropdownIndex ? theme.hoverBg : 'transparent'
                                 }}
-                                onMouseEnter={(e) => e.target.style.backgroundColor = theme.hoverBg}
-                                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                onMouseEnter={() => setSelectedDropdownIndex(productIndex)}
                               >
                                 {description}
                               </div>

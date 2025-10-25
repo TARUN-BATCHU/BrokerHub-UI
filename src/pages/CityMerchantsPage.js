@@ -10,9 +10,9 @@ const CityMerchantsPage = () => {
   const { isMobile } = useResponsive();
   
   const [cities, setCities] = useState([]);
-  const [selectedCity, setSelectedCity] = useState(null);
-  const [merchants, setMerchants] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [selectedCities, setSelectedCities] = useState([]);
+  const [merchantsByCity, setMerchantsByCity] = useState({});
+  const [loadingCities, setLoadingCities] = useState({});
   const [citySearchTerm, setCitySearchTerm] = useState('');
   const [merchantSearchTerm, setMerchantSearchTerm] = useState('');
   const [expandedMerchants, setExpandedMerchants] = useState({});
@@ -22,31 +22,40 @@ const CityMerchantsPage = () => {
   }, []);
 
   const loadCities = async () => {
-    setLoading(true);
     try {
       const response = await userAPI.getAllCities();
       setCities(response || []);
     } catch (error) {
       console.error('Error loading cities:', error);
       alert('Failed to load cities: ' + (error.message || 'Server error'));
-    } finally {
-      setLoading(false);
     }
   };
 
   const loadMerchantsByCity = async (city) => {
-    setLoading(true);
-    setSelectedCity(city);
-    setExpandedMerchants({});
+    setLoadingCities(prev => ({ ...prev, [city]: true }));
     try {
       const response = await userAPI.getMerchantsByCity(city);
-      setMerchants(response || []);
+      setMerchantsByCity(prev => ({ ...prev, [city]: response || [] }));
     } catch (error) {
       console.error('Error loading merchants:', error);
       alert('Failed to load merchants: ' + (error.message || 'Server error'));
-      setMerchants([]);
+      setMerchantsByCity(prev => ({ ...prev, [city]: [] }));
     } finally {
-      setLoading(false);
+      setLoadingCities(prev => ({ ...prev, [city]: false }));
+    }
+  };
+
+  const toggleCitySelection = (city) => {
+    if (selectedCities.includes(city)) {
+      setSelectedCities(prev => prev.filter(c => c !== city));
+      setMerchantsByCity(prev => {
+        const updated = { ...prev };
+        delete updated[city];
+        return updated;
+      });
+    } else {
+      setSelectedCities(prev => [...prev, city]);
+      loadMerchantsByCity(city);
     }
   };
 
@@ -61,10 +70,12 @@ const CityMerchantsPage = () => {
     city.toLowerCase().includes(citySearchTerm.toLowerCase())
   );
 
-  const filteredMerchants = merchants.filter(merchant =>
-    merchant.firmName?.toLowerCase().includes(merchantSearchTerm.toLowerCase()) ||
-    merchant.ownerName?.toLowerCase().includes(merchantSearchTerm.toLowerCase())
-  );
+  const getFilteredMerchantsForCity = (cityMerchants) => {
+    return cityMerchants.filter(merchant =>
+      merchant.firmName?.toLowerCase().includes(merchantSearchTerm.toLowerCase()) ||
+      merchant.ownerName?.toLowerCase().includes(merchantSearchTerm.toLowerCase())
+    );
+  };
 
   return (
     <div style={{
@@ -159,11 +170,7 @@ const CityMerchantsPage = () => {
           flexWrap: 'wrap',
           gap: '10px'
         }}>
-          {loading && !selectedCity ? (
-            <div style={{ padding: '20px', color: theme.textSecondary }}>
-              Loading cities...
-            </div>
-          ) : filteredCities.length === 0 ? (
+          {filteredCities.length === 0 ? (
             <div style={{ padding: '20px', color: theme.textSecondary }}>
               No cities found
             </div>
@@ -171,27 +178,27 @@ const CityMerchantsPage = () => {
             filteredCities.map((city, index) => (
               <button
                 key={index}
-                onClick={() => loadMerchantsByCity(city)}
+                onClick={() => toggleCitySelection(city)}
                 style={{
                   padding: '8px 16px',
-                  border: `2px solid ${selectedCity === city ? theme.primary : theme.border}`,
+                  border: `2px solid ${selectedCities.includes(city) ? theme.primary : theme.border}`,
                   borderRadius: '20px',
-                  backgroundColor: selectedCity === city ? theme.primary : theme.background,
-                  color: selectedCity === city ? 'white' : theme.textPrimary,
+                  backgroundColor: selectedCities.includes(city) ? theme.primary : theme.background,
+                  color: selectedCities.includes(city) ? 'white' : theme.textPrimary,
                   fontSize: '14px',
-                  fontWeight: selectedCity === city ? '600' : '400',
+                  fontWeight: selectedCities.includes(city) ? '600' : '400',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   whiteSpace: 'nowrap'
                 }}
                 onMouseEnter={(e) => {
-                  if (selectedCity !== city) {
+                  if (!selectedCities.includes(city)) {
                     e.currentTarget.style.backgroundColor = theme.hoverBgLight;
                     e.currentTarget.style.borderColor = theme.primary;
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (selectedCity !== city) {
+                  if (!selectedCities.includes(city)) {
                     e.currentTarget.style.backgroundColor = theme.background;
                     e.currentTarget.style.borderColor = theme.border;
                   }
@@ -205,7 +212,7 @@ const CityMerchantsPage = () => {
       </div>
 
       {/* Merchants Section */}
-      {selectedCity && (
+      {selectedCities.length > 0 && (
         <div style={{
           backgroundColor: theme.cardBackground,
           borderRadius: '12px',
@@ -219,7 +226,7 @@ const CityMerchantsPage = () => {
             fontSize: '18px',
             fontWeight: '600'
           }}>
-            Merchants in {selectedCity} ({filteredMerchants.length})
+            Merchants from {selectedCities.length} {selectedCities.length === 1 ? 'City' : 'Cities'}
           </h3>
 
           <input
@@ -240,25 +247,60 @@ const CityMerchantsPage = () => {
             }}
           />
 
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(400px, 1fr))',
-            gap: '12px' 
-          }}>
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: theme.textSecondary }}>
-                Loading merchants...
-              </div>
-            ) : filteredMerchants.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: theme.textSecondary }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏪</div>
-                <h4 style={{ margin: '0 0 8px 0', color: theme.textPrimary }}>No Merchants Found</h4>
-                <p style={{ margin: 0 }}>
-                  {merchantSearchTerm ? 'No merchants match your search.' : `No merchants available in ${selectedCity}.`}
-                </p>
-              </div>
-            ) : (
-              filteredMerchants.map((merchant) => (
+          {selectedCities.map(city => {
+            const cityMerchants = merchantsByCity[city] || [];
+            const filteredMerchants = getFilteredMerchantsForCity(cityMerchants);
+            const isLoading = loadingCities[city];
+
+            return (
+              <div key={city} style={{ marginBottom: '32px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  paddingBottom: '12px',
+                  borderBottom: `2px solid ${theme.border}`
+                }}>
+                  <h4 style={{
+                    margin: 0,
+                    color: theme.textPrimary,
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}>
+                    📍 {city}
+                  </h4>
+                  <span style={{
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    backgroundColor: theme.infoBg,
+                    color: theme.info,
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}>
+                    {filteredMerchants.length} {filteredMerchants.length === 1 ? 'Merchant' : 'Merchants'}
+                  </span>
+                </div>
+
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(400px, 1fr))',
+                  gap: '12px' 
+                }}>
+                  {isLoading ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: theme.textSecondary }}>
+                      Loading merchants...
+                    </div>
+                  ) : filteredMerchants.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: theme.textSecondary }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏪</div>
+                      <h4 style={{ margin: '0 0 8px 0', color: theme.textPrimary }}>No Merchants Found</h4>
+                      <p style={{ margin: 0 }}>
+                        {merchantSearchTerm ? 'No merchants match your search.' : `No merchants available in ${city}.`}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredMerchants.map((merchant) => (
                 <div
                   key={merchant.userId}
                   style={{
@@ -442,9 +484,12 @@ const CityMerchantsPage = () => {
                     </div>
                   )}
                 </div>
-              ))
-            )}
-          </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

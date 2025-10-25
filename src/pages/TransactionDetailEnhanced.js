@@ -78,10 +78,6 @@ const TransactionDetailEnhanced = () => {
     if (mode === 'edit' && transactionNumber) {
       fetchTransactionData(transactionNumber);
     }
-    // Auto-focus on date input after data loads
-    setTimeout(() => {
-      dateInputRef.current?.focus();
-    }, 500);
   }, [mode, transactionNumber]);
 
   // Track unsaved changes
@@ -114,7 +110,8 @@ const TransactionDetailEnhanced = () => {
           
           if (showSellerDropdown) {
             const filtered = getFilteredSellers();
-            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
+            const currentIndex = selectedDropdownIndex < 0 ? (direction > 0 ? -1 : 0) : selectedDropdownIndex;
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, currentIndex + direction));
             setSelectedDropdownIndex(newIndex);
             // Auto-scroll to selected item
             setTimeout(() => {
@@ -169,8 +166,9 @@ const TransactionDetailEnhanced = () => {
         if (showSellerDropdown) {
           e.preventDefault();
           const filtered = getFilteredSellers();
-          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
-            const seller = filtered[selectedDropdownIndex];
+          if (filtered.length > 0) {
+            const index = selectedDropdownIndex >= 0 ? selectedDropdownIndex : 0;
+            const seller = filtered[index];
             handleInputChange('fromSeller', seller.id);
             // Auto-populate seller brokerage rate if available
             if (seller.brokerageRate) {
@@ -187,8 +185,9 @@ const TransactionDetailEnhanced = () => {
         if (activeDropdownType === 'buyer' && activeRowIndex !== null && showBuyerDropdowns[activeRowIndex]) {
           e.preventDefault();
           const filtered = getFilteredBuyers(buyerSearches[activeRowIndex]);
-          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
-            const buyer = filtered[selectedDropdownIndex];
+          if (filtered.length > 0) {
+            const index = selectedDropdownIndex >= 0 ? selectedDropdownIndex : 0;
+            const buyer = filtered[index];
             handleRecordChange(activeRowIndex, 'buyerName', buyer.firmName);
             handleRecordChange(activeRowIndex, 'buyerCity', buyer.city);
             // Auto-populate buyer brokerage rate if available
@@ -222,8 +221,9 @@ const TransactionDetailEnhanced = () => {
         if (activeDropdownType === 'product' && activeRowIndex !== null && showProductDropdowns[activeRowIndex]) {
           e.preventDefault();
           const filtered = getFilteredProducts(productSearches[activeRowIndex]);
-          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
-            const product = filtered[selectedDropdownIndex];
+          if (filtered.length > 0) {
+            const index = selectedDropdownIndex >= 0 ? selectedDropdownIndex : 0;
+            const product = filtered[index];
             const [description, id] = Object.entries(product)[0];
             handleRecordChange(activeRowIndex, 'productId', id);
             setProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
@@ -237,8 +237,9 @@ const TransactionDetailEnhanced = () => {
         if (activeDropdownType === 'sellerProduct' && activeRowIndex !== null && showSellerProductDropdowns[activeRowIndex]) {
           e.preventDefault();
           const filtered = getFilteredProducts(sellerProductSearches[activeRowIndex]);
-          if (filtered.length > 0 && selectedDropdownIndex >= 0) {
-            const product = filtered[selectedDropdownIndex];
+          if (filtered.length > 0) {
+            const index = selectedDropdownIndex >= 0 ? selectedDropdownIndex : 0;
+            const product = filtered[index];
             const [description, id] = Object.entries(product)[0];
             const newProducts = [...formData.sellerProducts];
             newProducts[activeRowIndex].productId = id;
@@ -274,7 +275,7 @@ const TransactionDetailEnhanced = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showSellerDropdown, showBuyerDropdowns, showProductDropdowns, showSellerProductDropdowns, selectedDropdownIndex, activeDropdownType, activeRowIndex, buyerSearches, productSearches, sellerProductSearches]);
+  }, [showSellerDropdown, showBuyerDropdowns, showProductDropdowns, showSellerProductDropdowns, selectedDropdownIndex, activeDropdownType, activeRowIndex, buyerSearches, productSearches, sellerProductSearches, formData]);
 
   const loadCurrentFinancialYear = async () => {
     try {
@@ -328,6 +329,9 @@ const TransactionDetailEnhanced = () => {
     setLoadingData(true);
     await Promise.all([fetchSellers(), fetchBuyers(), fetchProducts()]);
     setLoadingData(false);
+    setTimeout(() => {
+      sellerInputRef.current?.focus();
+    }, 100);
   };
 
   const fetchTransactionData = async (txnNumber) => {
@@ -417,7 +421,7 @@ const TransactionDetailEnhanced = () => {
     }
 
     if (formData.ledgerRecordDTOList.some(record => 
-      !record.buyerName || !record.productId || !record.quantity
+      !record.buyerName?.trim() || !record.productId || !record.quantity || !record.productCost
     )) {
       setError('Please fill all required fields in transaction records');
       return false;
@@ -440,7 +444,7 @@ const TransactionDetailEnhanced = () => {
       if (mode === 'create') {
         const response = await ledgerDetailsAPI.createLedgerDetails(saveData);
         const createdTransactionNumber = response;
-        setNextTransactionNumber(createdTransactionNumber);
+        setNextTransactionNumber(createdTransactionNumber + 1);
         setSuccess(`Transaction #${createdTransactionNumber} created successfully!`);
         setHasUnsavedChanges(false);
         
@@ -746,11 +750,9 @@ const TransactionDetailEnhanced = () => {
                   setActiveDropdownType('seller');
                 }}
                 onFocus={() => {
-                  if (sellerSearch) {
-                    setShowSellerDropdown(true);
-                    setSelectedDropdownIndex(0);
-                    setActiveDropdownType('seller');
-                  }
+                  setShowSellerDropdown(true);
+                  setSelectedDropdownIndex(0);
+                  setActiveDropdownType('seller');
                 }}
                 onBlur={() => setTimeout(() => {
                   setShowSellerDropdown(false);
@@ -905,14 +907,14 @@ const TransactionDetailEnhanced = () => {
                       onChange={(e) => {
                         setSellerProductSearches(prev => ({ ...prev, [index]: e.target.value }));
                         setShowSellerProductDropdowns(prev => ({ ...prev, [index]: true }));
-                        setSelectedDropdownIndex(0);
+                        setSelectedDropdownIndex(-1);
                         setActiveDropdownType('sellerProduct');
                         setActiveRowIndex(index);
                       }}
                       onFocus={() => {
                         if (sellerProductSearches[index]) {
                           setShowSellerProductDropdowns(prev => ({ ...prev, [index]: true }));
-                          setSelectedDropdownIndex(0);
+                          setSelectedDropdownIndex(-1);
                           setActiveDropdownType('sellerProduct');
                           setActiveRowIndex(index);
                         }
@@ -1139,14 +1141,14 @@ const TransactionDetailEnhanced = () => {
                         onChange={(e) => {
                           setBuyerSearches(prev => ({ ...prev, [index]: e.target.value }));
                           setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
-                          setSelectedDropdownIndex(0);
+                          setSelectedDropdownIndex(-1);
                           setActiveDropdownType('buyer');
                           setActiveRowIndex(index);
                         }}
                         onFocus={() => {
                           if (buyerSearches[index]) {
                             setShowBuyerDropdowns(prev => ({ ...prev, [index]: true }));
-                            setSelectedDropdownIndex(0);
+                            setSelectedDropdownIndex(-1);
                             setActiveDropdownType('buyer');
                             setActiveRowIndex(index);
                           }
@@ -1279,13 +1281,13 @@ const TransactionDetailEnhanced = () => {
                         onChange={(e) => {
                           setProductSearches(prev => ({ ...prev, [index]: e.target.value }));
                           setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
-                          setSelectedDropdownIndex(0);
+                          setSelectedDropdownIndex(-1);
                           setActiveDropdownType('product');
                           setActiveRowIndex(index);
                         }}
                         onFocus={() => {
                           setShowProductDropdowns(prev => ({ ...prev, [index]: true }));
-                          setSelectedDropdownIndex(0);
+                          setSelectedDropdownIndex(-1);
                           setActiveDropdownType('product');
                           setActiveRowIndex(index);
                         }}
@@ -1579,25 +1581,6 @@ const TransactionDetailEnhanced = () => {
           justifyContent: 'center',
           flexWrap: 'wrap'
         }}>
-          <button
-            onClick={() => handleSave(false)}
-            disabled={saving}
-            style={{
-              backgroundColor: theme.primary || '#007bff',
-              color: 'white',
-              border: 'none',
-              padding: '12px 32px',
-              borderRadius: '6px',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: '600',
-              opacity: saving ? 0.6 : 1,
-              minWidth: '120px'
-            }}
-          >
-            {saving ? '💾 Saving...' : '💾 Save (Ctrl+S)'}
-          </button>
-
           {mode === 'create' && (
             <button
               onClick={() => handleSave(true)}
@@ -1615,7 +1598,7 @@ const TransactionDetailEnhanced = () => {
                 opacity: saving ? 0.6 : 1
               }}
             >
-              ➡️ Save & Next
+              {saving ? '💾 Saving...' : '➡️ Save & Next (Ctrl+S)'}
             </button>
           )}
         </div>

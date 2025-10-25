@@ -63,11 +63,11 @@ const LedgerManagement = () => {
   };
 
   const handleEditTransaction = (transaction) => {
-    navigate('/transaction-detail', { 
+    navigate('/transaction-detail-edit', { 
       state: { 
-        mode: 'edit',
         transactionNumber: transaction.brokerTransactionNumber,
         financialYearId: transaction.financialYearId,
+        brokerId: parseInt(brokerId),
         date: transaction.transactionDate || selectedDate
       } 
     });
