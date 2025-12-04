@@ -110,8 +110,7 @@ const TransactionDetailEnhanced = () => {
           
           if (showSellerDropdown) {
             const filtered = getFilteredSellers();
-            const currentIndex = selectedDropdownIndex < 0 ? (direction > 0 ? -1 : 0) : selectedDropdownIndex;
-            const newIndex = Math.max(0, Math.min(filtered.length - 1, currentIndex + direction));
+            const newIndex = Math.max(0, Math.min(filtered.length - 1, selectedDropdownIndex + direction));
             setSelectedDropdownIndex(newIndex);
             // Auto-scroll to selected item
             setTimeout(() => {
@@ -170,13 +169,13 @@ const TransactionDetailEnhanced = () => {
             const index = selectedDropdownIndex >= 0 ? selectedDropdownIndex : 0;
             const seller = filtered[index];
             handleInputChange('fromSeller', seller.id);
-            // Auto-populate seller brokerage rate if available
             if (seller.brokerageRate) {
               handleInputChange('sellerBrokerage', seller.brokerageRate);
             }
             setSellerSearch(seller.firmName);
             setShowSellerDropdown(false);
             setSelectedDropdownIndex(-1);
+            setActiveDropdownType(null);
             setTimeout(() => sellerProductRefs.current[0]?.focus(), 100);
           }
           return;
@@ -190,13 +189,14 @@ const TransactionDetailEnhanced = () => {
             const buyer = filtered[index];
             handleRecordChange(activeRowIndex, 'buyerName', buyer.firmName);
             handleRecordChange(activeRowIndex, 'buyerCity', buyer.city);
-            // Auto-populate buyer brokerage rate if available
             if (buyer.brokerageRate) {
               handleRecordChange(activeRowIndex, 'brokerage', buyer.brokerageRate);
             }
             setBuyerSearches(prev => ({ ...prev, [activeRowIndex]: buyer.firmName }));
             setShowBuyerDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
             setSelectedDropdownIndex(-1);
+            setActiveDropdownType(null);
+            setActiveRowIndex(null);
             
             // Auto-populate product from seller products if available
             if (formData.sellerProducts[0]?.productId) {
@@ -229,6 +229,8 @@ const TransactionDetailEnhanced = () => {
             setProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
             setShowProductDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
             setSelectedDropdownIndex(-1);
+            setActiveDropdownType(null);
+            setActiveRowIndex(null);
             setTimeout(() => quantityInputRefs.current[activeRowIndex]?.focus(), 100);
           }
           return;
@@ -247,6 +249,8 @@ const TransactionDetailEnhanced = () => {
             setSellerProductSearches(prev => ({ ...prev, [activeRowIndex]: description }));
             setShowSellerProductDropdowns(prev => ({ ...prev, [activeRowIndex]: false }));
             setSelectedDropdownIndex(-1);
+            setActiveDropdownType(null);
+            setActiveRowIndex(null);
             setTimeout(() => sellerProductCostRefs.current[activeRowIndex]?.focus(), 100);
           }
           return;
@@ -746,12 +750,12 @@ const TransactionDetailEnhanced = () => {
                 onChange={(e) => {
                   setSellerSearch(e.target.value);
                   setShowSellerDropdown(true);
-                  setSelectedDropdownIndex(0);
+                  setSelectedDropdownIndex(-1);
                   setActiveDropdownType('seller');
                 }}
                 onFocus={() => {
                   setShowSellerDropdown(true);
-                  setSelectedDropdownIndex(0);
+                  setSelectedDropdownIndex(-1);
                   setActiveDropdownType('seller');
                 }}
                 onBlur={() => setTimeout(() => {
