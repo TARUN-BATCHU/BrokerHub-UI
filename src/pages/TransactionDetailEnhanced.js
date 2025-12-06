@@ -260,6 +260,7 @@ const TransactionDetailEnhanced = () => {
       // Ctrl+S to save and next
       if (e.key === 's' && e.ctrlKey) {
         e.preventDefault();
+        e.stopPropagation();
         handleSave(true);
         return;
       }
@@ -378,12 +379,40 @@ const TransactionDetailEnhanced = () => {
     }, 100);
   };
 
-  const removeRecord = (index) => {
+  const removeRecord = (indexToRemove) => {
+    console.log('Removing index:', indexToRemove, 'Total records:', formData.ledgerRecordDTOList.length);
     if (formData.ledgerRecordDTOList.length > 1) {
       setFormData(prev => ({
         ...prev,
-        ledgerRecordDTOList: prev.ledgerRecordDTOList.filter((_, i) => i !== index)
+        ledgerRecordDTOList: prev.ledgerRecordDTOList.filter((_, i) => i !== indexToRemove)
       }));
+      
+      // Reindex search states after removal
+      setBuyerSearches(prev => {
+        const newSearches = {};
+        Object.keys(prev).forEach(key => {
+          const idx = parseInt(key);
+          if (idx < indexToRemove) {
+            newSearches[idx] = prev[key];
+          } else if (idx > indexToRemove) {
+            newSearches[idx - 1] = prev[key];
+          }
+        });
+        return newSearches;
+      });
+      
+      setProductSearches(prev => {
+        const newSearches = {};
+        Object.keys(prev).forEach(key => {
+          const idx = parseInt(key);
+          if (idx < indexToRemove) {
+            newSearches[idx] = prev[key];
+          } else if (idx > indexToRemove) {
+            newSearches[idx - 1] = prev[key];
+          }
+        });
+        return newSearches;
+      });
     }
   };
 
@@ -1130,7 +1159,7 @@ const TransactionDetailEnhanced = () => {
               </thead>
               <tbody>
                 {formData.ledgerRecordDTOList.map((record, index) => (
-                  <tr key={index}>
+                  <tr key={`record-${index}-${record.buyerName || ''}-${record.productId || ''}`}>
                     <td style={{ padding: '8px', border: `1px solid ${theme.border}`, color: theme.textPrimary, textAlign: 'center' }}>
                       {index + 1}
                     </td>
@@ -1512,7 +1541,11 @@ const TransactionDetailEnhanced = () => {
                     <td style={{ padding: '4px', border: `1px solid ${theme.border}`, textAlign: 'center' }}>
                       {formData.ledgerRecordDTOList.length > 1 && (
                         <button
-                          onClick={() => removeRecord(index)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeRecord(index);
+                          }}
                           style={{
                             backgroundColor: '#dc3545',
                             color: 'white',

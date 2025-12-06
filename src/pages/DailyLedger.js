@@ -20,6 +20,14 @@ const DailyLedger = () => {
 
   const brokerId = localStorage.getItem('brokerId');
 
+  const scrollToBottom = () => {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   useEffect(() => {
     fetchCurrentFinancialYear();
     setDateInputValue(formatDateForDisplay(selectedDate));
@@ -142,6 +150,49 @@ const DailyLedger = () => {
       minHeight: '100vh',
       color: theme.textPrimary
     }}>
+      {/* Fixed Date Display */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '20px',
+        backgroundColor: theme.cardBackground,
+        color: theme.textPrimary,
+        padding: '8px 12px',
+        borderRadius: '6px',
+        fontSize: '14px',
+        fontWeight: '600',
+        zIndex: 1000,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        border: `1px solid ${theme.border}`
+      }}>
+        {formatDateForDisplay(selectedDate)}
+      </div>
+
+      {/* Scroll to Bottom Button */}
+      <button
+        onClick={scrollToBottom}
+        style={{
+          position: 'fixed',
+          top: '70px',
+          right: '20px',
+          backgroundColor: theme.primary || '#007bff',
+          color: 'white',
+          border: 'none',
+          borderRadius: '50%',
+          width: '40px',
+          height: '40px',
+          cursor: 'pointer',
+          fontSize: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }}
+        title="Scroll to bottom"
+      >
+        ∨
+      </button>
       <div className="header-section" style={{ marginBottom: '30px' }}>
         <h1 style={{ color: theme.textPrimary, marginBottom: '20px' }}>Daily Ledger - {formatDateForDisplay(selectedDate)}</h1>
 
@@ -498,6 +549,55 @@ const DailyLedger = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add New Transaction Button at Bottom */}
+      {ledgerData.length > 0 && (
+        <div style={{ textAlign: 'center', marginTop: '30px', marginBottom: '20px' }}>
+          <button
+            onClick={handleAddNewTransaction}
+            style={{
+              backgroundColor: theme.primary || '#007bff',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            Add New Transaction
+          </button>
+        </div>
+      )}
+
+      {/* Scroll to Top Button */}
+      {ledgerData.length > 0 && (
+        <button
+          onClick={scrollToTop}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: theme.primary || '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            cursor: 'pointer',
+            fontSize: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          }}
+          title="Scroll to top"
+        >
+          ∧
+        </button>
       )}
     </div>
   );
