@@ -34,6 +34,8 @@ import About from './pages/About';
 import PhoneDirectory from './pages/PhoneDirectory';
 import JsonTransactionInput from './pages/JsonTransactionInput';
 import CityMerchantsPage from './pages/CityMerchantsPage';
+import BrokerageTracker from './pages/BrokerageTracker';
+import CityMerchantsBrokerage from './pages/CityMerchantsBrokerage';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -292,6 +294,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CityMerchantsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/brokerage-tracker"
+                element={
+                  <ProtectedRoute>
+                    <BrokerageTracker />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/city-merchants-brokerage"
+                element={
+                  <ProtectedRoute>
+                    <CityMerchantsBrokerage />
                   </ProtectedRoute>
                 }
               />

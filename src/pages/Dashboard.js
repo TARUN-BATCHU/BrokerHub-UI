@@ -3427,6 +3427,57 @@ const Dashboard = () => {
                 </p>
               </Link>
 
+              {/* Brokerage Tracker Service Card */}
+              <Link
+                to="/brokerage-tracker"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  📊
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Brokerage Tracker
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Track and manage brokerage payments and transactions
+                </p>
+              </Link>
+
               {/* Placeholder for future services */}
               <div style={{
                 backgroundColor: theme.background,

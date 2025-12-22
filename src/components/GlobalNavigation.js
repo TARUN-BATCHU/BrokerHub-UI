@@ -69,7 +69,8 @@ const GlobalNavigation = () => {
       icon: '💰',
       items: [
         { path: '/brokerage/users', label: 'User Brokerage', icon: '👥' },
-        { path: '/brokerage/bulk', label: 'Bulk Operations', icon: '🚀' }
+        { path: '/brokerage/bulk', label: 'Bulk Operations', icon: '🚀' },
+        { path: '/brokerage-tracker', label: 'Brokerage Tracker', icon: '📊' }
       ]
     },
     {

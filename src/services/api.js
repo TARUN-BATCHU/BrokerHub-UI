@@ -269,6 +269,16 @@ export const userAPI = {
     }
   },
 
+  // Alias for getCities
+  getCities: async () => {
+    try {
+      const response = await api.get('/user/cities');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Get merchants by city
   getMerchantsByCity: async (city) => {
     try {
