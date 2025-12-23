@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import FormInput from '../components/FormInput';
 import LoadingButton from '../components/LoadingButton';
+import SubscriptionModal from '../components/SubscriptionModal';
 import { useAuth } from '../contexts/AuthContext';
 import { validateLoginForm } from '../utils/validation';
 import { useTheme } from '../contexts/ThemeContext';
@@ -21,6 +22,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState('');
 
   useEffect(() => {
     // Check for success message from navigation state
@@ -85,8 +88,13 @@ const Login = () => {
     } catch (error) {
       console.error('Login error:', error);
 
-      // Handle different error scenarios
-      if (error.status === 401) {
+      // Handle subscription errors
+      if (error.errorCode === 'SUBSCRIPTION_INACTIVE' || 
+          error.errorCode === 'SUBSCRIPTION_EXPIRED' || 
+          error.errorCode === 'SUBSCRIPTION_SUSPENDED') {
+        setSubscriptionError(error.errorCode);
+        setShowSubscriptionModal(true);
+      } else if (error.status === 401) {
         setApiError('Invalid username or password. Please try again.');
       } else if (error.status === 403) {
         setApiError('Account access denied. Please contact support.');
@@ -101,14 +109,21 @@ const Login = () => {
   };
 
   return (
-    <div
-      className="auth-container"
-      style={{
-        backgroundColor: theme.background,
-        transition: 'background-color 0.3s ease'
-      }}
-      data-theme={theme.isDarkMode ? 'dark' : 'light'}
-    >
+    <>
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        errorCode={subscriptionError}
+      />
+      
+      <div
+        className="auth-container"
+        style={{
+          backgroundColor: theme.background,
+          transition: 'background-color 0.3s ease'
+        }}
+        data-theme={theme.isDarkMode ? 'dark' : 'light'}
+      >
 
       <div className="auth-card" style={{
         backgroundColor: theme.cardBackground,
@@ -187,6 +202,7 @@ const Login = () => {
         </form>
       </div>
     </div>
+    </>
   );
 };
 

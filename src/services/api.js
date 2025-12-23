@@ -1128,4 +1128,7 @@ export const contactsAPI = {
   }
 };
 
+// Export subscription API
+export { subscriptionAPI } from './subscriptionAPI';
+
 export default api;

@@ -34,6 +34,10 @@ import About from './pages/About';
 import PhoneDirectory from './pages/PhoneDirectory';
 import JsonTransactionInput from './pages/JsonTransactionInput';
 import CityMerchantsPage from './pages/CityMerchantsPage';
+import SubscriptionPlans from './pages/SubscriptionPlans';
+import Subscribe from './pages/Subscribe';
+import CurrentSubscription from './pages/CurrentSubscription';
+import AdminSubscriptions from './pages/AdminSubscriptions';
 import GlobalNavigation from './components/GlobalNavigation';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -292,6 +296,40 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CityMerchantsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Subscription routes */}
+              <Route
+                path="/subscriptions/plans"
+                element={
+                  <ProtectedRoute>
+                    <SubscriptionPlans />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/subscriptions/subscribe/:planId"
+                element={
+                  <ProtectedRoute>
+                    <Subscribe />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/subscriptions/current"
+                element={
+                  <ProtectedRoute>
+                    <CurrentSubscription />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/subscriptions"
+                element={
+                  <ProtectedRoute>
+                    <AdminSubscriptions />
                   </ProtectedRoute>
                 }
               />
