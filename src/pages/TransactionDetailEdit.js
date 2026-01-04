@@ -258,7 +258,7 @@ const TransactionDetailEdit = () => {
           ...prev,
           brokerId: parseInt(localStorage.getItem('brokerId')),
           financialYearId: prev.financialYearId,
-          sellerBrokerage: data.transactionSummary?.averageBrokeragePerBag || 0,
+          sellerBrokerage: data.fromSeller?.sellerBrokerage || 0,
           brokerage: data.transactionSummary?.totalBrokerageInTransaction || 0,
           fromSeller: data.fromSeller.userId,
           date: formatDateForDisplay(data.transactionDate),
