@@ -32,6 +32,21 @@ export const bulkBillService = {
   },
 
   /**
+   * Download bulk bills in print format
+   * @param {number[]} userIds - Array of user IDs
+   * @param {number} financialYearId - Financial year ID
+   * @returns {Promise<Blob>} ZIP file blob
+   */
+  async downloadPrintBills(userIds, financialYearId) {
+    const response = await api.post(
+      `/Brokerage/bulk-print-bills/${financialYearId}`,
+      userIds,
+      { responseType: 'blob' }
+    );
+    return response.data;
+  },
+
+  /**
    * Trigger file download in browser
    * @param {Blob} blob - File blob
    * @param {string} filename - Download filename

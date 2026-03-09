@@ -21,6 +21,9 @@ export const useBulkBills = () => {
       if (format === 'html') {
         blob = await bulkBillService.downloadHtmlBills(userIds, financialYearId);
         filename = `bulk-bills-html-FY${financialYearId}.zip`;
+      } else if (format === 'print') {
+        blob = await bulkBillService.downloadPrintBills(userIds, financialYearId);
+        filename = `bulk-bills-print-FY${financialYearId}.zip`;
       } else {
         blob = await bulkBillService.downloadExcelBills(userIds, financialYearId);
         filename = `bulk-bills-excel-FY${financialYearId}.zip`;

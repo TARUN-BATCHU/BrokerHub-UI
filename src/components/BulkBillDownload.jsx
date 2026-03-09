@@ -74,6 +74,17 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
             />
             <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>HTML Format (.html)</span>
           </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="radio"
+              value="print"
+              checked={format === 'print'}
+              onChange={(e) => setFormat(e.target.value)}
+              disabled={isLoading}
+              style={{ transform: 'scale(1.2)' }}
+            />
+            <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>Print Format (.html)</span>
+          </label>
         </div>
       </div>
 
