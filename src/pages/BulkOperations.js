@@ -321,7 +321,8 @@ const BulkOperations = () => {
                         cursor: 'pointer',
                         borderBottom: index < getFilteredCities().length - 1 ? '1px solid #e2e8f0' : 'none',
                         transition: 'background-color 0.2s ease',
-                        backgroundColor: city === selectedCity ? '#f0f4ff' : 'transparent'
+                        backgroundColor: city === selectedCity ? '#f0f4ff' : 'transparent',
+                        color: '#2d3748'
                       }}
                       onMouseEnter={(e) => e.target.style.backgroundColor = '#f7fafc'}
                       onMouseLeave={(e) => e.target.style.backgroundColor = city === selectedCity ? '#f0f4ff' : 'transparent'}

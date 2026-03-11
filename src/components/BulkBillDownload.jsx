@@ -1,20 +1,42 @@
 import React, { useState } from 'react';
 import { useBulkBills } from '../hooks/useBulkBills';
+import { useTheme } from '../contexts/ThemeContext';
+import CustomBrokerageModal from './CustomBrokerageModal';
 import SuccessToast from './SuccessToast';
 import '../styles/BulkBillDownload.css';
 
 const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
+  const { theme } = useTheme();
   const { downloadBulkBills, isLoading, error, clearError } = useBulkBills();
   const [format, setFormat] = useState('excel');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showModal, setShowModal] = useState(false);
 
-  const handleDownload = async () => {
+  const isDark = theme.name === 'dark';
+  
+  // Theme-aware colors
+  const colors = {
+    bodyText: isDark ? '#e2e8f0' : '#2d3748',
+    secondaryText: isDark ? '#94a3b8' : '#718096',
+    stepBadgeBg: 'linear-gradient(135deg, #667eea, #764ba2)',
+    successGradient: 'linear-gradient(135deg, #48bb78, #38a169)',
+    errorBg: isDark ? '#7f1d1d' : '#fed7d7',
+    errorText: isDark ? '#fca5a5' : '#c53030',
+    infoBg: isDark ? '#334155' : '#f7fafc',
+    infoText: isDark ? '#e2e8f0' : '#2d3748',
+    infoSecondary: isDark ? '#94a3b8' : '#718096'
+  };
+
+  const handleDownload = () => {
     if (!selectedUsers || selectedUsers.length === 0) {
       return;
     }
+    setShowModal(true);
+  };
 
+  const handleConfirmDownload = async (customBrokerage) => {
     const userIds = selectedUsers.map(user => user.userId);
-    const result = await downloadBulkBills(userIds, financialYearId, format);
+    const result = await downloadBulkBills(userIds, financialYearId, format, customBrokerage);
     
     if (result?.success) {
       setSuccessMessage(result.message);
@@ -30,7 +52,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
         marginBottom: '1.5rem'
       }}>
         <div style={{ 
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
+          background: colors.stepBadgeBg,
           color: 'white',
           width: '40px',
           height: '40px',
@@ -43,7 +65,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
         }}>3</div>
         <h3 style={{ 
           margin: 0, 
-          color: '#2d3748', 
+          color: colors.bodyText, 
           fontSize: '1.5rem', 
           fontWeight: '700'
         }}>Download Bulk Bills</h3>
@@ -61,7 +83,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
               disabled={isLoading}
               style={{ transform: 'scale(1.2)' }}
             />
-            <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>Excel Format (.xlsx)</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: '600', color: colors.bodyText }}>Excel Format (.xlsx)</span>
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input
@@ -72,7 +94,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
               disabled={isLoading}
               style={{ transform: 'scale(1.2)' }}
             />
-            <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>HTML Format (.html)</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: '600', color: colors.bodyText }}>HTML Format (.html)</span>
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input
@@ -83,7 +105,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
               disabled={isLoading}
               style={{ transform: 'scale(1.2)' }}
             />
-            <span style={{ fontSize: '1.1rem', fontWeight: '600' }}>Print Format (.html)</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: '600', color: colors.bodyText }}>Print Format (.html)</span>
           </label>
         </div>
       </div>
@@ -96,7 +118,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
         style={{
           width: '100%',
           padding: '1.5rem',
-          background: isLoading ? '#cbd5e0' : 'linear-gradient(135deg, #48bb78, #38a169)',
+          background: isLoading ? '#cbd5e0' : colors.successGradient,
           color: 'white',
           border: 'none',
           borderRadius: '15px',
@@ -138,8 +160,8 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
       {/* Error Display */}
       {error && (
         <div style={{ 
-          background: '#fed7d7', 
-          color: '#c53030', 
+          background: colors.errorBg, 
+          color: colors.errorText, 
           padding: '1rem', 
           borderRadius: '8px', 
           margin: '1rem 0',
@@ -155,7 +177,7 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
               border: 'none',
               fontSize: '18px',
               cursor: 'pointer',
-              color: '#c53030'
+              color: colors.errorText
             }}
           >×</button>
         </div>
@@ -164,20 +186,27 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
       {/* Selected Users Info */}
       {selectedUsers && selectedUsers.length > 0 && (
         <div style={{ 
-          background: '#f7fafc', 
+          background: colors.infoBg, 
           padding: '1rem', 
           borderRadius: '8px', 
           marginTop: '1rem' 
         }}>
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600' }}>
+          <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: colors.infoText }}>
             Selected {selectedUsers.length} users for FY {financialYearId}
           </p>
-          <div style={{ fontSize: '0.9rem', color: '#718096' }}>
+          <div style={{ fontSize: '0.9rem', color: colors.infoSecondary }}>
             {selectedUsers.slice(0, 3).map(user => user.firmName).join(', ')}
             {selectedUsers.length > 3 && ` and ${selectedUsers.length - 3} more`}
           </div>
         </div>
       )}
+      
+      <CustomBrokerageModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleConfirmDownload}
+        title="Download Bulk Bills"
+      />
       
       <SuccessToast 
         message={successMessage}

@@ -5,7 +5,7 @@ export const useBulkBills = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const downloadBulkBills = async (userIds, financialYearId, format = 'excel') => {
+  const downloadBulkBills = async (userIds, financialYearId, format = 'excel', customBrokerage = null) => {
     if (!userIds || userIds.length === 0) {
       setError('Please select at least one user');
       return;
@@ -19,13 +19,13 @@ export const useBulkBills = () => {
       let filename;
 
       if (format === 'html') {
-        blob = await bulkBillService.downloadHtmlBills(userIds, financialYearId);
+        blob = await bulkBillService.downloadHtmlBills(userIds, financialYearId, customBrokerage);
         filename = `bulk-bills-html-FY${financialYearId}.zip`;
       } else if (format === 'print') {
-        blob = await bulkBillService.downloadPrintBills(userIds, financialYearId);
+        blob = await bulkBillService.downloadPrintBills(userIds, financialYearId, customBrokerage);
         filename = `bulk-bills-print-FY${financialYearId}.zip`;
       } else {
-        blob = await bulkBillService.downloadExcelBills(userIds, financialYearId);
+        blob = await bulkBillService.downloadExcelBills(userIds, financialYearId, customBrokerage);
         filename = `bulk-bills-excel-FY${financialYearId}.zip`;
       }
 

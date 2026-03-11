@@ -353,7 +353,7 @@ const DailyLedger = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 style={{ margin: '0', fontWeight: 'bold', display: 'flex', gap: '20px' }}>
                     <span style={{ color: theme.textPrimary }}>{brokerData.transactionNumber}</span>
-                    <span style={{ color: theme.primary || '#007bff' }}>Seller : {brokerData.sellerName}{brokerData.sellerLocation && <span style={{ color: 'white' }}> - {brokerData.sellerLocation}</span>}</span>
+                    <span style={{ color: theme.primary || '#007bff' }}>Seller : {brokerData.sellerName}{brokerData.sellerLocation && <span style={{ color: theme.textPrimary }}> - {brokerData.sellerLocation}</span>}</span>
                   </h3>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button

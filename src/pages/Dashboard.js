@@ -3427,6 +3427,261 @@ const Dashboard = () => {
                 </p>
               </Link>
 
+              {/* Contacts Service Card */}
+              <Link
+                to="/contacts"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  📞
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Contacts
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  View and manage all your merchant contacts in one place
+                </p>
+              </Link>
+
+              {/* Create Merchant Service Card */}
+              <Link
+                to="/create-merchant"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  ➕
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Create Merchant
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Add a new merchant to your network quickly and easily
+                </p>
+              </Link>
+
+              {/* Products Service Card */}
+              <Link
+                to="/products"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  🌾
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Products
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Browse and manage your product catalog and inventory
+                </p>
+              </Link>
+
+              {/* Merchants Service Card */}
+              <Link
+                to="/merchants"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  👥
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Merchants
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  View complete merchant directory and manage all merchants
+                </p>
+              </Link>
+
+              {/* Route Explorer Service Card */}
+              <Link
+                to="/route-explorer"
+                style={{
+                  textDecoration: 'none',
+                  backgroundColor: theme.background,
+                  borderRadius: '12px',
+                  padding: '24px',
+                  border: `1px solid ${theme.border}`,
+                  transition: 'all 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = theme.shadowHover;
+                  e.currentTarget.style.borderColor = theme.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.borderColor = theme.border;
+                }}
+              >
+                <div style={{
+                  fontSize: '48px',
+                  marginBottom: '12px'
+                }}>
+                  🗺️
+                </div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  color: theme.textPrimary,
+                  fontSize: '18px',
+                  fontWeight: '600'
+                }}>
+                  Route Explorer
+                </h3>
+                <p style={{
+                  margin: 0,
+                  color: theme.textSecondary,
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Explore and manage delivery routes and addresses
+                </p>
+              </Link>
+
               {/* Placeholder for future services */}
               <div style={{
                 backgroundColor: theme.background,

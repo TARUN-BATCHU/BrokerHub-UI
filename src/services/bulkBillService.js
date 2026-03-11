@@ -5,13 +5,15 @@ export const bulkBillService = {
    * Download bulk bills in HTML format
    * @param {number[]} userIds - Array of user IDs
    * @param {number} financialYearId - Financial year ID
+   * @param {number|null} customBrokerage - Optional custom brokerage amount
    * @returns {Promise<Blob>} ZIP file blob
    */
-  async downloadHtmlBills(userIds, financialYearId) {
+  async downloadHtmlBills(userIds, financialYearId, customBrokerage = null) {
+    const params = customBrokerage ? { customBrokerage } : {};
     const response = await api.post(
       `/Brokerage/bulk-bills/html/${financialYearId}`,
       userIds,
-      { responseType: 'blob' }
+      { responseType: 'blob', params }
     );
     return response.data;
   },
@@ -20,13 +22,15 @@ export const bulkBillService = {
    * Download bulk bills in Excel format
    * @param {number[]} userIds - Array of user IDs
    * @param {number} financialYearId - Financial year ID
+   * @param {number|null} customBrokerage - Optional custom brokerage amount
    * @returns {Promise<Blob>} ZIP file blob
    */
-  async downloadExcelBills(userIds, financialYearId) {
+  async downloadExcelBills(userIds, financialYearId, customBrokerage = null) {
+    const params = customBrokerage ? { customBrokerage } : {};
     const response = await api.post(
       `/Brokerage/bulk-bills/excel/${financialYearId}`,
       userIds,
-      { responseType: 'blob' }
+      { responseType: 'blob', params }
     );
     return response.data;
   },
@@ -35,13 +39,15 @@ export const bulkBillService = {
    * Download bulk bills in print format
    * @param {number[]} userIds - Array of user IDs
    * @param {number} financialYearId - Financial year ID
+   * @param {number|null} customBrokerage - Optional custom brokerage amount
    * @returns {Promise<Blob>} ZIP file blob
    */
-  async downloadPrintBills(userIds, financialYearId) {
+  async downloadPrintBills(userIds, financialYearId, customBrokerage = null) {
+    const params = customBrokerage ? { customBrokerage } : {};
     const response = await api.post(
       `/Brokerage/bulk-print-bills/${financialYearId}`,
       userIds,
-      { responseType: 'blob' }
+      { responseType: 'blob', params }
     );
     return response.data;
   },
