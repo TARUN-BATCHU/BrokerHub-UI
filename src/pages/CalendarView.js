@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { analyticsAPI, dailyLedgerAPI } from '../services/api';
+import { analyticsAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
-import { formatDateForDisplay, formatDateWithOrdinal } from '../utils/dateUtils';
+import { formatDateWithOrdinal } from '../utils/dateUtils';
+import { Bar, Pie, Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale, LinearScale, BarElement, ArcElement,
+  PointElement, LineElement, Title, Tooltip, Legend
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend);
 
 const CalendarView = () => {
   const location = useLocation();
@@ -13,35 +21,29 @@ const CalendarView = () => {
   const { financialYear } = location.state || {};
 
   const [analyticsData, setAnalyticsData] = useState(null);
-  const [topPerformers, setTopPerformers] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [dailyLedgerData, setDailyLedgerData] = useState(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('monthly');
 
   useEffect(() => {
     if (!financialYear) {
       navigate('/financial-years');
-      return;
     }
-    loadAnalyticsData();
   }, [financialYear, navigate]);
 
-  const loadAnalyticsData = async () => {
+  const handleOpenAnalytics = async () => {
+    setShowAnalyticsModal(true);
+    if (analyticsData) return; // already loaded
+    setAnalyticsLoading(true);
     try {
-      const brokerId = localStorage.getItem('brokerId');
-      if (!brokerId) {
-        navigate('/login');
-        return;
-      }
-
-      const analytics = await analyticsAPI.getFinancialYearAnalytics(brokerId, financialYear.yearId);
-
-      setAnalyticsData(analytics);
+      const data = await analyticsAPI.getFinancialYearAnalytics(financialYear.yearId);
+      setAnalyticsData(data);
     } catch (error) {
       console.error('Error loading analytics:', error);
     } finally {
-      setLoading(false);
+      setAnalyticsLoading(false);
     }
   };
 
@@ -120,20 +122,6 @@ const CalendarView = () => {
     return null;
   }
 
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: theme.background
-      }}>
-        <div style={{ fontSize: '24px', color: theme.textPrimary }}>Loading...</div>
-      </div>
-    );
-  }
-
   const months = generateCalendar();
   const monthsPerRow = isMobile ? 1 : 4;
 
@@ -177,7 +165,7 @@ const CalendarView = () => {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => navigate('/ledger-management')}
               style={{
@@ -203,7 +191,7 @@ const CalendarView = () => {
             </button>
 
             <button
-              onClick={() => setShowAnalyticsModal(true)}
+              onClick={handleOpenAnalytics}
               style={{
                 width: '48px',
                 height: '48px',
@@ -247,60 +235,7 @@ const CalendarView = () => {
           </div>
         </div>
 
-        {/* Summary Stats */}
-        {analyticsData && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(auto-fit, minmax(200px, 1fr))`,
-            gap: '16px',
-            marginTop: '20px'
-          }}>
-            <div style={{
-              backgroundColor: theme.background,
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: theme.primary }}>
-                {formatCurrency(analyticsData.totalBrokerage)}
-              </div>
-              <div style={{ fontSize: '12px', color: theme.textSecondary }}>Total Brokerage</div>
-            </div>
-            <div style={{
-              backgroundColor: theme.background,
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: theme.success }}>
-                {formatNumber(analyticsData.totalTransactions)}
-              </div>
-              <div style={{ fontSize: '12px', color: theme.textSecondary }}>Total Transactions</div>
-            </div>
-            <div style={{
-              backgroundColor: theme.background,
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: theme.info }}>
-                {formatNumber(analyticsData.totalQuantity)}
-              </div>
-              <div style={{ fontSize: '12px', color: theme.textSecondary }}>Total Quantity</div>
-            </div>
-            <div style={{
-              backgroundColor: theme.background,
-              padding: '16px',
-              borderRadius: '8px',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '24px', fontWeight: '700', color: theme.warning }}>
-                {formatCurrency(analyticsData.totalTransactionValue)}
-              </div>
-              <div style={{ fontSize: '12px', color: theme.textSecondary }}>Transaction Value</div>
-            </div>
-          </div>
-        )}
+
       </div>
 
       {/* Calendar Grid */}
@@ -389,106 +324,359 @@ const CalendarView = () => {
 
       {/* Analytics Modal */}
       {showAnalyticsModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 1000, padding: '16px'
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowAnalyticsModal(false)}
+        >
           <div style={{
             backgroundColor: theme.cardBackground,
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '900px',
+            maxHeight: '90vh',
             overflowY: 'auto',
-            boxShadow: theme.shadowModal
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
           }}>
+            {/* Modal Header */}
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px'
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '20px 24px',
+              borderBottom: `1px solid ${theme.border}`,
+              position: 'sticky', top: 0,
+              backgroundColor: theme.cardBackground,
+              borderRadius: '16px 16px 0 0',
+              zIndex: 1
             }}>
-              <h3 style={{ margin: 0, color: theme.textPrimary }}>Analytics Overview</h3>
+              <div>
+                <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: '20px', fontWeight: '700' }}>
+                  📊 Financial Year Analytics
+                </h3>
+                <p style={{ margin: '4px 0 0', color: theme.textSecondary, fontSize: '13px' }}>
+                  {financialYear?.financialYearName}
+                </p>
+              </div>
               <button
                 onClick={() => setShowAnalyticsModal(false)}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: theme.textSecondary
+                  background: 'none', border: 'none', fontSize: '24px',
+                  cursor: 'pointer', color: theme.textSecondary, lineHeight: 1
                 }}
-              >
-                ×
-              </button>
+              >×</button>
             </div>
 
-            {analyticsData ? (
-              <div>
-                <p style={{ color: theme.textSecondary, textAlign: 'center' }}>
-                  Detailed analytics graphs will be implemented here
-                </p>
-
-                {/* Top Performers */}
-                {topPerformers && (
-                  <div style={{ marginTop: '20px' }}>
-                    <h4 style={{ color: theme.textPrimary }}>Top Performers</h4>
-
-                    {topPerformers.topBuyers && topPerformers.topBuyers.length > 0 && (
-                      <div style={{ marginBottom: '16px' }}>
-                        <h5 style={{ color: theme.textSecondary, fontSize: '14px' }}>Top Buyers</h5>
-                        {topPerformers.topBuyers.map((buyer, index) => (
-                          <div key={index} style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            padding: '8px 0',
-                            borderBottom: `1px solid ${theme.borderLight}`
-                          }}>
-                            <span style={{ color: theme.textPrimary }}>{buyer.firmName}</span>
-                            <span style={{ color: theme.success }}>{formatCurrency(buyer.totalBrokerage)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {topPerformers.topSellers && topPerformers.topSellers.length > 0 && (
-                      <div>
-                        <h5 style={{ color: theme.textSecondary, fontSize: '14px' }}>Top Sellers</h5>
-                        {topPerformers.topSellers.map((seller, index) => (
-                          <div key={index} style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            padding: '8px 0',
-                            borderBottom: `1px solid ${theme.borderLight}`
-                          }}>
-                            <span style={{ color: theme.textPrimary }}>{seller.firmName}</span>
-                            <span style={{ color: theme.info }}>{formatCurrency(seller.totalBrokerage)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p style={{ color: theme.textSecondary, textAlign: 'center' }}>
-                Insert data to view graphs
-              </p>
-            )}
+            <div style={{ padding: '24px' }}>
+              {analyticsLoading ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: theme.textSecondary }}>
+                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>⏳</div>
+                  <p style={{ fontSize: '16px' }}>Loading analytics...</p>
+                </div>
+              ) : analyticsData ? (
+                <AnalyticsContent data={analyticsData} theme={theme} activeTab={activeTab} setActiveTab={setActiveTab} formatCurrency={formatCurrency} formatNumber={formatNumber} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: theme.textSecondary }}>
+                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>📭</div>
+                  <p>No analytics data available</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
 
+    </div>
+  );
+};
+
+const CHART_COLORS = [
+  '#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6',
+  '#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16',
+  '#06b6d4','#a855f7','#e11d48','#0ea5e9','#22c55e'
+];
+
+const AnalyticsContent = ({ data, theme, activeTab, setActiveTab, formatCurrency, formatNumber }) => {
+  const monthly = data.monthlyAnalytics || [];
+
+  // Summary KPIs
+  const totalBrokerage = monthly.reduce((s, m) => s + m.totalBrokerage, 0);
+  const totalTransactions = monthly.reduce((s, m) => s + m.totalTransactions, 0);
+  const totalQuantity = monthly.reduce((s, m) => s + m.totalQuantity, 0);
+  const totalValue = monthly.reduce((s, m) => s + m.totalTransactionValue, 0);
+
+  // Monthly brokerage bar chart
+  const monthlyBarData = {
+    labels: monthly.map(m => m.monthName.split(' ')[0]),
+    datasets: [{
+      label: 'Brokerage (₹)',
+      data: monthly.map(m => m.totalBrokerage),
+      backgroundColor: CHART_COLORS[0] + 'cc',
+      borderColor: CHART_COLORS[0],
+      borderWidth: 1,
+      borderRadius: 6
+    }]
+  };
+
+  // Monthly transactions line chart
+  const monthlyLineData = {
+    labels: monthly.map(m => m.monthName.split(' ')[0]),
+    datasets: [
+      {
+        label: 'Transactions',
+        data: monthly.map(m => m.totalTransactions),
+        borderColor: CHART_COLORS[2],
+        backgroundColor: CHART_COLORS[2] + '33',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4
+      },
+      {
+        label: 'Quantity (bags)',
+        data: monthly.map(m => m.totalQuantity),
+        borderColor: CHART_COLORS[1],
+        backgroundColor: CHART_COLORS[1] + '33',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        yAxisID: 'y1'
+      }
+    ]
+  };
+
+  // Top products pie
+  const topProducts = (data.overallProductTotals || [])
+    .sort((a, b) => b.totalBrokerage - a.totalBrokerage)
+    .slice(0, 8);
+  const productPieData = {
+    labels: topProducts.map(p => p.productName),
+    datasets: [{
+      data: topProducts.map(p => p.totalBrokerage),
+      backgroundColor: CHART_COLORS.slice(0, topProducts.length),
+      borderWidth: 2,
+      borderColor: theme.cardBackground
+    }]
+  };
+
+  // Top cities
+  const topCities = (data.overallCityTotals || [])
+    .sort((a, b) => b.totalBrokerage - a.totalBrokerage)
+    .slice(0, 10);
+
+  const chartOptions = (title) => ({
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: theme.textPrimary, font: { size: 11 } } },
+      title: { display: !!title, text: title, color: theme.textPrimary, font: { size: 13, weight: '600' } },
+      tooltip: { callbacks: { label: (ctx) => ` ₹${ctx.parsed.y?.toLocaleString('en-IN') ?? ctx.parsed.toLocaleString('en-IN')}` } }
+    },
+    scales: {
+      x: { ticks: { color: theme.textSecondary, font: { size: 10 } }, grid: { color: theme.border + '44' } },
+      y: { ticks: { color: theme.textSecondary, font: { size: 10 }, callback: v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v) }, grid: { color: theme.border + '44' } }
+    }
+  });
+
+  const lineOptions = {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: theme.textPrimary, font: { size: 11 } } },
+      tooltip: {}
+    },
+    scales: {
+      x: { ticks: { color: theme.textSecondary, font: { size: 10 } }, grid: { color: theme.border + '44' } },
+      y: { ticks: { color: theme.textSecondary, font: { size: 10 } }, grid: { color: theme.border + '44' } },
+      y1: { position: 'right', ticks: { color: theme.textSecondary, font: { size: 10 } }, grid: { drawOnChartArea: false } }
+    }
+  };
+
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'right', labels: { color: theme.textPrimary, font: { size: 11 }, boxWidth: 12 } },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ₹${ctx.parsed.toLocaleString('en-IN')}` } }
+    }
+  };
+
+  const kpiStyle = (color) => ({
+    backgroundColor: color + '18',
+    border: `1px solid ${color}44`,
+    borderRadius: '12px',
+    padding: '16px',
+    textAlign: 'center',
+    flex: 1,
+    minWidth: '120px'
+  });
+
+  const tabs = ['monthly', 'products', 'cities'];
+  const tabLabels = { monthly: '📅 Monthly', products: '🌾 Products', cities: '🏙️ Cities' };
+
+  return (
+    <div>
+      {/* KPI Cards */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        <div style={kpiStyle(CHART_COLORS[0])}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: CHART_COLORS[0] }}>{formatCurrency(totalBrokerage)}</div>
+          <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>Total Brokerage</div>
+        </div>
+        <div style={kpiStyle(CHART_COLORS[2])}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: CHART_COLORS[2] }}>{formatNumber(totalTransactions)}</div>
+          <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>Transactions</div>
+        </div>
+        <div style={kpiStyle(CHART_COLORS[1])}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: CHART_COLORS[1] }}>{formatNumber(totalQuantity)}</div>
+          <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>Total Quantity</div>
+        </div>
+        <div style={kpiStyle(CHART_COLORS[3])}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: CHART_COLORS[3] }}>{formatCurrency(totalValue)}</div>
+          <div style={{ fontSize: '11px', color: theme.textSecondary, marginTop: '4px' }}>Transaction Value</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '0' }}>
+        {tabs.map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: activeTab === tab ? '700' : '400',
+              color: activeTab === tab ? CHART_COLORS[0] : theme.textSecondary,
+              borderBottom: activeTab === tab ? `2px solid ${CHART_COLORS[0]}` : '2px solid transparent',
+              marginBottom: '-1px',
+              transition: 'all 0.2s'
+            }}
+          >{tabLabels[tab]}</button>
+        ))}
+      </div>
+
+      {/* Tab: Monthly */}
+      {activeTab === 'monthly' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>Monthly Brokerage</h4>
+            <Bar data={monthlyBarData} options={chartOptions()} />
+          </div>
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>Transactions & Quantity Trend</h4>
+            <Line data={monthlyLineData} options={lineOptions} />
+          </div>
+          {/* Monthly table */}
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px', overflowX: 'auto' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>Month-wise Summary</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
+                  {['Month','Brokerage','Transactions','Quantity','Value'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Month' ? 'left' : 'right', color: theme.textSecondary, fontWeight: '600', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {monthly.map((m, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: i % 2 === 0 ? 'transparent' : theme.border + '22' }}>
+                    <td style={{ padding: '8px 12px', color: theme.textPrimary, fontWeight: '500' }}>{m.monthName}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: CHART_COLORS[0], fontWeight: '600' }}>{formatCurrency(m.totalBrokerage)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textPrimary }}>{formatNumber(m.totalTransactions)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textPrimary }}>{formatNumber(m.totalQuantity)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textSecondary }}>{formatCurrency(m.totalTransactionValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Products */}
+      {activeTab === 'products' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>Top Products by Brokerage</h4>
+            <div style={{ maxWidth: '500px', margin: '0 auto' }}>
+              <Pie data={productPieData} options={pieOptions} />
+            </div>
+          </div>
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px', overflowX: 'auto' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>All Products</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
+                  {['Product','Brokerage','Qty','Transactions','Avg Price','Avg Brokerage/Unit'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Product' ? 'left' : 'right', color: theme.textSecondary, fontWeight: '600', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(data.overallProductTotals || []).sort((a,b) => b.totalBrokerage - a.totalBrokerage).map((p, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: i % 2 === 0 ? 'transparent' : theme.border + '22' }}>
+                    <td style={{ padding: '8px 12px', color: theme.textPrimary, fontWeight: '500' }}>{p.productName}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: CHART_COLORS[0], fontWeight: '600' }}>{formatCurrency(p.totalBrokerage)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textPrimary }}>{formatNumber(p.totalQuantity)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textPrimary }}>{formatNumber(p.totalTransactions)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textSecondary }}>₹{p.averagePrice?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textSecondary }}>₹{p.averageBrokeragePerUnit?.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Cities */}
+      {activeTab === 'cities' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>Top 10 Cities by Brokerage</h4>
+            <Bar
+              data={{
+                labels: topCities.map(c => c.cityName),
+                datasets: [{
+                  label: 'Brokerage (₹)',
+                  data: topCities.map(c => c.totalBrokerage),
+                  backgroundColor: CHART_COLORS.slice(0, topCities.length).map(c => c + 'cc'),
+                  borderColor: CHART_COLORS.slice(0, topCities.length),
+                  borderWidth: 1,
+                  borderRadius: 6
+                }]
+              }}
+              options={{ ...chartOptions(), indexAxis: 'y', plugins: { ...chartOptions().plugins, legend: { display: false } }, scales: { x: { ticks: { color: theme.textSecondary, font: { size: 10 }, callback: v => '₹'+(v>=1000?(v/1000).toFixed(0)+'K':v) }, grid: { color: theme.border+'44' } }, y: { ticks: { color: theme.textSecondary, font: { size: 10 } }, grid: { color: theme.border+'44' } } } }}
+            />
+          </div>
+          <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '16px', overflowX: 'auto' }}>
+            <h4 style={{ margin: '0 0 12px', color: theme.textPrimary, fontSize: '14px' }}>All Cities</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
+                  {['City','Brokerage','Transactions','Quantity','Value'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: h === 'City' ? 'left' : 'right', color: theme.textSecondary, fontWeight: '600', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(data.overallCityTotals || []).sort((a,b) => b.totalBrokerage - a.totalBrokerage).map((c, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: i % 2 === 0 ? 'transparent' : theme.border + '22' }}>
+                    <td style={{ padding: '8px 12px', color: theme.textPrimary, fontWeight: '500' }}>{c.cityName}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: CHART_COLORS[0], fontWeight: '600' }}>{formatCurrency(c.totalBrokerage)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textPrimary }}>{formatNumber(c.totalTransactions)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textPrimary }}>{formatNumber(c.totalQuantity)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: theme.textSecondary }}>{formatCurrency(c.totalTransactionValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -34,9 +34,9 @@ const BulkBillDownload = ({ selectedUsers, financialYearId }) => {
     setShowModal(true);
   };
 
-  const handleConfirmDownload = async (customBrokerage) => {
+  const handleConfirmDownload = async (customBrokerage, dateRange) => {
     const userIds = selectedUsers.map(user => user.userId);
-    const result = await downloadBulkBills(userIds, financialYearId, format, customBrokerage);
+    const result = await downloadBulkBills(userIds, financialYearId, format, customBrokerage, dateRange);
     
     if (result?.success) {
       setSuccessMessage(result.message);

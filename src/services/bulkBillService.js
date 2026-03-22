@@ -57,6 +57,27 @@ export const bulkBillService = {
    * @param {Blob} blob - File blob
    * @param {string} filename - Download filename
    */
+  async downloadHtmlBillsDateRange(userIds, startDate, endDate, customBrokerage = null) {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.post('/Brokerage/date-range/bulk-bills/html', userIds, { responseType: 'blob', params });
+    return response.data;
+  },
+
+  async downloadExcelBillsDateRange(userIds, startDate, endDate, customBrokerage = null) {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.post('/Brokerage/date-range/bulk-bills/excel', userIds, { responseType: 'blob', params });
+    return response.data;
+  },
+
+  async downloadPrintBillsDateRange(userIds, startDate, endDate, customBrokerage = null) {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.post('/Brokerage/date-range/bulk-print-bills', userIds, { responseType: 'blob', params });
+    return response.data;
+  },
+
   triggerDownload(blob, filename) {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');

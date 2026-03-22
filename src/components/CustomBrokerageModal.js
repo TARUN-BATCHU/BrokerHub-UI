@@ -1,20 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { financialYearAPI } from '../services/api';
 
 const CustomBrokerageModal = ({ isOpen, onClose, onConfirm, title = "Custom Brokerage" }) => {
   const { theme } = useTheme();
   const [customBrokerage, setCustomBrokerage] = useState('');
   const [useCustom, setUseCustom] = useState(false);
+  const [isFullBill, setIsFullBill] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [dateMin, setDateMin] = useState('');
+  const [dateMax, setDateMax] = useState('');
+
+  useEffect(() => {
+    if (isOpen && !isFullBill) {
+      loadCurrentFYDates();
+    }
+  }, [isOpen, isFullBill]);
+
+  const loadCurrentFYDates = async () => {
+    try {
+      const [currentYearId, allYears] = await Promise.all([
+        financialYearAPI.getCurrentFinancialYear(),
+        financialYearAPI.getAllFinancialYears()
+      ]);
+      const currentFY = allYears.find(y => (y.yearId || y.financialYearId) === currentYearId);
+      if (currentFY) {
+        setDateMin(currentFY.start);
+        setDateMax(currentFY.end);
+      }
+    } catch (e) {
+      console.error('Failed to load financial year dates', e);
+    }
+  };
+
+  const isDateRangeValid = startDate && endDate && startDate <= endDate;
 
   const handleConfirm = () => {
     const brokerageValue = useCustom && customBrokerage ? parseFloat(customBrokerage) : null;
-    onConfirm(brokerageValue);
+    if (!isFullBill) {
+      onConfirm(brokerageValue, { startDate, endDate });
+    } else {
+      onConfirm(brokerageValue, null);
+    }
     handleClose();
   };
 
   const handleClose = () => {
     setCustomBrokerage('');
     setUseCustom(false);
+    setIsFullBill(true);
+    setStartDate('');
+    setEndDate('');
+    setDateMin('');
+    setDateMax('');
     onClose();
   };
 
@@ -176,6 +215,84 @@ const CustomBrokerageModal = ({ isOpen, onClose, onConfirm, title = "Custom Brok
           )}
         </div>
 
+        {/* Full Bill Toggle */}
+        <div style={{
+          borderTop: `1px solid ${theme.border}`,
+          paddingTop: 'var(--space-5)',
+          marginBottom: 'var(--space-5)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: isFullBill ? 0 : 'var(--space-4)'
+          }}>
+            <span style={{ fontWeight: '700', fontSize: '0.95rem', color: theme.textPrimary, letterSpacing: '0.05em' }}>
+              FULL BILL
+            </span>
+            <button
+              type="button"
+              onClick={() => { setIsFullBill(v => !v); setStartDate(''); setEndDate(''); }}
+              style={{
+                width: '52px',
+                height: '28px',
+                borderRadius: '14px',
+                border: 'none',
+                cursor: 'pointer',
+                background: isFullBill ? 'var(--color-primary)' : theme.border,
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0
+              }}
+            >
+              <span style={{
+                position: 'absolute',
+                top: '3px',
+                left: isFullBill ? '27px' : '3px',
+                width: '22px',
+                height: '22px',
+                borderRadius: '50%',
+                background: 'white',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.2)'
+              }} />
+            </button>
+          </div>
+
+          {!isFullBill && (
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: theme.textSecondary, marginBottom: 'var(--space-1)' }}>
+                  Start Date *
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  min={dateMin}
+                  max={endDate || dateMax}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="modern-input"
+                  style={{ width: '100%', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', color: theme.textSecondary, marginBottom: 'var(--space-1)' }}>
+                  End Date *
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || dateMin}
+                  max={dateMax}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="modern-input"
+                  style={{ width: '100%', background: theme.cardBackground, color: theme.textPrimary, border: `1px solid ${theme.border}` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         <div style={{
           display: 'flex',
           gap: 'var(--space-3)',
@@ -190,9 +307,12 @@ const CustomBrokerageModal = ({ isOpen, onClose, onConfirm, title = "Custom Brok
           </button>
           <button
             onClick={handleConfirm}
-            disabled={useCustom && (!customBrokerage || parseFloat(customBrokerage) < 0)}
+            disabled={
+              (useCustom && (!customBrokerage || parseFloat(customBrokerage) < 0)) ||
+              (!isFullBill && !isDateRangeValid)
+            }
             className={`modern-button modern-button-primary ${
-              useCustom && (!customBrokerage || parseFloat(customBrokerage) < 0) ? 'opacity-50' : ''
+              ((useCustom && (!customBrokerage || parseFloat(customBrokerage) < 0)) || (!isFullBill && !isDateRangeValid)) ? 'opacity-50' : ''
             }`}
             style={{ padding: 'var(--space-3) var(--space-6)' }}
           >

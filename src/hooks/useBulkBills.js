@@ -5,7 +5,7 @@ export const useBulkBills = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const downloadBulkBills = async (userIds, financialYearId, format = 'excel', customBrokerage = null) => {
+  const downloadBulkBills = async (userIds, financialYearId, format = 'excel', customBrokerage = null, dateRange = null) => {
     if (!userIds || userIds.length === 0) {
       setError('Please select at least one user');
       return;
@@ -18,15 +18,29 @@ export const useBulkBills = () => {
       let blob;
       let filename;
 
-      if (format === 'html') {
-        blob = await bulkBillService.downloadHtmlBills(userIds, financialYearId, customBrokerage);
-        filename = `bulk-bills-html-FY${financialYearId}.zip`;
-      } else if (format === 'print') {
-        blob = await bulkBillService.downloadPrintBills(userIds, financialYearId, customBrokerage);
-        filename = `bulk-bills-print-FY${financialYearId}.zip`;
+      if (dateRange) {
+        const { startDate, endDate } = dateRange;
+        if (format === 'html') {
+          blob = await bulkBillService.downloadHtmlBillsDateRange(userIds, startDate, endDate, customBrokerage);
+          filename = `bulk-bills-html-${startDate}-to-${endDate}.zip`;
+        } else if (format === 'print') {
+          blob = await bulkBillService.downloadPrintBillsDateRange(userIds, startDate, endDate, customBrokerage);
+          filename = `bulk-print-bills-${startDate}-to-${endDate}.zip`;
+        } else {
+          blob = await bulkBillService.downloadExcelBillsDateRange(userIds, startDate, endDate, customBrokerage);
+          filename = `bulk-bills-excel-${startDate}-to-${endDate}.zip`;
+        }
       } else {
-        blob = await bulkBillService.downloadExcelBills(userIds, financialYearId, customBrokerage);
-        filename = `bulk-bills-excel-FY${financialYearId}.zip`;
+        if (format === 'html') {
+          blob = await bulkBillService.downloadHtmlBills(userIds, financialYearId, customBrokerage);
+          filename = `bulk-bills-html-FY${financialYearId}.zip`;
+        } else if (format === 'print') {
+          blob = await bulkBillService.downloadPrintBills(userIds, financialYearId, customBrokerage);
+          filename = `bulk-bills-print-FY${financialYearId}.zip`;
+        } else {
+          blob = await bulkBillService.downloadExcelBills(userIds, financialYearId, customBrokerage);
+          filename = `bulk-bills-excel-FY${financialYearId}.zip`;
+        }
       }
 
       bulkBillService.triggerDownload(blob, filename);

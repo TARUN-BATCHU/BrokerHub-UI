@@ -129,25 +129,48 @@ const BrokerageUsers = () => {
     setCustomBrokerageModal({ isOpen: true, userId, format: 'print', firmName });
   };
 
-  const handleCustomBrokerageConfirm = async (customBrokerage) => {
+  const handleCustomBrokerageConfirm = async (customBrokerage, dateRange) => {
     const { userId, format, firmName } = customBrokerageModal;
     try {
-      if (format === 'bulk-bills') {
-        await brokerageAPI.bulkBillsByUsers(selectedUsers, selectedYear, customBrokerage);
-        alert('Bulk bill generation started. Check document status for progress.');
-      } else if (format === 'bulk-excel') {
-        await brokerageAPI.bulkExcelByUsers(selectedUsers, selectedYear, customBrokerage);
-        alert('Bulk Excel generation started. Check document status for progress.');
-      } else if (format === 'excel') {
-        await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage, firmName);
-      } else if (format === 'pdf') {
-        await brokerageAPI.downloadUserPdf(userId, selectedYear, customBrokerage, firmName);
-      } else if (format === 'print') {
-        await brokerageAPI.downloadPrintBill(userId, selectedYear, { customBrokerage, firmName });
-      } else if (format === 'print-city') {
-        await brokerageAPI.downloadCityWisePrintBill(userId, selectedYear, customBrokerage, firmName);
+      if (dateRange) {
+        const { startDate, endDate } = dateRange;
+        if (format === 'bulk-bills') {
+          const { bulkBillService } = await import('../services/bulkBillService');
+          const blob = await bulkBillService.downloadHtmlBillsDateRange(selectedUsers, startDate, endDate, customBrokerage);
+          bulkBillService.triggerDownload(blob, `bulk-bills-html-${startDate}-to-${endDate}.zip`);
+        } else if (format === 'bulk-excel') {
+          const { bulkBillService } = await import('../services/bulkBillService');
+          const blob = await bulkBillService.downloadExcelBillsDateRange(selectedUsers, startDate, endDate, customBrokerage);
+          bulkBillService.triggerDownload(blob, `bulk-bills-excel-${startDate}-to-${endDate}.zip`);
+        } else if (format === 'excel') {
+          await brokerageAPI.downloadUserExcelDateRange(userId, startDate, endDate, customBrokerage, firmName);
+        } else if (format === 'pdf') {
+          await brokerageAPI.downloadUserPdfDateRange(userId, startDate, endDate, customBrokerage, firmName);
+        } else if (format === 'print') {
+          await brokerageAPI.downloadPrintBillDateRange(userId, startDate, endDate, customBrokerage, firmName);
+        } else if (format === 'print-city') {
+          await brokerageAPI.downloadCityWisePrintBillDateRange(userId, startDate, endDate, customBrokerage, firmName);
+        } else {
+          await brokerageAPI.downloadUserBillDateRange(userId, startDate, endDate, customBrokerage, firmName);
+        }
       } else {
-        await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
+        if (format === 'bulk-bills') {
+          await brokerageAPI.bulkBillsByUsers(selectedUsers, selectedYear, customBrokerage);
+          alert('Bulk bill generation started. Check document status for progress.');
+        } else if (format === 'bulk-excel') {
+          await brokerageAPI.bulkExcelByUsers(selectedUsers, selectedYear, customBrokerage);
+          alert('Bulk Excel generation started. Check document status for progress.');
+        } else if (format === 'excel') {
+          await brokerageAPI.downloadUserExcel(userId, selectedYear, customBrokerage, firmName);
+        } else if (format === 'pdf') {
+          await brokerageAPI.downloadUserPdf(userId, selectedYear, customBrokerage, firmName);
+        } else if (format === 'print') {
+          await brokerageAPI.downloadPrintBill(userId, selectedYear, { customBrokerage, firmName });
+        } else if (format === 'print-city') {
+          await brokerageAPI.downloadCityWisePrintBill(userId, selectedYear, customBrokerage, firmName);
+        } else {
+          await brokerageAPI.downloadUserBill(userId, selectedYear, customBrokerage, firmName);
+        }
       }
     } catch (error) {
       console.error('Failed to download/generate:', error);

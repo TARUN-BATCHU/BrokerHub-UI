@@ -187,6 +187,72 @@ export const brokerageAPI = {
     return { success: true, filename };
   },
 
+  // Date-Range APIs
+  downloadUserBillDateRange: async (userId, startDate, endDate, customBrokerage = null, firmName = null) => {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.get(`/Brokerage/date-range/bill/${userId}`, { params, responseType: 'blob' });
+    const safeName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName}_bill_${startDate}_to_${endDate}.html`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  downloadUserPdfDateRange: async (userId, startDate, endDate, customBrokerage = null, firmName = null) => {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.get(`/Brokerage/date-range/bill/pdf/${userId}`, { params, responseType: 'blob' });
+    const safeName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName}_bill_${startDate}_to_${endDate}.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  downloadPrintBillDateRange: async (userId, startDate, endDate, customBrokerage = null, firmName = null) => {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.get(`/Brokerage/date-range/print-bill/${userId}`, { params, responseType: 'blob' });
+    const safeName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName}_print_bill_${startDate}_to_${endDate}.html`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  downloadUserExcelDateRange: async (userId, startDate, endDate, customBrokerage = null, firmName = null) => {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.get(`/Brokerage/date-range/excel/${userId}`, { params, responseType: 'blob' });
+    const safeName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName}_bill_${startDate}_to_${endDate}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
+
+  downloadCityWisePrintBillDateRange: async (userId, startDate, endDate, customBrokerage = null, firmName = null) => {
+    const params = { startDate, endDate };
+    if (customBrokerage) params.customBrokerage = customBrokerage;
+    const response = await api.get(`/Brokerage/date-range/city-wise-print-bill/${userId}`, { params, responseType: 'blob' });
+    const safeName = firmName ? firmName.replace(/[^a-zA-Z0-9]/g, '_') : userId;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${safeName}_city_wise_bill_${startDate}_to_${endDate}.html`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
+
   // Cache Management
   clearBrokerageCache: async () => {
     const response = await api.delete('/Cache/brokerage');
